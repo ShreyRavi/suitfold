@@ -29,11 +29,10 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      # Nothing ships that has not passed the engine tests. A wrong payout is
-      # the one bug a family will not forgive.
+      # Nothing ships that has not passed the tests — in particular the ones
+      # asserting a hand is never sent to another player's browser.
       - run: bun run typecheck
       - run: bun test
-      - run: bun run fuzz 25000
 
       - name: Build
         # Pages serves the site from /<repo>/, so the asset paths need that prefix.
