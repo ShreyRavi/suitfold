@@ -11,7 +11,7 @@ import {
   type Action,
   type TableState,
 } from '../src/table/model.ts'
-import { standard } from '../src/table/deck.ts'
+import { PRESETS, standard, uno } from '../src/table/deck.ts'
 import { Host } from '../src/net/host.ts'
 import type { Wire } from '../src/net/peers.ts'
 
@@ -21,9 +21,7 @@ const dealt = () =>
   run(emptyTable(), {
     t: 'reset',
     deckName: 'test',
-    cards: standard(1).map((id) => ({ id, faceUp: false })),
-    x: 500,
-    y: 320,
+    cards: standard(1).map((id) => ({ id, faceUp: false, x: 500, y: 320 })),
   })
 
 describe('the table model', () => {
@@ -168,11 +166,69 @@ describe('the host', () => {
     expect(Object.keys(h.state.cards).length).toBe(52)
   })
 
-  test('rummy uses two decks and jokers, thirteen each', () => {
+  test('indian rummy uses two decks and jokers, thirteen each', () => {
     const h = hosted()
-    h.setup('rummy')
+    h.setup('indian-rummy')
     expect(Object.keys(h.state.cards).length).toBe(106)
     for (const seat of h.state.seats) expect(h.handOf(seat.id).length).toBe(13)
+  })
+
+  test('poker deals two each and leaves the rest in one pile', () => {
+    const h = hosted()
+    h.setup('holdem')
+    for (const seat of h.state.seats) expect(h.handOf(seat.id).length).toBe(2)
+    expect(h.tableCards().length).toBe(52 - 6)
+    expect(stacks(h.state).length).toBe(1)
+  })
+
+  test('uno is 108 cards with seven each and one turned up', () => {
+    const h = hosted()
+    h.setup('uno')
+    expect(Object.keys(h.state.cards).length).toBe(108)
+    for (const seat of h.state.seats) expect(h.handOf(seat.id).length).toBe(7)
+    // A starter game leaves a face-up card beside the draw pile.
+    const faceUp = h.tableCards().filter((c) => c.faceUp)
+    expect(faceUp.length).toBe(1)
+    expect(stacks(h.state).length).toBe(2)
+  })
+
+  test('the uno deck has the right shape', () => {
+    const deck = uno()
+    expect(deck.length).toBe(108)
+    expect(new Set(deck).size).toBe(108)
+    const wilds = deck.filter((c) => c[1] === 'W')
+    const fours = deck.filter((c) => c[1] === 'F')
+    expect(wilds.length).toBe(4)
+    expect(fours.length).toBe(4)
+    for (const colour of ['R', 'G', 'B', 'Y']) {
+      const mine = deck.filter((c) => c[1] === colour)
+      expect(mine.length).toBe(25)
+      expect(mine.filter((c) => c.slice(2).split(':')[0] === '0').length).toBe(1)
+      expect(mine.filter((c) => c.slice(2).split(':')[0] === '7').length).toBe(2)
+    }
+  })
+
+  test('memory lays the whole deck out in a grid, not a pile', () => {
+    const h = hosted()
+    h.setup('memory')
+    expect(h.tableCards().length).toBe(52)
+    expect(stacks(h.state).length).toBe(52) // every card its own spot
+    expect(h.tableCards().every((c) => !c.faceUp)).toBe(true)
+  })
+
+  test('every preset produces a table nobody has to fix by hand', () => {
+    for (const preset of PRESETS) {
+      const h = hosted(['A', 'B', 'C', 'D'])
+      h.setup(preset.id)
+      const all = Object.values(h.state.cards)
+      expect(all.length, preset.name).toBe(preset.cards().length)
+      expect(new Set(all.map((c) => c.id)).size, preset.name).toBe(all.length)
+      // Nobody is dealt more than the deck holds.
+      const dealtOut = h.state.seats.reduce((a, s) => a + h.handOf(s.id).length, 0)
+      expect(dealtOut, preset.name).toBeLessThanOrEqual(all.length)
+      // Cards are on the table or in a hand, never nowhere.
+      expect(h.tableCards().length + dealtOut, preset.name).toBe(all.length)
+    }
   })
 
   test('bluff deals the whole deck out evenly', () => {

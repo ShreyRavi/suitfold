@@ -19,8 +19,22 @@ code. Sharing the link works too — `…/suitfold/#ABC23` fills the code in.
 - **Drag a card to the bottom** of the screen to take it into your hand.
 - Cards in your hand are yours alone. Play them face up or face down.
 
-Whoever starts the table sets it up and deals. Presets are furniture, not rules — "Poker"
-just means a 52-card deck and two cards each.
+## Games
+
+Whoever starts the table picks one. A game only decides **which cards come out, how many
+each person gets, and where they start** — nothing is enforced, so you play it the way your
+family plays it.
+
+**Card games** — Poker (Hold'em) · Indian Rummy · Gin Rummy · Blackjack · Hearts · Spades ·
+Euchre · Cribbage · Big Two / President
+
+**Family** — Uno · Crazy Eights · Bluff / Cheat · Go Fish · Old Maid · War · Snap · Memory
+
+**Just cards** — a deck, a deck with jokers, two decks, or the Uno deck with nothing dealt
+
+Uno brings its own 108-card deck and its own card faces. Indian Rummy uses two decks plus
+jokers, thirteen each, with a card turned up. Memory lays the whole deck out face down in a
+grid. Everything else is a normal deck arranged differently.
 
 ## There is no server
 

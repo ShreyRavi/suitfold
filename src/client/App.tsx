@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import type { CardId } from '../table/model.ts'
 import { TABLE_H, TABLE_W } from '../table/model.ts'
-import { PRESETS } from '../table/deck.ts'
+import { GROUPS, PRESETS } from '../table/deck.ts'
 import { cleanCode } from '../net/peers.ts'
 import { rememberedName, useTable } from './useTable.ts'
 import { Table } from './Table.tsx'
@@ -140,16 +140,34 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
         </button>
       </header>
 
-      <Table
-        view={view}
-        me={t.me}
-        drags={t.drags}
-        onMove={move}
-        onFlip={flip}
-        onTake={take}
-        onDrag={t.broadcastDrag}
-        onStack={(ids) => shuffleStack(ids)}
-      />
+      <div className="felt-wrap">
+        <Table
+          view={view}
+          me={t.me}
+          drags={t.drags}
+          onMove={move}
+          onFlip={flip}
+          onTake={take}
+          onDrag={t.broadcastDrag}
+          onStack={(ids) => shuffleStack(ids)}
+        />
+        {view.cards.length === 0 && (
+          <div className="empty-table">
+            <div>
+              {t.host ? (
+                <>
+                  <p>Nothing on the table yet.</p>
+                  <button className="btn primary" onClick={() => setSheet(true)}>
+                    Pick a game
+                  </button>
+                </>
+              ) : (
+                <p>Waiting for {view.seats[0]?.name ?? 'the host'} to pick a game.</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="rail" ref={fileRef}>
         <div className="rail-head">
@@ -242,25 +260,33 @@ function Sheet({ t, onClose }: { t: ReturnType<typeof useTable>; onClose: () => 
         {t.host ? (
           <>
             <div className="fld">
-              <span>Set the table</span>
-              <div className="presets">
-                {PRESETS.map((p) => (
-                  <button
-                    key={p.id}
-                    className="preset"
-                    onClick={() => {
-                      t.host!.setup(p.id)
-                      onClose()
-                    }}
-                  >
-                    <b>{p.name}</b>
-                    <i>{p.hint}</i>
-                  </button>
+              <span>Pick a game</span>
+              <div className="picker">
+                {GROUPS.map((group) => (
+                  <div className="pick-group" key={group}>
+                    <h3>{group.toUpperCase()}</h3>
+                    <div className="pick-grid">
+                      {PRESETS.filter((p) => p.group === group).map((p) => (
+                        <button
+                          key={p.id}
+                          className="pick"
+                          onClick={() => {
+                            t.host!.setup(p.id)
+                            onClose()
+                          }}
+                        >
+                          <b>{p.name}</b>
+                          <span className="who">{p.players} players</span>
+                          <i>{p.hint}</i>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
               <p className="fine">
-                These only decide which cards come out and how many each person gets. No rules are
-                enforced — that is the point.
+                A game here only decides which cards come out, how many each person gets, and where
+                they start. Nothing is enforced — you play it the way your family plays it.
               </p>
             </div>
 

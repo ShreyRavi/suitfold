@@ -1,6 +1,6 @@
 import type { Action, CardId, SeatId, TableState } from '../table/model.ts'
 import { TABLE_H, TABLE_W, apply, emptyTable, inHand, onTable, project, stacks } from '../table/model.ts'
-import { cryptoShuffle, presetById } from '../table/deck.ts'
+import { cryptoShuffle, place, presetById } from '../table/deck.ts'
 import { SEAT_COLOURS, type PeerId, type Wire } from './peers.ts'
 
 /**
@@ -130,29 +130,38 @@ export class Host {
 
   // -- setting the table ---------------------------------------------------
 
-  /** New deck, shuffled, stacked in the middle, then dealt out. */
+  /** New deck, shuffled, dealt out, and whatever is left laid out. */
   setup(presetId: string) {
     const preset = presetById(presetId)
     const deck = cryptoShuffle(preset.cards())
+    const seats = this.state.seats
+
+    // Deal first, so only what is left over goes onto the table.
+    const hands: { seat: SeatId; cards: CardId[] }[] = []
+    let cut = 0
+    if (preset.deal !== 0 && seats.length > 0) {
+      const each = preset.deal === -1 ? Math.floor(deck.length / seats.length) : preset.deal
+      for (const seat of seats) {
+        const hand = deck.slice(cut, cut + each)
+        cut += hand.length
+        if (hand.length) hands.push({ seat: seat.id, cards: hand })
+      }
+    }
+
     const actions: Action[] = [
       {
         t: 'reset',
         deckName: preset.name,
-        cards: deck.map((id) => ({ id, faceUp: false })),
-        x: TABLE_W / 2,
-        y: TABLE_H / 2,
+        cards: [
+          ...place(preset, deck.slice(cut)),
+          // Dealt cards need to exist before they can be taken into a hand.
+          ...deck.slice(0, cut).map((id) => ({ id, faceUp: false, x: TABLE_W / 2, y: TABLE_H / 2 })),
+        ],
       },
     ]
-
-    const seats = this.state.seats
-    if (preset.deal !== 0 && seats.length > 0) {
-      const each = preset.deal === -1 ? Math.floor(deck.length / seats.length) : preset.deal
-      let i = 0
-      for (const seat of seats) {
-        const hand = deck.slice(i, i + each)
-        i += each
-        if (hand.length) actions.push({ t: 'take', ids: hand, seat: seat.id })
-      }
+    // The reset lays out every card; dealt cards are then lifted into hands.
+    for (const h of hands) {
+      actions.push({ t: 'take', ids: h.cards, seat: h.seat })
     }
     this.commit(actions)
   }

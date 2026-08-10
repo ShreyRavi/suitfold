@@ -52,7 +52,7 @@ export const emptyTable = (): TableState => ({ cards: {}, seats: [], topZ: 0, de
 // ---------------------------------------------------------------------------
 
 export type Action =
-  | { t: 'reset'; deckName: string; cards: { id: CardId; faceUp: boolean }[]; x: number; y: number }
+  | { t: 'reset'; deckName: string; cards: { id: CardId; faceUp: boolean; x: number; y: number }[] }
   | { t: 'move'; ids: CardId[]; x: number; y: number }
   | { t: 'flip'; ids: CardId[]; faceUp?: boolean }
   | { t: 'take'; ids: CardId[]; seat: SeatId }
@@ -67,9 +67,11 @@ export type Action =
 export function apply(s: TableState, a: Action): TableState {
   switch (a.t) {
     case 'reset': {
+      // Every card carries its own spot, so a draw pile, a pile with one card
+      // turned up beside it, and a grid of cards are all the same code path.
       const cards: Record<CardId, Card> = {}
       a.cards.forEach((c, i) => {
-        cards[c.id] = { id: c.id, x: a.x, y: a.y, z: i + 1, faceUp: c.faceUp, hand: null }
+        cards[c.id] = { id: c.id, x: c.x, y: c.y, z: i + 1, faceUp: c.faceUp, hand: null }
       })
       return { ...s, cards, topZ: a.cards.length, deckName: a.deckName }
     }
