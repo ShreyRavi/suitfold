@@ -1,6 +1,8 @@
 import type { CardId, SeatId, ZoneId } from './types.ts'
 import type { RoomState } from './state.ts'
 import { pokerView } from '../games/poker/state.ts'
+import type { RummyView } from '../games/rummy/state.ts'
+import { couldDeclare, wildRank } from '../games/rummy/engine.ts'
 
 /**
  * THE SECURITY BOUNDARY.
@@ -54,6 +56,7 @@ export interface RoomView {
   turn: SeatId | null
   button: SeatId | null
   poker: ReturnType<typeof pokerView>
+  rummy: RummyView
 }
 
 /** Can `viewer` see the faces of cards in `zoneId`? */
@@ -118,6 +121,22 @@ export function project(state: RoomState, viewer: SeatId | null): RoomView {
     turn: t.turn,
     button: t.button,
     poker: pokerView(state, viewer),
+    rummy: rummyViewFor(state, viewer),
+  }
+}
+
+function rummyViewFor(state: RoomState, viewer: SeatId | null): RummyView {
+  const r = state.rummy
+  const mine = viewer !== null && state.table.turn === viewer
+  return {
+    phase: r.phase,
+    winner: r.winner,
+    groups: r.groups,
+    wild: wildRank(state),
+    // Only ever computed for the viewer's own hand, so it cannot leak.
+    canDeclareWith: mine && viewer ? couldDeclare(state, viewer) : null,
+    canDraw: mine && r.phase === 'draw',
+    canDiscard: mine && r.phase === 'discard',
   }
 }
 

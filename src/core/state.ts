@@ -11,11 +11,14 @@ import type {
 } from './types.ts'
 import type { PokerState } from '../games/poker/state.ts'
 import { applyPoker, initialPokerState, isPokerEvent } from '../games/poker/state.ts'
+import type { RummyState } from '../games/rummy/state.ts'
+import { applyRummy, initialRummyState, isRummyEvent } from '../games/rummy/state.ts'
 
 export interface RoomState {
   settings: RoomSettings
   table: TableState
   poker: PokerState
+  rummy: RummyState
   /** The table has been dealt at least once this session. */
   open: boolean
 }
@@ -37,6 +40,7 @@ export function initialState(): RoomState {
     settings: { ...DEFAULT_SETTINGS },
     table: { seats: [], zones: {}, cards: {}, faceUp: {}, revealed: {}, turn: null, button: null },
     poker: initialPokerState(),
+    rummy: initialRummyState(),
     open: false,
   }
 }
@@ -64,6 +68,7 @@ export function apply(state: RoomState, e: Event): RoomState {
     const [table, poker] = applyPoker(state.table, state.poker, e, state.settings)
     return { ...state, table, poker }
   }
+  if (isRummyEvent(e)) return { ...state, rummy: applyRummy(state.rummy, e) }
   return applyCore(state, e)
 }
 

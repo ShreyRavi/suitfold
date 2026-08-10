@@ -83,6 +83,18 @@ export function narrate(logged: LoggedEvent, state: RoomState): LogEntry | null 
     case 'table_opened':
       return line('table', null, `Table open — everyone starts with ${chips(e.startingStack)}`)
 
+    case 'rummy_started':
+      return line('deal', null, `New hand — thirteen each`)
+
+    case 'rummy_drew':
+      return line('deal', e.seatId, `${name(e.seatId)} takes from the ${e.from} pile`)
+
+    case 'rummy_discarded':
+      return line('bet', e.seatId, `${name(e.seatId)} discards`)
+
+    case 'rummy_declared':
+      return line('award', e.seatId, `${name(e.seatId)} declares — and it is good`)
+
     case 'zone_shuffled':
       return line('table', null, `Deck shuffled`)
 

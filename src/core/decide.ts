@@ -3,6 +3,7 @@ import { ok, reject } from './types.ts'
 import type { RoomState } from './state.ts'
 import { pokerDecide, startHand } from '../games/poker/engine.ts'
 import { resetTable, sandboxDecide } from '../games/sandbox.ts'
+import { rummyDecide, startRummy } from '../games/rummy/engine.ts'
 import type { RandomSource } from './cards.ts'
 import { cryptoRandom } from './cards.ts'
 
@@ -44,14 +45,26 @@ export function decide(state: RoomState, cmd: Command, rng: RandomSource = crypt
     }
   }
 
-  if (state.settings.mode === 'poker') return pokerDecide(state, cmd, rng)
-  return sandboxDecide(state, cmd, rng)
+  switch (state.settings.mode) {
+    case 'poker':
+      return pokerDecide(state, cmd, rng)
+    case 'rummy':
+      return rummyDecide(state, cmd, rng)
+    default:
+      return sandboxDecide(state, cmd, rng)
+  }
 }
 
 /** Set the table up for whichever mode the room is in. */
 export function openTable(state: RoomState, rng: RandomSource = cryptoRandom): Decision {
-  if (state.settings.mode === 'poker') return startHand(state, rng)
-  return resetTable(state, rng)
+  switch (state.settings.mode) {
+    case 'poker':
+      return startHand(state, rng)
+    case 'rummy':
+      return startRummy(state, rng)
+    default:
+      return resetTable(state, rng)
+  }
 }
 
 export { ok, reject }

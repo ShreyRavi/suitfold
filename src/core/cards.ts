@@ -6,16 +6,27 @@ export const SUITS = ['S', 'H', 'D', 'C'] as const
 export type Rank = (typeof RANKS)[number]
 export type Suit = (typeof SUITS)[number]
 
+/** A printed joker. The wild RANK is a rummy concept and lives there. */
 export const isJoker = (id: CardId) => id.startsWith('X')
 export const rankOf = (id: CardId) => id[0] as Rank
 export const suitOf = (id: CardId) => id[1] as Suit
 export const isRed = (id: CardId) => id[1] === 'H' || id[1] === 'D'
 
-/** Standard 52, optionally plus two jokers. Deterministic order before shuffling. */
-export function standardDeck(jokers = false): CardId[] {
+/**
+ * Card ids are `<rank><suit>` for the first deck and `<rank><suit>:<n>` for
+ * every deck after it, because a card must live in exactly one zone and two
+ * decks would otherwise put the same id in two places. Rank and suit are still
+ * index 0 and 1, so nothing downstream had to change.
+ *
+ * Rummy needs two decks; poker uses one.
+ */
+export function standardDeck(jokers = false, decks = 1): CardId[] {
   const out: CardId[] = []
-  for (const s of SUITS) for (const r of RANKS) out.push(`${r}${s}`)
-  if (jokers) out.push('X1', 'X2')
+  for (let d = 1; d <= decks; d++) {
+    const tag = d === 1 ? '' : `:${d}`
+    for (const s of SUITS) for (const r of RANKS) out.push(`${r}${s}${tag}`)
+    if (jokers) out.push(`X${d}`)
+  }
   return out
 }
 

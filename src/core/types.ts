@@ -38,7 +38,7 @@ export interface Seat {
   stack: number
 }
 
-export type GameMode = 'sandbox' | 'poker'
+export type GameMode = 'sandbox' | 'poker' | 'rummy' | 'bluff' | 'blackjack' | 'uno'
 
 export interface RoomSettings {
   mode: GameMode
@@ -123,7 +123,19 @@ export interface Pot {
   eligible: SeatId[]
 }
 
-export type GameEvent = PokerEvent
+export interface MeldGroup {
+  kind: 'pure-run' | 'run' | 'set'
+  cards: CardId[]
+  jokers: CardId[]
+}
+
+export type RummyEvent =
+  | { t: 'rummy_started'; players: SeatId[]; deck: CardId[] }
+  | { t: 'rummy_drew'; seatId: SeatId; from: 'closed' | 'open' }
+  | { t: 'rummy_discarded'; seatId: SeatId; cardId: CardId }
+  | { t: 'rummy_declared'; seatId: SeatId; groups: MeldGroup[] }
+
+export type GameEvent = PokerEvent | RummyEvent
 export type Event = CoreEvent | GameEvent
 
 /**
@@ -157,6 +169,20 @@ export type Command =
   | { c: 'stand_up'; seatId: SeatId }
   | { c: 'sit_down'; seatId: SeatId }
   | { c: 'reset_table'; seatId: SeatId }
+  // rummy
+  | { c: 'draw'; seatId: SeatId; from: 'closed' | 'open' }
+  | { c: 'discard'; seatId: SeatId; cardId: CardId }
+  | { c: 'declare'; seatId: SeatId; cardId: CardId }
+  // bluff
+  | { c: 'claim'; seatId: SeatId; cardIds: CardId[]; rank: string }
+  | { c: 'challenge'; seatId: SeatId }
+  | { c: 'pass'; seatId: SeatId }
+  // blackjack
+  | { c: 'hit'; seatId: SeatId }
+  | { c: 'stand'; seatId: SeatId }
+  | { c: 'bet'; seatId: SeatId; amount: number }
+  // uno
+  | { c: 'play'; seatId: SeatId; cardId: CardId; colour?: string }
 
 export type RejectReason =
   | 'not-your-turn'
@@ -172,10 +198,20 @@ export type RejectReason =
   | 'not-enough-players'
   | 'restack-mid-hand'
   | 'nothing-to-do'
+  | 'must-draw-first'
+  | 'must-discard'
+  | 'invalid-declaration'
+  | 'not-playable'
 
 export type Decision =
   | { ok: true; events: Event[] }
-  | { ok: false; reason: RejectReason }
+  /** `detail` carries a game-specific explanation, e.g. why a rummy hand is
+   *  not a valid declaration. Shown to the player instead of a bare code. */
+  | { ok: false; reason: RejectReason; detail?: string }
 
 export const ok = (events: Event[]): Decision => ({ ok: true, events })
-export const reject = (reason: RejectReason): Decision => ({ ok: false, reason })
+export const reject = (reason: RejectReason, detail?: string): Decision => ({
+  ok: false,
+  reason,
+  ...(detail ? { detail } : {}),
+})

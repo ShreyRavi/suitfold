@@ -106,11 +106,21 @@ export class HostTable {
     ])
   }
 
+  /** Test seam: put an exact hand in front of a seat, through the log. */
+  stackHandForTest(seatId: SeatId, cards: string[]) {
+    const zone = `hand:${seatId}`
+    const current = this.state.table.cards[zone] ?? []
+    const events: Event[] = []
+    if (current.length) events.push({ t: 'cards_moved', cardIds: current, from: zone, to: 'deck', faceUp: false })
+    events.push({ t: 'cards_moved', cardIds: cards, from: 'deck', to: zone, faceUp: false })
+    this.commit(events)
+  }
+
   /** Test seam: run a command as a given seat and report the outcome. */
-  execForTest(cmd: Command, actor: SeatId, isHost: boolean): { ok: boolean; reason?: string } {
+  execForTest(cmd: Command, actor: SeatId, isHost: boolean): { ok: boolean; reason?: string; detail?: string } {
     if (!authorize(cmd, actor, isHost)) return { ok: false, reason: 'not-host' }
     const d = decide(this.state, cmd)
-    if (!d.ok) return { ok: false, reason: d.reason }
+    if (!d.ok) return { ok: false, reason: d.reason, detail: d.detail }
     this.commit(d.events)
     return { ok: true }
   }
@@ -122,8 +132,9 @@ export class HostTable {
     }
     const d = decide(this.state, cmd)
     if (!d.ok) {
-      if (from) this.wire.reject.send({ reason: d.reason }, from)
-      else this.rejectLocally(d.reason)
+      const message = d.detail ?? d.reason
+      if (from) this.wire.reject.send({ reason: message }, from)
+      else this.rejectLocally(message)
       return
     }
     this.commit(d.events)
