@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>suitfold — sandbox table</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../base.css">
+</head>
+<body>
+<!-- Sandbox table, mid-game (Rummy-ish). A card is selected and valid destinations are lit.
+     Re-entry: the nav says which night you are in; the rail note names the selected card in
+     words, so returning after four hands never depends on remembering what you tapped. -->
+<div class="app">
+
+  <nav class="nav">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">&#9824;</div>
+      <div class="brand-word">suitfold</div>
+    </div>
+    <div class="nav-meta">SANDBOX<br>SEASON 2 &middot; NIGHT 7</div>
+    <button class="nav-menu" aria-label="Host menu"><i></i><i></i><i></i></button>
+  </nav>
+
+  <!-- Seats ride the rim in two even rows: every seat panel is identical, and adding seats
+       seven and eight is adding rim slots, not a new layout. Sandbox shows card counts;
+       poker swaps the same .seat-metric for a stack. -->
+  <div class="table">
+    <div class="seat-row">
+      <div class="seat">
+        <div class="seat-head"><span class="seat-name">Mom</span><span class="seat-metric">7 cards</span></div>
+        <div class="chip-stack">
+          <div class="chips"><i class="chip chip--high"></i><i class="chip chip--high"></i><i class="chip"></i></div>
+          <span class="chip-amount">1,240</span>
+        </div>
+      </div>
+      <div class="seat">
+        <div class="seat-head"><span class="seat-name">Uncle R</span><span class="seat-metric">7 cards</span></div>
+        <div class="chip-stack">
+          <div class="chips"><i class="chip chip--high"></i><i class="chip"></i></div>
+          <span class="chip-amount">860</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="zones">
+      <div class="zone-row">
+        <div class="zone">
+          <div class="zone-slot"><div class="stack"><i></i><i></i><i class="card card--lg card--face-down"></i></div></div>
+          <div class="zone-label">DECK &middot; 31</div>
+        </div>
+        <!-- lit destination: ring PLUS the words "move here" — never colour alone -->
+        <div class="zone zone--target">
+          <div class="zone-slot">
+            <div class="card card--lg">
+              <span class="card-rank">7</span><span class="card-pip">&#9827;</span><span class="card-pip--big">&#9827;</span>
+            </div>
+          </div>
+          <div class="zone-label">MOVE HERE</div>
+        </div>
+      </div>
+
+      <div class="zone">
+        <div class="zone-cards">
+          <div class="card is-red"><span class="card-rank">4</span><span class="card-pip">&#9830;</span></div>
+          <div class="card"><span class="card-rank">5</span><span class="card-pip">&#9824;</span></div>
+          <div class="card is-red"><span class="card-rank">6</span><span class="card-pip">&#9830;</span></div>
+          <div class="card card--face-down"></div>
+        </div>
+        <div class="zone-label">BOARD &middot; 1 FACE DOWN</div>
+      </div>
+    </div>
+
+    <div class="seat-row">
+      <div class="seat">
+        <div class="seat-head"><span class="seat-name">Dad</span><span class="seat-metric">6 cards</span></div>
+        <div class="chip-stack">
+          <div class="chips"><i class="chip"></i></div>
+          <span class="chip-amount">530</span>
+        </div>
+      </div>
+      <div class="seat">
+        <div class="seat-head"><span class="seat-name">Cousin J</span><span class="seat-metric">7 cards</span></div>
+        <div class="chip-stack">
+          <div class="chips"><i class="chip chip--high"></i><i class="chip chip--high"></i><i class="chip"></i></div>
+          <span class="chip-amount">1,900</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chip rail lifts out whole for chips-off games; the hand and actions do not move. -->
+  <div class="rail">
+    <div class="rail-head">
+      <div style="display:flex; align-items:center; gap:var(--s-5)">
+        <div style="display:flex; align-items:flex-end; gap:var(--s-2)">
+          <div class="chips"><i class="chip chip--high" style="width:24px;height:6px"></i><i class="chip chip--high" style="width:24px;height:6px"></i><i class="chip chip--high" style="width:24px;height:6px"></i><i class="chip chip--pale" style="width:24px;height:6px"></i></div>
+          <div class="chips"><i class="chip" style="width:24px;height:6px"></i><i class="chip" style="width:24px;height:6px"></i></div>
+        </div>
+        <div>
+          <div class="rail-label">YOUR CHIPS</div>
+          <div class="rail-value">2,100</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="rail-label">YOUR HAND &middot; 7</div>
+        <div class="rail-note">9&#9830; selected</div>
+      </div>
+    </div>
+
+    <!-- The fan overlaps left-over-right so every card's top-left corner stays exposed; the
+         selected card opts out of the overlap entirely rather than covering its neighbour. -->
+    <div class="hand">
+      <div class="hand-inner">
+        <div class="card card--md is-red"><span class="card-rank">3</span><span class="card-pip">&#9829;</span></div>
+        <div class="card card--md"><span class="card-rank">3</span><span class="card-pip">&#9824;</span></div>
+        <div class="card card--md card--selected is-red"><span class="card-rank">9</span><span class="card-pip">&#9830;</span></div>
+        <div class="card card--md"><span class="card-rank">9</span><span class="card-pip">&#9827;</span></div>
+        <div class="card card--md"><span class="card-rank">J</span><span class="card-pip">&#9824;</span></div>
+        <div class="card card--md"><span class="card-rank">Q</span><span class="card-pip">&#9824;</span></div>
+        <div class="card card--md"><span class="card-rank">K</span><span class="card-pip">&#9824;</span></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn">Deselect</button>
+      <button class="btn btn--primary">Move 9&#9830; to discard</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

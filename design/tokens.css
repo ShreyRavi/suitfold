@@ -1,0 +1,114 @@
+/* suitfold — design tokens. Every value in the mockups comes from here.
+   Light is the default; dark is prefers-color-scheme. */
+:root {
+  /* surfaces */
+  --paper:            #e9e2d3;  /* app background — warm, printed, not white */
+  --paper-raised:     #efe9db;  /* nav bar */
+  --paper-panel:      #f6f1e6;  /* seat panels */
+  --rail:             #ded5c1;  /* your side of the table */
+  --table:            #cbb79a;  /* the table slab — clay, not felt */
+  --table-rim:        #c2ac8d;
+  --table-edge:       #b39d7d;
+
+  /* ink */
+  --ink:              #2a251f;
+  --ink-soft:         #4a4238;
+  --ink-faint:        #6d6353;
+  --rule:             #cec2a9;
+  --line:             #bcae92;
+
+  /* accent — one ink blue for everything the app is asking of you */
+  --accent:           #1f4b7a;
+  --accent-deep:      #163756;
+  --accent-on:        #f6f2e8;
+  --accent-wash:      #e4ecf4;
+
+  /* cards */
+  --card-face:        #fdfbf5;
+  --card-edge:        #cfc5ae;
+  --card-back:        #c05334;
+  --card-back-edge:   #8e3722;
+  --suit-red:         #b02b1e;
+  --suit-black:       var(--ink);
+
+  /* chips */
+  --chip-high:        #1f4b7a;
+  --chip-low:         #b9482f;
+  --chip-pale:        #f6f1e6;
+
+  /* type */
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  --font-mono:  ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --text-xs:    11px;  /* mono labels only, letterspaced */
+  --text-sm:    12px;
+  --text-md:    13px;
+  --text-base:  15px;
+  --text-lg:    17px;
+  --text-xl:    21px;
+  --text-2xl:   23px;
+  --track-label: .08em;
+
+  /* space */
+  --s-1: 2px;  --s-2: 4px;  --s-3: 6px;  --s-4: 8px;  --s-5: 10px;
+  --s-6: 12px; --s-7: 14px; --s-8: 18px; --s-9: 26px; --s-10: 34px;
+
+  /* radii */
+  --r-chip: 3px; --r-card: 6px; --r-panel: 8px; --r-app: 26px;
+  --r-table: 150px / 70px;
+
+  /* card metrics — small size is designed first, then scaled up */
+  --card-w-sm: 46px; --card-h-sm: 65px;
+  --card-w-md: 52px; --card-h-md: 74px;
+  --card-w-lg: 58px; --card-h-lg: 82px;
+  --hand-overlap: -12px;   /* fan overlap; selected card opts out */
+
+  /* touch */
+  --tap-min: 44px;
+
+  /* shadow */
+  --shadow-card:  0 1px 2px rgba(0,0,0,.12);
+  --shadow-lift:  0 7px 14px rgba(31,75,122,.28);
+  --shadow-app:   0 18px 44px rgba(0,0,0,.35);
+  --inset-table:  inset 0 0 0 10px var(--table-rim), inset 0 4px 18px rgba(0,0,0,.10);
+
+  /* motion */
+  --dur-move: 220ms;  --dur-flip: 180ms;  --dur-chip: 320ms;
+  --ease: cubic-bezier(.2,.7,.3,1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper:        #191714;
+    --paper-raised: #201d19;
+    --paper-panel:  #2a251f;
+    --rail:         #221e1a;
+    --table:        #3a3128;
+    --table-rim:    #443a2f;
+    --table-edge:   #2e271f;
+
+    --ink:          #efe6d6;
+    --ink-soft:     #d3c8b6;
+    --ink-faint:    #a2988a;
+    --rule:         #3a332b;
+    --line:         #4a4036;
+
+    --accent:       #7fa9d6;
+    --accent-deep:  #a8c6e6;
+    --accent-on:    #14212e;
+    --accent-wash:  rgba(127,169,214,.12);
+
+    --card-face:    #f3ece0;
+    --card-edge:    #cfc5ae;
+    --card-back:    #a8462c;
+    --card-back-edge:#7a3220;
+    --suit-red:     #b02b1e;
+    --suit-black:   #1b1815;
+
+    --chip-pale:    #efe6d6;
+    --shadow-app:   0 18px 44px rgba(0,0,0,.5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-move: 1ms; --dur-flip: 1ms; --dur-chip: 1ms; }
+}
