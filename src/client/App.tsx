@@ -1,79 +1,63 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CardId } from '../table/model.ts'
 import { TABLE_H, TABLE_W } from '../table/model.ts'
 import { GROUPS, PRESETS } from '../table/deck.ts'
 import { cleanCode } from '../net/peers.ts'
 import { rememberedName, useTable } from './useTable.ts'
 import { Table } from './Table.tsx'
+import { Home, Invite } from './Home.tsx'
+import { Rules } from './Rules.tsx'
 import { Card } from './Card.tsx'
 import { Toolbar } from './Toolbar.tsx'
 import { BetBar } from './BetBar.tsx'
 
 export function App() {
   const t = useTable()
-  const hashCode = cleanCode(location.hash.replace('#', ''))
+  const [rules, setRules] = useState<string | null>(null)
+  // A link with a code on it means somebody invited you; that gets its own
+  // page rather than dropping you on the sales pitch.
+  const [invited, setInvited] = useState(() => cleanCode(location.hash.replace('#', '')))
 
-  if (t.stage === 'lobby') return <Lobby onCreate={t.create} onJoin={t.join} code={hashCode} />
+  // Pasting a link into an already-open tab only changes the hash, which does
+  // not reload anything — so watch for it.
+  useEffect(() => {
+    const onHash = () => setInvited(cleanCode(location.hash.replace('#', '')))
+    addEventListener('hashchange', onHash)
+    return () => removeEventListener('hashchange', onHash)
+  }, [])
+
+  if (t.stage === 'lobby') {
+    return (
+      <>
+        {invited.length >= 4 ? (
+          <Invite
+            code={invited}
+            initialName={rememberedName()}
+            onJoin={t.join}
+            onHome={() => {
+              history.replaceState(null, '', location.pathname)
+              setInvited('')
+            }}
+          />
+        ) : (
+          <Home
+            onCreate={t.create}
+            onJoin={t.join}
+            initialName={rememberedName()}
+            onRules={(id) => setRules(id)}
+          />
+        )}
+        {rules && <Rules gameId={rules} onClose={() => setRules(null)} />}
+      </>
+    )
+  }
+
   if (t.stage === 'joining' || !t.view) return <Joining code={t.code} isHost={t.isHost} />
 
   return <TableScreen t={t} />
 }
 
 // ---------------------------------------------------------------------------
-
-function Lobby({
-  onCreate,
-  onJoin,
-  code,
-}: {
-  onCreate: (n: string) => void
-  onJoin: (c: string, n: string) => void
-  code: string
-}) {
-  const [name, setName] = useState(rememberedName())
-  const [join, setJoin] = useState(code)
-  const ready = name.trim().length > 0
-
-  return (
-    <div className="lobby">
-      <h1>suitfold</h1>
-      <p className="lede">
-        A table, a deck, and whoever you invite. Move the cards around like you would at a kitchen
-        table — the app does not know what game you are playing, and does not need to.
-      </p>
-
-      <label className="fld">
-        <span>Your name</span>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Dad" maxLength={14} />
-      </label>
-
-      <label className="fld">
-        <span>Table code</span>
-        <div className="row">
-          <input
-            className="code-in"
-            value={join}
-            onChange={(e) => setJoin(cleanCode(e.target.value))}
-            placeholder="ABC23"
-          />
-          <button className="btn primary" disabled={!ready || join.length < 4} onClick={() => onJoin(join, name.trim())}>
-            Join
-          </button>
-        </div>
-      </label>
-
-      <div className="or">or</div>
-
-      <button className="btn" disabled={!ready} onClick={() => onCreate(name.trim())}>
-        Start a new table
-      </button>
-
-      <p className="fine">
-        Whoever starts the table holds the deck, so keep that tab open. Nothing is saved anywhere.
-      </p>
-    </div>
-  )
-}
 
 function Joining({ code, isHost }: { code: string; isHost: boolean }) {
   return (
@@ -95,6 +79,7 @@ function Joining({ code, isHost }: { code: string; isHost: boolean }) {
 function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
   const view = t.view!
   const [sheet, setSheet] = useState(false)
+  const [rules, setRules] = useState<string | null>(null)
   const [picked, setPicked] = useState<CardId[]>([])
   const fileRef = useRef<HTMLDivElement>(null)
 
@@ -127,7 +112,12 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
           <b>suitfold</b>
         </div>
         <div className="bar-mid">
-          {view.deckName && <span className="bar-game">{view.deckName}</span>}
+          {view.deckName && (
+            <button className="bar-game" onClick={() => setRules(view.game)} title="How to play">
+              {view.deckName}
+              <i aria-hidden="true">?</i>
+            </button>
+          )}
         </div>
         <button className="bar-code" onClick={() => setSheet(true)} title="Share this table">
           {t.code}
@@ -237,7 +227,8 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
         </div>
       </div>
 
-      {sheet && <Sheet t={t} onClose={() => setSheet(false)} />}
+      {sheet && <Sheet t={t} onClose={() => setSheet(false)} onRules={(id) => setRules(id)} />}
+      {rules && <Rules gameId={rules} onClose={() => setRules(null)} />}
       {t.note && <div className="note">{t.note}</div>}
     </div>
   )
@@ -264,7 +255,15 @@ function fanAt(i: number, n: number) {
 
 // ---------------------------------------------------------------------------
 
-function Sheet({ t, onClose }: { t: ReturnType<typeof useTable>; onClose: () => void }) {
+function Sheet({
+  t,
+  onClose,
+  onRules,
+}: {
+  t: ReturnType<typeof useTable>
+  onClose: () => void
+  onRules: (id: string) => void
+}) {
   const [copied, setCopied] = useState(false)
   const link = `${location.origin}${location.pathname}#${t.code}`
 
@@ -308,18 +307,27 @@ function Sheet({ t, onClose }: { t: ReturnType<typeof useTable>; onClose: () => 
                     <h3>{group.toUpperCase()}</h3>
                     <div className="pick-grid">
                       {PRESETS.filter((p) => p.group === group).map((p) => (
-                        <button
-                          key={p.id}
-                          className="pick"
-                          onClick={() => {
-                            t.host!.setup(p.id)
-                            onClose()
-                          }}
-                        >
-                          <b>{p.name}</b>
-                          <span className="who">{p.players} players</span>
-                          <i>{p.hint}</i>
-                        </button>
+                        <div className="pick-wrap" key={p.id}>
+                          <button
+                            className="pick"
+                            onClick={() => {
+                              t.host!.setup(p.id)
+                              onClose()
+                            }}
+                          >
+                            <b>{p.name}</b>
+                            <span className="who">{p.players} players</span>
+                            <i>{p.hint}</i>
+                          </button>
+                          <button
+                            className="pick-info"
+                            onClick={() => onRules(p.id)}
+                            aria-label={`How to play ${p.name}`}
+                            title={`How to play ${p.name}`}
+                          >
+                            ?
+                          </button>
+                        </div>
                       ))}
                     </div>
                   </div>

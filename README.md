@@ -30,11 +30,16 @@ code. Sharing the link works too — `…/suitfold/#ABC23` fills the code in.
 - **Chips**, on games that use them, live down with your hand: your stack, one-tap amounts,
   and **Take pot** the moment there is one to take — which asks first, since who won is the
   one thing the table cannot settle for you.
-- **Gather** puts every card back on the deck's own marked spot. They are drawn as real stacks but they are an amount underneath,
+- **Gather** puts every card back on the deck's own marked spot.
+- **Deal → All of them** hands the whole pile out evenly, which is how Bluff, War, Snap and
+  Old Maid start. They are drawn as real stacks but they are an amount underneath,
   so calling a bet is one tap rather than dragging seven discs. Nothing is enforced — the
   table only checks you have the chips, never whether the bet was legal.
 
 ## Games
+
+Every game has a **?** next to it, in the picker and on the table, with the rules in plain
+words — including which poker hand beats which, and the bits people actually argue about.
 
 Whoever starts the table picks one. A game only decides **which cards come out, how many
 each person gets, and where they start** — nothing is enforced, so you play it the way your

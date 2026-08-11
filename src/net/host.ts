@@ -287,7 +287,9 @@ export class Host {
    */
   deal(opts: { count: number; seats: SeatId[]; from?: { x: number; y: number }; faceUp?: boolean }) {
     const source = opts.from ?? this.sources()[0]
-    if (!source || opts.seats.length === 0 || opts.count < 1) return
+    // count === -1 means "all of them", which is how Bluff, War and Old Maid
+    // start: the whole pile goes out and the table is left empty.
+    if (!source || opts.seats.length === 0 || (opts.count < 1 && opts.count !== -1)) return
 
     const pile = stacks(this.state).find((p) => p[0]!.x === source.x && p[0]!.y === source.y)
     if (!pile) return
@@ -297,8 +299,9 @@ export class Host {
     let i = 0
     // Round by round, so a short pile spreads fairly instead of loading the
     // first player up and leaving the last with nothing.
+    const rounds = opts.count === -1 ? Math.ceil(top.length / opts.seats.length) : opts.count
     const perSeat = new Map<SeatId, CardId[]>()
-    for (let round = 0; round < opts.count; round++) {
+    for (let round = 0; round < rounds; round++) {
       for (const seat of opts.seats) {
         const card = top[i++]
         if (!card) break

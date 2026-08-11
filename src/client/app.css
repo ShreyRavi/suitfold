@@ -617,3 +617,168 @@ input {
 .ask-box p b { font-family: var(--font-mono); color: var(--ink); }
 .ask-acts { display: flex; gap: var(--s-4); }
 .ask-acts .btn { flex: 1; }
+
+/* ---- the front page ----------------------------------------------------- */
+.home { max-width: 68rem; margin: 0 auto; padding: 0 var(--s-8) var(--s-10); }
+.home-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-6);
+  padding: var(--s-8) 0;
+}
+.home-tag {
+  font-family: var(--font-mono); font-size: var(--text-sm); letter-spacing: .06em;
+  color: var(--ink-faint);
+}
+
+.hero {
+  display: grid; grid-template-columns: 1.15fr .85fr; gap: var(--s-10); align-items: center;
+  padding: var(--s-10) 0 var(--s-9);
+}
+.hero h1 { font-size: clamp(38px, 6vw, 64px); line-height: 1.02; font-weight: 500; margin: 0; letter-spacing: -.015em; }
+.hero-sub {
+  margin: var(--s-8) 0 0; font-size: clamp(17px, 1.6vw, 20px);
+  color: var(--ink-soft); max-width: 34rem; line-height: 1.5;
+}
+.hero-go { display: flex; gap: var(--s-4); margin-top: var(--s-9); flex-wrap: wrap; }
+.hero-name { flex: 1; min-width: 12rem; max-width: 18rem; }
+.btn.big { min-height: 56px; padding: 0 var(--s-9); font-size: 17px; }
+.hero-join {
+  display: flex; align-items: center; gap: var(--s-4); margin-top: var(--s-7); flex-wrap: wrap;
+  font-size: var(--text-md); color: var(--ink-faint);
+}
+.code-in.small { width: 8.5rem; min-height: 44px; }
+.hero-join .btn { min-height: 44px; }
+
+.hero-art { position: relative; height: 260px; display: grid; place-items: center; }
+.hero-card {
+  position: absolute;
+  /* Spread sideways as well as rotating, or the fan collapses into a pile and
+     you only see the card on top. */
+  transform:
+    translateX(calc(var(--i) * 58px))
+    rotate(calc(var(--i) * 7deg))
+    translateY(calc(var(--i) * var(--i) * 6px));
+  transform-origin: 50% 140%;
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,.16));
+}
+.hero-card .pc { width: 108px; height: 152px; }
+.hero-card .pc .ix b { font-size: 22px; }
+.hero-card .pc .ix i { font-size: 16px; }
+.hero-card .pc .ace { font-size: 54px; }
+.hero-card .pc .court { font-size: 42px; }
+.hero-card .pc .field i { font-size: 22px; }
+
+.strip {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s-7);
+  padding: var(--s-9) 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+}
+.point h3 { margin: 0 0 var(--s-4); font-size: var(--text-xl); font-weight: 500; }
+.point p { margin: 0; color: var(--ink-soft); font-size: var(--text-base); line-height: 1.5; }
+
+.games { padding: var(--s-10) 0 var(--s-9); }
+.games h2, .how h2 { font-size: clamp(26px, 3vw, 34px); font-weight: 500; margin: 0 0 var(--s-5); }
+.games-sub { margin: 0 0 var(--s-9); color: var(--ink-soft); max-width: 40rem; }
+.games-group { margin-bottom: var(--s-8); }
+.games-group h3 {
+  font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--track-label);
+  text-transform: uppercase; color: var(--ink-faint); margin: 0 0 var(--s-5);
+}
+.games-row { display: flex; flex-wrap: wrap; gap: var(--s-4); }
+.game-pill {
+  display: inline-flex; align-items: baseline; gap: var(--s-4);
+  padding: 10px var(--s-7); border: 1px solid var(--line); border-radius: 999px;
+  background: var(--paper-panel); font-size: 16px;
+}
+.game-pill:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-wash); }
+.game-pill i {
+  font-style: normal; font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint);
+}
+
+.how { padding: var(--s-9) 0; border-top: 1px solid var(--rule); }
+.how-steps { margin: 0; padding-left: 1.3em; display: grid; gap: var(--s-5); max-width: 44rem; }
+.how-steps li { font-size: 17px; color: var(--ink-soft); }
+.how-steps b { color: var(--ink); font-weight: 500; }
+.how-note { margin: var(--s-8) 0 0; color: var(--ink-faint); max-width: 44rem; font-size: var(--text-base); }
+
+.home-foot {
+  display: flex; justify-content: space-between; gap: var(--s-6); flex-wrap: wrap;
+  padding: var(--s-9) 0 0; border-top: 1px solid var(--rule);
+  font-family: var(--font-mono); font-size: var(--text-sm); color: var(--ink-faint);
+}
+
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; gap: var(--s-8); }
+  .hero-art { height: 200px; order: -1; }
+  .hero-card .pc { width: 84px; height: 118px; }
+  .strip { grid-template-columns: 1fr; gap: var(--s-8); }
+}
+
+/* ---- being invited ------------------------------------------------------ */
+.invite {
+  min-height: 100%; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: var(--s-6);
+  padding: var(--s-9) var(--s-8) calc(env(safe-area-inset-bottom, 0px) + var(--s-9));
+}
+.invite-art { position: relative; height: 132px; display: grid; place-items: center; }
+.invite-art .hero-card .pc { width: 86px; height: 120px; }
+.invite-box {
+  width: min(24rem, 100%); text-align: center;
+  display: flex; flex-direction: column; gap: var(--s-6); align-items: stretch;
+}
+.invite-box .brand { justify-content: center; }
+.invite-box h1 { font-size: 30px; font-weight: 500; margin: var(--s-4) 0 0; }
+.invite-code { margin: 0; color: var(--ink-soft); }
+.invite-code b {
+  font-family: var(--font-mono); letter-spacing: .2em; color: var(--accent);
+}
+.invite-box .fld { text-align: left; }
+.invite-box .fine { margin: 0; }
+.linkish {
+  color: var(--accent); font-size: var(--text-md); text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---- rules -------------------------------------------------------------- */
+.rules { z-index: 400; }
+.rules-body { max-width: 40rem; gap: var(--s-8); }
+.rules-goal { margin: 0; font-size: clamp(20px, 2.4vw, 25px); line-height: 1.35; }
+.rules-players {
+  margin: 0; font-family: var(--font-mono); font-size: var(--text-sm);
+  letter-spacing: .06em; color: var(--ink-faint);
+}
+.rules-block { display: flex; flex-direction: column; gap: var(--s-4); }
+.rules-h {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  letter-spacing: var(--track-label); text-transform: uppercase; color: var(--ink-faint);
+}
+.rules-list, .rules-steps { margin: 0; padding-left: 1.25em; display: grid; gap: var(--s-4); }
+.rules-list li, .rules-steps li { font-size: 16px; color: var(--ink-soft); line-height: 1.5; }
+.rules-win {
+  display: flex; flex-direction: column; gap: var(--s-4);
+  padding: var(--s-7); background: var(--accent-wash);
+  border: 1px solid var(--accent); border-radius: var(--r-panel);
+}
+.rules-win p { margin: 0; font-size: 17px; color: var(--ink); }
+.rules-note { border-top: 1px solid var(--rule); padding-top: var(--s-7); }
+
+/* the ? beside a game in the picker */
+.pick-wrap { position: relative; display: flex; }
+.pick-wrap .pick { flex: 1; padding-right: 40px; }
+.pick-info {
+  position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--paper);
+  font-family: var(--font-mono); font-size: 13px; color: var(--ink-faint);
+  display: grid; place-items: center;
+}
+.pick-info:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-wash); }
+
+.bar-game {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono); font-size: var(--text-sm); letter-spacing: .06em;
+  color: var(--ink-faint);
+}
+.bar-game i {
+  font-style: normal; width: 16px; height: 16px; border-radius: 50%;
+  border: 1px solid var(--line); font-size: 10px; display: grid; place-items: center;
+}
+.bar-game:hover { color: var(--accent); }
+.bar-game:hover i { border-color: var(--accent); }

@@ -102,9 +102,10 @@ function DealPanel({
 
   const from = sources[source] ?? sources[0]
   const seats = who === 'all' ? view.seats.map((s) => s.id) : [who]
-  const wanted = count * seats.length
+  const everything = count === -1
+  const wanted = everything ? (from?.count ?? 0) : count * seats.length
   const going = Math.min(wanted, from?.count ?? 0)
-  const short = going < wanted
+  const short = !everything && going < wanted
 
   if (!from) {
     return (
@@ -122,12 +123,16 @@ function DealPanel({
     <div className="pop">
       <div className="pop-row">
         <span className="pop-lbl">How many each</span>
-        <div className="segs">
+        <div className="segs wrap">
           {[1, 2, 3, 5, 7, 13].map((n) => (
             <button key={n} className={`seg ${count === n ? 'on' : ''}`} onClick={() => setCount(n)}>
               {n}
             </button>
           ))}
+          {/* How Bluff, War and Old Maid start: the whole pile goes out. */}
+          <button className={`seg ${everything ? 'on' : ''}`} onClick={() => setCount(-1)}>
+            All of them
+          </button>
         </div>
       </div>
 
@@ -177,7 +182,7 @@ function DealPanel({
         ) : (
           <>
             <b>
-              {count} to {whoLabel}
+              {everything ? `${Math.floor(going / seats.length)} or so` : count} to {whoLabel}
             </b>{' '}
             · {from.count} → {from.count - going}
             {short && <span className="pop-warn"> · not enough to go round</span>}

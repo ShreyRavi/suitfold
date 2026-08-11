@@ -1,0 +1,223 @@
+import { useState } from 'react'
+import { GROUPS, PRESETS } from '../table/deck.ts'
+import { cleanCode } from '../net/peers.ts'
+import { Card } from './Card.tsx'
+
+/**
+ * The front page. It has one job: make it obvious what this is in about three
+ * seconds, and get you to a table in one press.
+ */
+export function Home({
+  onCreate,
+  onJoin,
+  initialName,
+  onRules,
+}: {
+  onCreate: (name: string) => void
+  onJoin: (code: string, name: string) => void
+  initialName: string
+  onRules: (gameId: string) => void
+}) {
+  const [name, setName] = useState(initialName)
+  const [code, setCode] = useState('')
+  const ready = name.trim().length > 0
+
+  return (
+    <div className="home">
+      <header className="home-bar">
+        <div className="brand">
+          <i className="mark">♠</i>
+          <b>suitfold</b>
+        </div>
+        <span className="home-tag">no accounts · no install · nothing saved</span>
+      </header>
+
+      <section className="hero">
+        <div className="hero-words">
+          <h1>
+            A card table you
+            <br />
+            share with a link.
+          </h1>
+          <p className="hero-sub">
+            A deck, a table, your hand, and whoever you invite. Drag the cards around like you would
+            at a kitchen table. Everyone sees every card move, the moment it moves.
+          </p>
+
+          <div className="hero-go">
+            <input
+              className="hero-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name"
+              maxLength={14}
+              aria-label="Your name"
+            />
+            <button className="btn primary big" disabled={!ready} onClick={() => onCreate(name.trim())}>
+              Start a table
+            </button>
+          </div>
+
+          <div className="hero-join">
+            <span>Been given a code?</span>
+            <input
+              className="code-in small"
+              value={code}
+              onChange={(e) => setCode(cleanCode(e.target.value))}
+              placeholder="ABC23"
+              aria-label="Table code"
+            />
+            <button className="btn" disabled={!ready || code.length < 4} onClick={() => onJoin(code, name.trim())}>
+              Join
+            </button>
+          </div>
+        </div>
+
+        {/* A hand of cards, fanned, doing nothing but looking like the product. */}
+        <div className="hero-art" aria-hidden="true">
+          {['AS', 'KH', 'QD', 'JC', 'TS'].map((id, i) => (
+            <span key={id} className="hero-card" style={{ '--i': i - 2 } as React.CSSProperties}>
+              <Card face={id} />
+            </span>
+          ))}
+        </div>
+      </section>
+
+      <section className="strip">
+        <Point
+          title="Everyone sees it move"
+          body="Pick a card up and it slides across every other screen at the same time. Piles form when you drop one card on another."
+        />
+        <Point
+          title="Your hand is yours"
+          body="Cards in your hand are never sent to anyone else's browser. A face-down card genuinely has no face in their copy of the table."
+        />
+        <Point
+          title="No rules in the way"
+          body="The table deals and moves cards. It never tells you what you may do — so you can play house rules, or a game it has never heard of."
+        />
+      </section>
+
+      <section className="games">
+        <h2>Twenty-one games ready to deal</h2>
+        <p className="games-sub">
+          Pick one and the right cards come out, dealt the right way, with the table marked out.
+          Tap any game to read how it is played.
+        </p>
+        {GROUPS.map((group) => (
+          <div className="games-group" key={group}>
+            <h3>{group}</h3>
+            <div className="games-row">
+              {PRESETS.filter((p) => p.group === group).map((p) => (
+                <button key={p.id} className="game-pill" onClick={() => onRules(p.id)}>
+                  {p.name}
+                  <i>{p.players}</i>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <section className="how">
+        <h2>How it works</h2>
+        <ol className="how-steps">
+          <li>
+            <b>Start a table.</b> You get a five-letter code and a link.
+          </li>
+          <li>
+            <b>Send it round.</b> Anyone who opens it types their name and sits down.
+          </li>
+          <li>
+            <b>Pick a game and deal.</b> One press lays the whole table out.
+          </li>
+        </ol>
+        <p className="how-note">
+          There is no server. The browsers talk to each other directly, so nothing you do here is
+          stored anywhere — close the tab and the game is over. Whoever starts the table is holding
+          the deck, so keep that tab open.
+        </p>
+      </section>
+
+      <footer className="home-foot">
+        <span>suitfold</span>
+        <span>free, and always will be — there is nothing to charge for</span>
+      </footer>
+    </div>
+  )
+}
+
+function Point({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="point">
+      <h3>{title}</h3>
+      <p>{body}</p>
+    </div>
+  )
+}
+
+/**
+ * Somebody sent you a link. This is the whole of what you have to do: say who
+ * you are.
+ */
+export function Invite({
+  code,
+  initialName,
+  onJoin,
+  onHome,
+}: {
+  code: string
+  initialName: string
+  onJoin: (code: string, name: string) => void
+  onHome: () => void
+}) {
+  const [name, setName] = useState(initialName)
+  const ready = name.trim().length > 0
+
+  return (
+    <div className="invite">
+      <div className="invite-art" aria-hidden="true">
+        {['AS', 'KH', 'QD'].map((id, i) => (
+          <span key={id} className="hero-card" style={{ '--i': i - 1 } as React.CSSProperties}>
+            <Card face={id} />
+          </span>
+        ))}
+      </div>
+
+      <div className="invite-box">
+        <div className="brand">
+          <i className="mark">♠</i>
+          <b>suitfold</b>
+        </div>
+
+        <h1>You’re invited to a table.</h1>
+        <p className="invite-code">
+          Table <b>{code}</b>
+        </p>
+
+        <label className="fld">
+          <span>What should we call you?</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Dad"
+            maxLength={14}
+            autoFocus
+            onKeyDown={(e) => e.key === 'Enter' && ready && onJoin(code, name.trim())}
+          />
+        </label>
+
+        <button className="btn primary big" disabled={!ready} onClick={() => onJoin(code, name.trim())}>
+          Sit down
+        </button>
+
+        <p className="fine">
+          No account, nothing to install. Whoever set the table up needs their tab open.
+        </p>
+        <button className="linkish" onClick={onHome}>
+          What is suitfold?
+        </button>
+      </div>
+    </div>
+  )
+}

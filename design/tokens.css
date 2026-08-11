@@ -1,6 +1,7 @@
-/* suitfold — design tokens. Every value in the mockups comes from here.
-   Light is the default; dark is prefers-color-scheme. */
+/* suitfold — design tokens. Every value comes from here.
+   Light only, on purpose: a card table is a lit room, and cards are paper. */
 :root {
+  color-scheme: light;
   /* surfaces */
   --paper:            #e9e2d3;  /* app background — warm, printed, not white */
   --paper-raised:     #efe9db;  /* nav bar */
@@ -74,39 +75,6 @@
   /* motion */
   --dur-move: 220ms;  --dur-flip: 180ms;  --dur-chip: 320ms;
   --ease: cubic-bezier(.2,.7,.3,1);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper:        #191714;
-    --paper-raised: #201d19;
-    --paper-panel:  #2a251f;
-    --rail:         #221e1a;
-    --table:        #3a3128;
-    --table-rim:    #443a2f;
-    --table-edge:   #2e271f;
-
-    --ink:          #efe6d6;
-    --ink-soft:     #d3c8b6;
-    --ink-faint:    #a2988a;
-    --rule:         #3a332b;
-    --line:         #4a4036;
-
-    --accent:       #7fa9d6;
-    --accent-deep:  #a8c6e6;
-    --accent-on:    #14212e;
-    --accent-wash:  rgba(127,169,214,.12);
-
-    --card-face:    #f3ece0;
-    --card-edge:    #cfc5ae;
-    --card-back:    #a8462c;
-    --card-back-edge:#7a3220;
-    --suit-red:     #b02b1e;
-    --suit-black:   #1b1815;
-
-    --chip-pale:    #efe6d6;
-    --shadow-app:   0 18px 44px rgba(0,0,0,.5);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
