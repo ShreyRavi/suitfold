@@ -479,3 +479,47 @@ input {
   font-size: 16px; font-weight: 500;
 }
 .score-row .seg { min-width: 34px; padding: 0; font-size: 17px; }
+
+/* ---- chips ------------------------------------------------------------- */
+/* The amount is the truth; these are what it looks like. */
+.chips { position: relative; display: inline-block; width: 20px; height: 16px; flex: none; }
+.chips i {
+  position: absolute; left: 0; width: 20px; height: 7px; border-radius: 50%;
+  border: 1px solid rgba(0,0,0,.32);
+  box-shadow: 0 1px 0 rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.4);
+}
+.chips--big { width: 34px; height: 34px; }
+.chips--big i { width: 34px; height: 11px; border-width: 1.5px; }
+
+.spot-chips {
+  display: inline-flex; align-items: flex-end; gap: 5px;
+  font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft);
+}
+
+.pot {
+  position: absolute; top: 0; left: 0; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  width: 120px; pointer-events: none;
+}
+.pot-amount {
+  font-family: var(--font-mono); font-size: 15px; font-weight: 600;
+  color: var(--paper); background: color-mix(in srgb, var(--ink) 82%, transparent);
+  border-radius: 999px; padding: 2px 12px; white-space: nowrap;
+}
+
+/* ---- bet panel --------------------------------------------------------- */
+.bet-mine {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--s-4) 0; border-bottom: 1px solid var(--rule);
+}
+.bet-mine b { font-family: var(--font-mono); font-size: 17px; font-weight: 500; }
+.bet-amount {
+  font-family: var(--font-mono); font-size: 26px; text-align: center;
+  color: var(--accent);
+}
+
+.rail-chips {
+  display: inline-flex; align-items: flex-end; gap: 6px; margin-left: var(--s-6);
+  font-family: var(--font-mono); font-size: var(--text-md); color: var(--ink);
+  letter-spacing: 0;
+}

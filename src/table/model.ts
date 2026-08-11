@@ -58,6 +58,15 @@ export interface TableState {
   slots: Slot[]
   /** Whatever anyone is keeping track of: tricks, points, lives. */
   scores: Record<SeatId, number>
+  /**
+   * Chips are an amount, not two hundred draggable discs — but they are drawn
+   * as real stacks. Nothing here is enforced: the table never decides whether
+   * a bet is legal, the same way it never decides whether a run is valid.
+   */
+  chips: Record<SeatId, number>
+  pot: number
+  /** Whether this table is playing for chips at all. */
+  chipsOn: boolean
   topZ: number
   /** What the table was last set up with, for the toolbar label. */
   deckName: string
@@ -68,6 +77,9 @@ export const emptyTable = (): TableState => ({
   seats: [],
   slots: [],
   scores: {},
+  chips: {},
+  pot: 0,
+  chipsOn: false,
   topZ: 0,
   deckName: '',
 })
@@ -85,6 +97,10 @@ export type Action =
     }
   | { t: 'score'; seat: SeatId; by: number }
   | { t: 'scores_clear' }
+  | { t: 'chips_start'; each: number; on: boolean }
+  | { t: 'bet'; seat: SeatId; amount: number }
+  | { t: 'take_pot'; seat: SeatId }
+  | { t: 'chips_adjust'; seat: SeatId; by: number }
   | { t: 'move'; ids: CardId[]; x: number; y: number }
   | { t: 'flip'; ids: CardId[]; faceUp?: boolean }
   | { t: 'take'; ids: CardId[]; seat: SeatId }
@@ -113,6 +129,32 @@ export function apply(s: TableState, a: Action): TableState {
 
     case 'scores_clear':
       return { ...s, scores: {} }
+
+    case 'chips_start': {
+      const chips: Record<SeatId, number> = {}
+      for (const seat of s.seats) chips[seat.id] = a.each
+      return { ...s, chips, pot: 0, chipsOn: a.on }
+    }
+
+    case 'bet': {
+      // You cannot bet what you do not have, which is arithmetic rather than a
+      // rule about poker.
+      const have = s.chips[a.seat] ?? 0
+      const amount = Math.max(0, Math.min(a.amount, have))
+      if (amount === 0) return s
+      return { ...s, chips: { ...s.chips, [a.seat]: have - amount }, pot: s.pot + amount }
+    }
+
+    case 'take_pot': {
+      if (s.pot === 0) return s
+      return { ...s, chips: { ...s.chips, [a.seat]: (s.chips[a.seat] ?? 0) + s.pot }, pot: 0 }
+    }
+
+    case 'chips_adjust':
+      return {
+        ...s,
+        chips: { ...s.chips, [a.seat]: Math.max(0, (s.chips[a.seat] ?? 0) + a.by) },
+      }
 
     case 'move': {
       const cards = { ...s.cards }
@@ -211,6 +253,31 @@ export const inHand = (s: TableState, seat: SeatId): Card[] =>
     .filter((c) => c.hand === seat)
     .sort((a, b) => a.z - b.z)
 
+/**
+ * Break an amount into the discs you would actually see in front of someone.
+ * Capped, because a stack of forty is a column, not information.
+ */
+export const CHIP_TIERS = [
+  { value: 1000, colour: '#2f2a24' },
+  { value: 500, colour: '#6b4a7a' },
+  { value: 100, colour: '#1f4b7a' },
+  { value: 25, colour: '#2e8b57' },
+  { value: 5, colour: '#b9482f' },
+  { value: 1, colour: '#e9e2d3' },
+] as const
+
+export function chipDiscs(amount: number, max = 7): string[] {
+  const out: string[] = []
+  let left = Math.max(0, Math.floor(amount))
+  for (const tier of CHIP_TIERS) {
+    while (left >= tier.value && out.length < max) {
+      out.push(tier.colour)
+      left -= tier.value
+    }
+  }
+  return out
+}
+
 /** Cards sharing a spot, bottom to top. A "stack" is only ever this. */
 export function stackAt(s: TableState, x: number, y: number): Card[] {
   return onTable(s).filter((c) => c.x === x && c.y === y)
@@ -271,6 +338,9 @@ export interface TableView {
   seats: Seat[]
   slots: Slot[]
   scores: Record<SeatId, number>
+  chips: Record<SeatId, number>
+  pot: number
+  chipsOn: boolean
   deckName: string
   handCounts: Record<SeatId, number>
 }
@@ -307,6 +377,9 @@ export function project(s: TableState, viewer: SeatId | null): TableView {
     seats: s.seats,
     slots: s.slots,
     scores: s.scores,
+    chips: s.chips,
+    pot: s.pot,
+    chipsOn: s.chipsOn,
     deckName: s.deckName,
     handCounts,
   }

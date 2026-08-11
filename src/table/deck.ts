@@ -99,6 +99,8 @@ export interface Preset {
    * where things go, which is what makes a freeform table read as a game.
    */
   slots?: (seats: number) => Slot[]
+  /** Chips each player starts with. Omitted means this game is not for chips. */
+  chips?: number
 }
 
 const CX = TABLE_W / 2
@@ -139,9 +141,11 @@ export const PRESETS: Preset[] = [
     deal: 2,
     layout: 'pile',
     slots: () => [
+      { id: 'deck', x: CX - 300, y: CY, label: 'Deck' },
       { id: 'board', x: CX, y: CY - 40, label: 'Board', wide: 5 },
       { id: 'pot', x: CX, y: CY + 90, label: 'Pot' },
     ],
+    chips: 2000,
   },
   {
     id: 'indian-rummy',
@@ -174,7 +178,8 @@ export const PRESETS: Preset[] = [
     cards: () => standard(2),
     deal: 2,
     layout: 'pile',
-    slots: (n: number) => roundTable(n, 'Dealer'),
+    slots: (n: number) => [{ id: 'deck', x: CX - 320, y: CY, label: 'Shoe' }, ...roundTable(n, 'Dealer')],
+    chips: 500,
   },
   {
     id: 'hearts',
@@ -389,8 +394,11 @@ export interface Placed {
  * Lay the deck out. Everything left after dealing goes into the draw pile,
  * except the one card a "starter" game turns face up beside it.
  */
-export function place(preset: Preset, undealt: CardId[]): Placed[] {
-  const mid = { x: TABLE_W / 2, y: TABLE_H / 2 }
+export function place(preset: Preset, undealt: CardId[], slots: Slot[] = []): Placed[] {
+  // If the game drew a place for the deck, put the deck there rather than in
+  // the middle on top of whatever else is marked out.
+  const home = slots.find((s) => s.id === 'draw' || s.id === 'deck')
+  const mid = home ? { x: home.x, y: home.y } : { x: TABLE_W / 2, y: TABLE_H / 2 }
 
   if (preset.layout === 'grid') {
     const cols = 13
@@ -408,10 +416,11 @@ export function place(preset: Preset, undealt: CardId[]): Placed[] {
   }
 
   if (preset.layout === 'starter' && undealt.length > 1) {
+    const discard = slots.find((s) => s.id === 'discard')
     const [starter, ...rest] = undealt
     return [
-      { id: starter!, faceUp: true, x: mid.x + 62, y: mid.y },
-      ...rest.map((id) => ({ id, faceUp: false, x: mid.x - 62, y: mid.y })),
+      { id: starter!, faceUp: true, x: discard?.x ?? mid.x + 62, y: discard?.y ?? mid.y },
+      ...rest.map((id) => ({ id, faceUp: false, x: mid.x, y: mid.y })),
     ]
   }
 

@@ -7,13 +7,14 @@ import {
   inHand,
   onTable,
   project,
+  chipDiscs,
   snapTarget,
   stacks,
   type Action,
   type TableState,
 } from '../src/table/model.ts'
 import { PRESETS, standard, uno } from '../src/table/deck.ts'
-import { Host } from '../src/net/host.ts'
+import { Host, allowed } from '../src/net/host.ts'
 import type { Wire } from '../src/net/peers.ts'
 
 const run = (s: TableState, ...as: Action[]) => as.reduce(apply, s)
@@ -425,5 +426,88 @@ describe('slots and scores', () => {
     h.score('host', 4)
     h.setup('hearts')
     expect(h.state.scores['host']).toBe(4)
+  })
+})
+
+describe('chips', () => {
+  test('a poker table buys everyone in; a hearts table does not', () => {
+    const h = hosted(['A', 'B', 'C'])
+    h.setup('holdem')
+    expect(h.state.chipsOn).toBe(true)
+    for (const s of h.state.seats) expect(h.state.chips[s.id]).toBe(2000)
+    expect(h.state.pot).toBe(0)
+
+    h.setup('hearts')
+    expect(h.state.chipsOn).toBe(false)
+    expect(h.state.pot).toBe(0)
+  })
+
+  test('betting moves chips out of your stack and into the pot', () => {
+    const h = hosted(['A', 'B'])
+    h.setup('holdem')
+    h.bet('host', 150)
+    h.bet('s2', 150)
+    expect(h.state.chips['host']).toBe(1850)
+    expect(h.state.chips['s2']).toBe(1850)
+    expect(h.state.pot).toBe(300)
+  })
+
+  test('you cannot bet chips you do not have', () => {
+    const h = hosted(['A', 'B'])
+    h.setup('holdem')
+    h.bet('host', 999999)
+    expect(h.state.chips['host']).toBe(0) // all in, not negative
+    expect(h.state.pot).toBe(2000)
+  })
+
+  test('taking the pot empties it into one stack', () => {
+    const h = hosted(['A', 'B'])
+    h.setup('holdem')
+    h.bet('host', 100)
+    h.bet('s2', 100)
+    h.takePot('s2')
+    expect(h.state.pot).toBe(0)
+    expect(h.state.chips['s2']).toBe(2100)
+    expect(h.state.chips['host']).toBe(1900)
+  })
+
+  test('chips are conserved across a whole hand', () => {
+    const h = hosted(['A', 'B', 'C'])
+    h.setup('holdem')
+    const bank = () => h.state.seats.reduce((a, s) => a + (h.state.chips[s.id] ?? 0), 0) + h.state.pot
+    expect(bank()).toBe(6000)
+    h.bet('host', 300)
+    h.bet('s2', 300)
+    h.bet('s3', 125)
+    expect(bank()).toBe(6000)
+    h.takePot('s3')
+    expect(bank()).toBe(6000)
+  })
+
+  test('a player can only bet their own chips', () => {
+    expect(allowed({ t: 'bet', seat: 's2', amount: 50 }, 's2')).toBe(true)
+    expect(allowed({ t: 'bet', seat: 'host', amount: 50 }, 's2')).toBe(false)
+    // Anyone may take the pot; that is a table argument, not a permission.
+    expect(allowed({ t: 'take_pot', seat: 's2' }, 's2')).toBe(true)
+    // Correcting a stack is the host's job.
+    expect(allowed({ t: 'chips_adjust', seat: 's2', by: 100 }, 's2')).toBe(false)
+  })
+
+  test('the discs drawn add up to the amount they stand for', () => {
+    expect(chipDiscs(0)).toEqual([])
+    expect(chipDiscs(5).length).toBe(1)
+    expect(chipDiscs(30).length).toBe(2) // 25 + 5
+    // A big stack is capped rather than drawn as a column of forty.
+    expect(chipDiscs(100000).length).toBeLessThanOrEqual(7)
+  })
+
+  test('undo takes a bet back', () => {
+    const h = hosted(['A', 'B'])
+    h.setup('holdem')
+    h.bet('host', 500)
+    expect(h.state.pot).toBe(500)
+    h.undo()
+    expect(h.state.pot).toBe(0)
+    expect(h.state.chips['host']).toBe(2000)
   })
 })

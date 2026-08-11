@@ -22,6 +22,10 @@ code. Sharing the link works too — `…/suitfold/#ABC23` fills the code in.
   Cards snap into them. They hold nothing and enforce nothing; they just say where
   things go, which is what makes a table read as Hearts rather than a pile of cards.
 - **Score** in the toolbar counts whatever this table is counting: tricks, points, lives.
+- **Chips**, on games that use them. Everyone buys in, **Bet** moves an amount into the pot,
+  and whoever wins takes it. They are drawn as real stacks but they are an amount underneath,
+  so calling a bet is one tap rather than dragging seven discs. Nothing is enforced — the
+  table only checks you have the chips, never whether the bet was legal.
 
 ## Games
 

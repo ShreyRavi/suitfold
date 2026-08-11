@@ -3,6 +3,7 @@ import type { CardId, SeatId, TableView } from '../table/model.ts'
 import { SNAP, TABLE_H, TABLE_W } from '../table/model.ts'
 import type { Drag } from '../net/peers.ts'
 import { Card } from './Card.tsx'
+import { ChipStack, money } from './Chips.tsx'
 
 interface Pos {
   x: number
@@ -168,6 +169,12 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
             <span className="spot-dot" style={{ background: seat.colour }} />
             <span className="spot-name">{seat.name}</span>
             <span className="spot-count">{count}</span>
+            {view.chipsOn && (
+              <span className="spot-chips">
+                <ChipStack amount={view.chips[seat.id] ?? 0} />
+                {money(view.chips[seat.id] ?? 0)}
+              </span>
+            )}
             {(view.scores[seat.id] ?? 0) !== 0 && (
               <span className="spot-score">{view.scores[seat.id]}</span>
             )}
@@ -218,6 +225,15 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
           )
         })}
 
+        {/* The pot sits in its slot when the game has one, otherwise in the
+            middle where a pot goes. */}
+        {view.chipsOn && view.pot > 0 && (
+          <div className="pot" style={{ transform: `translate(${potAt(view).x - 60}px, ${potAt(view).y - 26}px)` }}>
+            <ChipStack amount={view.pot} big />
+            <span className="pot-amount">{money(view.pot)}</span>
+          </div>
+        )}
+
         {menu && (
           <div
             className="pile-menu"
@@ -248,6 +264,12 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+
+/** The pot goes in the Pot slot if the game drew one, otherwise the middle. */
+function potAt(view: TableView) {
+  const slot = view.slots.find((s) => s.id === 'pot' || s.label.toLowerCase() === 'pot')
+  return slot ? { x: slot.x, y: slot.y } : { x: TABLE_W / 2, y: TABLE_H / 2 + 120 }
+}
 
 /** Lay the other players around the top half of the table. */
 function seatSpots(view: TableView, me: SeatId | null) {

@@ -170,13 +170,16 @@ export class Host {
       }
     }
 
+    const slots = preset.slots?.(seats.length) ?? []
     const actions: Action[] = [
+      // A new game buys everyone in, or clears the chips away entirely.
+      { t: 'chips_start', each: preset.chips ?? 0, on: preset.chips !== undefined },
       {
         t: 'reset',
         deckName: preset.name,
-        slots: preset.slots?.(seats.length) ?? [],
+        slots,
         cards: [
-          ...place(preset, deck.slice(cut)),
+          ...place(preset, deck.slice(cut), slots),
           // Dealt cards need to exist before they can be taken into a hand.
           ...deck.slice(0, cut).map((id) => ({ id, faceUp: false, x: TABLE_W / 2, y: TABLE_H / 2 })),
         ],
@@ -245,6 +248,22 @@ export class Host {
     if (actions.length) this.commit(actions)
   }
 
+  bet(seat: SeatId, amount: number) {
+    this.commit([{ t: 'bet', seat, amount }])
+  }
+
+  takePot(seat: SeatId) {
+    this.commit([{ t: 'take_pot', seat }])
+  }
+
+  adjustChips(seat: SeatId, by: number) {
+    this.commit([{ t: 'chips_adjust', seat, by }])
+  }
+
+  buyIn(each: number) {
+    this.commit([{ t: 'chips_start', each, on: each > 0 }])
+  }
+
   score(seat: SeatId, by: number) {
     this.commit([{ t: 'score', seat, by }])
   }
@@ -284,6 +303,12 @@ function unique(name: string, taken: string[]): string {
 }
 
 /** Seat management belongs to the host; everything else is fair game. */
-export function allowed(action: Action, _seat: SeatId): boolean {
-  return !['seat_add', 'seat_remove', 'seat_name', 'seat_here', 'reset'].includes(action.t)
+export function allowed(action: Action, seat: SeatId): boolean {
+  // Setting the table and correcting somebody's stack belong to the host.
+  if (['seat_add', 'seat_remove', 'seat_name', 'seat_here', 'reset', 'chips_start', 'chips_adjust'].includes(action.t)) {
+    return false
+  }
+  // Betting spends your own chips, so it has to be your own seat.
+  if (action.t === 'bet') return action.seat === seat
+  return true
 }
