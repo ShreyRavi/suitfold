@@ -73,6 +73,14 @@ code. Sharing the link works too - `…/suitfold/#ABC23` fills the code in.
 
 ## Games
 
+Thirty three of them now, and not all of them are card games. The table grew a
+few primitives to cover the rest, and each one is the same kind of thing the
+cards already were: dice the host rolls (because rolling has to be unguessable,
+exactly like shuffling), squares of a board, holes, lines drawn underneath,
+markers you drag, a shared clock, and a pad only you can see. Tiles and dominoes
+are not a new thing at all - they are cards with a different face, so everything
+the table already did to a card works on them unchanged.
+
 Every game has a **?** next to it, in the picker and on the table, with the rules in plain
 words - including which poker hand beats which, and the bits people actually argue about.
 

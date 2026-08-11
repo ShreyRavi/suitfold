@@ -76,6 +76,49 @@ export interface Slot {
    * pieces instead of cards. This is what turns the felt into a board.
    */
   dot?: boolean
+  /**
+   * A square of a board, of this size in table units. Cells take pieces and
+   * tiles both, which is the difference between a chess board and a hole.
+   */
+  cell?: number
+  /** The dark squares of a chequered board, or a coloured premium square. */
+  shade?: string
+  /** Small print in the corner of a cell: a square number, a word score. */
+  note?: string
+}
+
+/**
+ * Furniture drawn under everything: the snakes and the ladders, and anything
+ * else that is part of the board rather than a thing you can pick up.
+ */
+export interface Line {
+  id: string
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  colour: string
+  /** Drawn as a coiled snake rather than a straight run. */
+  wavy?: boolean
+}
+
+/**
+ * A die. The host rolls, for the same reason the host shuffles: it is the one
+ * thing that has to be unguessable and the host is the only tab that could be
+ * trusted with it anyway.
+ */
+export interface Die {
+  id: string
+  x: number
+  y: number
+  /** How many sides. Six unless something says otherwise. */
+  faces: number
+  /** What it is showing. Letters for the Boggle dice, numbers for the rest. */
+  value: number
+  /** Boggle dice show a letter instead of pips. */
+  letters?: string[]
+  /** Kept back from the next roll. */
+  held: boolean
 }
 
 /**
@@ -121,6 +164,14 @@ export interface TableState {
   seats: Seat[]
   slots: Slot[]
   pucks: Puck[]
+  dice: Die[]
+  lines: Line[]
+  /**
+   * A shared clock, for the games that are played against one. Held as the
+   * moment it runs out rather than as a count, so every tab agrees without
+   * anybody having to tick in step.
+   */
+  timer: { endsAt: number | null; seconds: number }
   /** Newest last. Capped, because this is a game, not an audit trail. */
   log: LogEntry[]
   logN: number
@@ -149,6 +200,9 @@ export const emptyTable = (): TableState => ({
   seats: [],
   slots: [],
   pucks: [],
+  dice: [],
+  lines: [],
+  timer: { endsAt: null, seconds: 0 },
   log: [],
   logN: 0,
   scores: {},
@@ -172,6 +226,8 @@ export type Action =
       cards: { id: CardId; faceUp: boolean; x: number; y: number }[]
       slots: Slot[]
       pucks: Puck[]
+      dice: Die[]
+      lines: Line[]
       game: string
     }
   | { t: 'score'; seat: SeatId; by: number }
@@ -193,6 +249,11 @@ export type Action =
   | { t: 'puck'; id: string; x: number; y: number }
   | { t: 'puck_add'; id: string; label: string; hint: string; x: number; y: number; colour?: string }
   | { t: 'puck_remove'; id: string }
+  /** Values come from the host, which is the only tab that may invent them. */
+  | { t: 'dice_roll'; values: Record<string, number> }
+  | { t: 'die_hold'; id: string; held: boolean }
+  | { t: 'die_move'; id: string; x: number; y: number }
+  | { t: 'timer'; endsAt: number | null; seconds: number }
   /** Chat. It changes nothing on the table; the host turns it into a log line. */
   | { t: 'say'; seat: SeatId; text: string }
   /** Wipe the history. Whoever is holding the deck only. */
@@ -213,6 +274,9 @@ export function apply(s: TableState, a: Action): TableState {
         cards,
         slots: a.slots,
         pucks: a.pucks,
+        dice: a.dice,
+        lines: a.lines,
+        timer: { endsAt: null, seconds: s.timer.seconds },
         topZ: a.cards.length,
         deckName: a.deckName,
         game: a.game,
@@ -361,6 +425,22 @@ export function apply(s: TableState, a: Action): TableState {
     case 'puck_remove':
       return { ...s, pucks: s.pucks.filter((p) => p.id !== a.id) }
 
+    case 'dice_roll':
+      // A die that is being kept back keeps what it is showing.
+      return {
+        ...s,
+        dice: s.dice.map((d) => (d.held || a.values[d.id] === undefined ? d : { ...d, value: a.values[d.id]! })),
+      }
+
+    case 'die_hold':
+      return { ...s, dice: s.dice.map((d) => (d.id === a.id ? { ...d, held: a.held } : d)) }
+
+    case 'die_move':
+      return { ...s, dice: s.dice.map((d) => (d.id === a.id ? { ...d, x: a.x, y: a.y } : d)) }
+
+    case 'timer':
+      return { ...s, timer: { endsAt: a.endsAt, seconds: a.seconds } }
+
     // Saying something does not move anything. It becomes a log line where the
     // log is written, which is the one place that knows who is speaking.
     case 'say':
@@ -505,6 +585,9 @@ export interface TableView {
   seats: Seat[]
   slots: Slot[]
   pucks: Puck[]
+  dice: Die[]
+  lines: Line[]
+  timer: { endsAt: number | null; seconds: number }
   log: LogEntry[]
   scores: Record<SeatId, number>
   chips: Record<SeatId, number>
@@ -547,6 +630,9 @@ export function project(s: TableState, viewer: SeatId | null): TableView {
     seats: s.seats,
     slots: s.slots,
     pucks: s.pucks,
+    dice: s.dice,
+    lines: s.lines,
+    timer: s.timer,
     log: s.log,
     scores: s.scores,
     chips: s.chips,
@@ -642,6 +728,26 @@ export function describe(a: Action, before: TableState): Note | null {
       const gone = before.pucks.find((p) => p.id === a.id)
       return gone ? { kind: 'game', text: `took the ${gone.hint.toLowerCase()} away` } : null
     }
+
+    case 'dice_roll': {
+      const rolled = before.dice.filter((d) => !d.held && a.values[d.id] !== undefined)
+      if (!rolled.length) return null
+      // Lettered dice have no total worth reporting; they were shaken.
+      if (rolled.some((d) => d.letters)) return { kind: 'game', text: 'shook the letters' }
+      const shown = rolled.map((d) => a.values[d.id]!)
+      return {
+        kind: 'game',
+        text: rolled.length === 1 ? `rolled a ${shown[0]}` : `rolled ${shown.join(', ')}`,
+      }
+    }
+
+    case 'die_hold':
+      return null
+    case 'die_move':
+      return null
+
+    case 'timer':
+      return { kind: 'game', text: a.endsAt ? `started the clock, ${a.seconds}s` : 'stopped the clock' }
 
     case 'reset':
     case 'reorder':

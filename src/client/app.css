@@ -1097,3 +1097,107 @@ input.betbar-custom-val {
   font-family: var(--font-mono) !important; font-size: var(--text-sm);
   color: var(--accent) !important; letter-spacing: .04em;
 }
+
+/* ---- tiles and dominoes -------------------------------------------------- */
+/* A tile behaves exactly like a card, so it is one. Only the face differs. */
+.pc--tile {
+  background: linear-gradient(158deg, #f8efd8 0%, #efe2c4 60%, #e4d4b0 100%);
+  border-color: #c2ad84;
+  display: grid; place-items: center;
+}
+.tile-l { font-size: 3.6em; font-weight: 500; line-height: 1; color: #33291a; }
+.tile-n {
+  position: absolute; right: .7em; bottom: .5em;
+  font-family: var(--font-mono); font-size: 1.5em; font-weight: 500; color: #4a3d26;
+}
+.tile-blank {
+  position: absolute; inset: 26%; border-radius: 6px;
+  border: 2px dashed color-mix(in srgb, #6b5a3c 40%, transparent);
+}
+
+.pc--domino {
+  background: linear-gradient(158deg, #fffdf8 0%, #f3ece0 100%);
+  display: flex; flex-direction: column; align-items: stretch;
+  padding: 5%;
+}
+.dom-half { position: relative; flex: 1; }
+.dom-half i {
+  position: absolute; width: 1.3em; height: 1.3em; border-radius: 50%;
+  background: #2f2a24; transform: translate(-50%, -50%);
+}
+.dom-bar { display: block; height: 2px; background: color-mix(in srgb, #2f2a24 34%, transparent); margin: 4% 6%; }
+
+/* ---- boards -------------------------------------------------------------- */
+/* A square of a board. Same idea as a card space, different shape. */
+.cell {
+  position: absolute; top: 0; left: 0;
+  border: 1px solid color-mix(in srgb, #2a1d12 18%, transparent);
+  background: rgba(255,255,255,.05); pointer-events: none;
+}
+.cell-note {
+  position: absolute; top: 2px; left: 4px;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .02em;
+  color: color-mix(in srgb, #2a1d12 52%, transparent);
+}
+.lines { position: absolute; inset: 0; pointer-events: none; }
+
+.puck--chess {
+  width: 52px; height: 52px; border-radius: 8px;
+  background: #2a2118; color: #f4efe2; border: 1px solid rgba(0,0,0,.4);
+  box-shadow: 0 2px 5px rgba(0,0,0,.34);
+}
+.puck--chess.is-white { background: #f4efe2; color: #2a2118; border-color: rgba(0,0,0,.35); }
+.piece { width: 40px; height: 40px; fill: currentColor; }
+
+/* ---- dice ---------------------------------------------------------------- */
+.die {
+  position: absolute; z-index: 6; width: 60px; height: 60px; border-radius: 12px;
+  background: linear-gradient(155deg, #fffdf7, #ece3d1);
+  border: 1px solid #c9bda3; touch-action: none;
+  box-shadow: inset 0 -3px 6px rgba(0,0,0,.12), 0 4px 10px rgba(0,0,0,.28);
+  transition: transform 160ms var(--ease), box-shadow 160ms var(--ease);
+}
+.die.is-live { transition: none; }
+.die.is-kept {
+  box-shadow: 0 0 0 3px var(--accent), 0 4px 10px rgba(0,0,0,.28);
+}
+.die-pips { position: absolute; inset: 0; }
+.die-pips i {
+  position: absolute; width: 11px; height: 11px; border-radius: 50%;
+  background: #2f2a24; transform: translate(-50%, -50%);
+}
+.die-letter {
+  display: grid; place-items: center; height: 100%;
+  font-size: 26px; font-weight: 500; color: #33291a;
+}
+.die--letter { width: 72px; height: 72px; }
+
+/* ---- the clock ----------------------------------------------------------- */
+.clock {
+  position: absolute; top: var(--s-6); left: 50%; transform: translateX(-50%);
+  z-index: 22; display: flex; align-items: baseline; gap: var(--s-4);
+  padding: 6px 16px; border-radius: 999px;
+  background: var(--ink); color: var(--paper);
+  box-shadow: 0 6px 20px rgba(0,0,0,.3);
+}
+.clock b { font-family: var(--font-mono); font-size: 22px; font-variant-numeric: tabular-nums; }
+.clock i { font-style: normal; font-size: var(--text-sm); opacity: .7; }
+.clock.is-close b { color: #f3c96b; }
+.clock.is-out { background: var(--suit-red); }
+
+/* ---- a private pad ------------------------------------------------------- */
+.pad {
+  position: fixed; z-index: 50; left: var(--s-6); top: 76px; width: min(240px, 42vw);
+  display: flex; flex-direction: column; gap: var(--s-4);
+  padding: var(--s-5); border-radius: var(--r-panel);
+  background: var(--paper-raised); border: 1px solid var(--line);
+  box-shadow: var(--shadow-app);
+}
+.pad-bar { display: flex; align-items: center; justify-content: space-between; }
+.pad textarea {
+  min-height: 220px; resize: vertical; padding: var(--s-5);
+  border: 1px solid var(--line); border-radius: var(--r-panel);
+  background: var(--paper); color: var(--ink);
+  font-family: var(--font-mono); font-size: var(--text-md); line-height: 1.5;
+}
+.pad .fine { font-size: 11px; }

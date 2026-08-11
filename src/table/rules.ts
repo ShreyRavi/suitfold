@@ -52,6 +52,290 @@ export const POKER_EDGE: RuleSection = {
 }
 
 export const RULES: Record<string, Rules> = {
+  judgement: {
+    goal: 'Say exactly how many tricks you will win, then win exactly that many.',
+    players: '3 to 7',
+    setup: [
+      'Deal one card each for the first round, two each for the next, and so on up, then back down again.',
+      'Turn the next card over. Its suit is trump for that round.',
+      'Going round from the dealer, everybody says how many tricks they think they will take.',
+    ],
+    play: [
+      'The player to the dealer left leads anything.',
+      'You must follow the suit led if you can. If you cannot, play anything, trump included.',
+      'Highest trump wins the trick. No trump in it, and the highest card of the suit led wins.',
+      'Whoever won leads the next one.',
+    ],
+    winning: 'Score your bid plus ten if you got it exactly right, and nothing at all if you did not. Most points after the last round wins.',
+    sections: [
+      {
+        title: 'The bits people argue about',
+        items: [
+          'Many families make the last bidder unable to bid the number that would let everybody get theirs. It is called the hook, and it is what stops the round being easy.',
+          'Bidding zero and taking zero scores ten. It is a real bid and often a good one.',
+          'Overshooting is exactly as bad as undershooting. Eight tricks on a bid of three scores nothing.',
+        ],
+      },
+    ],
+  },
+  'kot-pees': {
+    goal: 'With your partner, win seven of the thirteen tricks.',
+    players: '4, in two partnerships sitting opposite',
+    setup: [
+      'Deal five cards to each player to start.',
+      'The player to the dealer right looks at those five and names the trump suit.',
+      'Deal the rest four at a time until everyone has thirteen.',
+    ],
+    play: [
+      'The player who called trump leads first.',
+      'You must follow suit if you can. If you cannot, you may trump or throw anything.',
+      'Highest trump takes the trick, or the highest card of the suit led if no trump was played.',
+      'Whoever wins leads the next.',
+    ],
+    winning: 'First side to seven tricks wins the hand. Win it and you deal again and call again, which is where the run comes from.',
+    sections: [
+      {
+        title: 'The bits people argue about',
+        items: [
+          'Winning every trick is a kot, and it usually counts as two hands rather than one. Some families make it three.',
+          'The side that called trump keeps dealing while it keeps winning. Lose a hand and the deal passes.',
+          'Reneging, which is failing to follow suit when you could have, hands the whole hand to the other side in most houses.',
+        ],
+      },
+    ],
+  },
+  'spade-seven': {
+    goal: 'Be the first to get rid of every card in your hand.',
+    players: '3 to 8',
+    setup: [
+      'Deal the whole deck out. Some people will have one more than others, which is fine.',
+      'Whoever has the seven of spades puts it down to start. That is the only forced move in the game.',
+    ],
+    play: [
+      'On your turn you put down exactly one card, or you knock and pass.',
+      'You can play any seven, which starts that suit off.',
+      'Otherwise a card must go next to one already down in its suit: the six or the eight beside the seven, the five beside the six, and so on out to the ace and the king.',
+      'If you have nothing that fits, you pass. You may not pass if you have a legal card.',
+    ],
+    winning: 'The first person with an empty hand wins. Everybody else counts up what they are left holding, and low is good.',
+    sections: [
+      {
+        title: 'The bits people argue about',
+        items: [
+          'Whether you may hold back a card you could legally play. Strictly you may not, and it is much the better game that way, because sitting on a seven blocks everybody.',
+          'Some houses start on the seven of diamonds instead. Agree first.',
+          'The ace is high here, above the king. It is not both ends like poker.',
+        ],
+      },
+    ],
+  },
+  'spade-queen': {
+    goal: 'Take as few hearts as possible, and above all avoid the queen of spades.',
+    players: '4',
+    setup: [
+      'Deal the whole deck out, thirteen each.',
+      'Pass three cards face down to the player on your left. Next hand pass right, then across, then not at all, then start again.',
+      'Whoever has the two of clubs leads it.',
+    ],
+    play: [
+      'Follow the suit led if you can. If you cannot, throw anything.',
+      'Highest card of the suit led wins the trick and leads the next. There is no trump suit at all.',
+      'You cannot lead a heart until hearts have been broken, which means somebody has discarded one.',
+      'You may not throw a heart or the queen of spades on the very first trick.',
+    ],
+    winning: 'Each heart is one point and the queen of spades is thirteen. Points are bad. Play until somebody hits a hundred, and the lowest score wins.',
+    sections: [
+      {
+        title: 'The bits people argue about',
+        items: [
+          'Shooting the moon: take every heart and the queen as well and you score nothing while everybody else takes twenty six. It is worth trying and it is agony to fail at.',
+          'Some houses let a shooter subtract twenty six instead. Decide before somebody tries.',
+          'The queen of spades can be led at any time. She is not held back by hearts being broken.',
+        ],
+      },
+    ],
+  },
+  chess: {
+    goal: 'Trap the other king so that it cannot get out of check.',
+    players: '2',
+    setup: [
+      'White at the bottom, black at the top, and a light square in each player right hand corner.',
+      'Back row from the corner in: rook, knight, bishop, queen, king, bishop, knight, rook. The queen goes on her own colour.',
+      'Pawns fill the row in front.',
+    ],
+    play: [
+      'White moves first, then take turns, one piece each time.',
+      'Rook moves in straight lines, bishop diagonally, queen either, king one square any way.',
+      'Knight moves in an L and is the only piece that can jump over anything.',
+      'Pawns go forward one, or two on their first move, and capture diagonally only.',
+      'Take a piece by moving onto it and lifting it off the board.',
+    ],
+    winning: 'Checkmate: their king is attacked and there is no legal move that stops it. If they have no legal move but are not in check it is a stalemate, and a draw.',
+    sections: [
+      {
+        title: 'The moves people forget',
+        items: [
+          'Castling: king moves two toward a rook and the rook hops over. Only if neither has moved, nothing is in between, and the king is not passing through check.',
+          'En passant: a pawn that goes two squares past an enemy pawn can be taken as if it had only gone one. On the very next move, or not at all.',
+          'A pawn reaching the far end becomes any piece you like, which is nearly always a queen.',
+        ],
+      },
+    ],
+  },
+  'snakes-ladders': {
+    goal: 'Be the first counter to reach square one hundred.',
+    players: '2 to 6',
+    setup: [
+      'Everybody takes a counter and starts off the board.',
+      'Roll to see who goes first, or just start with whoever asked to.',
+    ],
+    play: [
+      'Roll the die and move your counter that many squares, following the numbers.',
+      'Land at the bottom of a ladder and climb to the top.',
+      'Land on the head of a snake and slide down to its tail.',
+      'More than one counter can sit on a square. Nobody is sent back for it.',
+    ],
+    winning: 'First to one hundred. Most houses need an exact roll: overshoot and you bounce back off the end.',
+    sections: [
+      {
+        title: 'The bits people argue about',
+        items: [
+          'Whether a six gets you another roll. It makes the game much shorter, which with small children is usually the point.',
+          'Whether you need the exact number to finish. Without it, the game ends sooner and with less wailing.',
+          'This game has no decisions in it whatsoever. That is not a flaw, it is the entire design.',
+        ],
+      },
+    ],
+  },
+  scrabble: {
+    goal: 'Score the most by making words on the board.',
+    players: '2 to 4',
+    setup: [
+      'Everybody draws seven tiles from the bag and keeps them where only they can see.',
+      'The first word goes through the middle star.',
+    ],
+    play: [
+      'On your turn lay tiles in one straight line, across or down, making one main word.',
+      'Every new word you make, including sideways ones, has to be a real word.',
+      'Add up the letters, applying any premium squares your new tiles are sitting on. Word premiums apply after letter ones.',
+      'Draw back up to seven and pass the turn. Or swap tiles instead of playing, which costs you the turn.',
+    ],
+    winning: 'When the bag is empty and somebody plays out, they add everybody else remaining tiles and the others subtract theirs. Highest total wins.',
+    sections: [
+      {
+        title: 'The bits people argue about',
+        items: [
+          'Using all seven tiles in one go is a bingo and scores fifty extra. It is worth playing for.',
+          'A blank can be any letter, is worth nothing, and stays that letter for the rest of the game.',
+          'Premium squares only count the turn they are covered. Later words through them score face value.',
+          'Nobody can settle whether a word is real. Agree on a dictionary before you start, or agree that the table votes.',
+        ],
+      },
+    ],
+  },
+  bananagrams: {
+    goal: 'Use every tile you have in your own crossword, first.',
+    players: '2 to 8',
+    setup: [
+      'Everybody takes twenty one tiles. The rest stay face down as the bunch.',
+      'There are no turns and no board. Everybody plays at once, in front of themselves.',
+    ],
+    play: [
+      'Build your own connected grid of words, across and down, in the space in front of you.',
+      'You can rearrange your entire grid whenever you like.',
+      'When you have used all your tiles, say "peel". Everybody, you included, takes one more from the bunch.',
+      'If you are stuck with a letter, say "dump": put it back and take three. That is a bad trade and it is meant to be.',
+    ],
+    winning: 'When there are fewer tiles left than there are players, the first to use everything says "bananas" and wins, provided the table agrees all the words are real.',
+    sections: [
+      {
+        title: 'The bits people argue about',
+        items: [
+          'A challenged word that turns out not to be a word means you break your grid and put those tiles back. It is a serious penalty.',
+          'Everything in your grid has to connect. An island of words on its own does not count.',
+          'This is loud and there is no waiting. That is the point of it.',
+        ],
+      },
+    ],
+  },
+  dominoes: {
+    goal: 'Be first to lay down all your bones.',
+    players: '2 to 4',
+    setup: [
+      'Turn all twenty eight face down and shuffle them about.',
+      'Everybody draws seven. The rest are the boneyard.',
+      'Whoever holds the double six starts with it. If nobody does, the highest double.',
+    ],
+    play: [
+      'On your turn add one bone to either open end, matching the number of pips.',
+      'A double is laid across the line, and both ends of the line still count as that number.',
+      'If you cannot go, draw from the boneyard until you can.',
+      'When the boneyard is empty and you still cannot go, you pass.',
+    ],
+    winning: 'First to play out wins, and scores the pips left in everybody else hands. If the game blocks and nobody can go, the lowest hand wins instead.',
+    sections: [
+      {
+        title: 'The bits people argue about',
+        items: [
+          'Whether you must draw when you can go. In most houses you may not: draw only when you are stuck.',
+          'Whether the game is played to a target, usually a hundred, across several rounds. It usually is.',
+        ],
+      },
+    ],
+  },
+  boggle: {
+    goal: 'Find more words in the grid than anyone else, in three minutes.',
+    players: '2 to 8',
+    setup: [
+      'Shake the dice. Everybody looks at the same sixteen letters.',
+      'Everybody has their own list. Nobody shows anybody anything until the time is up.',
+    ],
+    play: [
+      'Start the clock, then write down every word you can find.',
+      'Letters have to touch: sideways, up and down, or diagonally.',
+      'You cannot use the same die twice in one word.',
+      'Words must be three letters or more. Qu counts as both letters at once.',
+    ],
+    winning: 'Read out your lists. Cross off any word more than one person found. Score what is left: three and four letters are one point, five is two, six is three, seven is five, and eight or more is eleven.',
+    sections: [
+      {
+        title: 'The bits people argue about',
+        items: [
+          'Proper nouns do not count. Neither do abbreviations.',
+          'Plurals count if the singular does. Adding an s to everything is legal and it is how most people win.',
+          'Your list is private on this table and stays in your own browser, so nobody can peek at it mid-game.',
+        ],
+      },
+    ],
+  },
+  yahtzee: {
+    goal: 'Fill thirteen boxes on your card with the best rolls you can manage.',
+    players: '1 to 8',
+    setup: [
+      'Everybody has their own scorecard. Write it on your pad, which only you can see.',
+      'Upper section: ones through sixes. Lower section: three of a kind, four of a kind, full house, small straight, large straight, Yahtzee, chance.',
+    ],
+    play: [
+      'Roll all five dice.',
+      'Keep any you like by double clicking them, and roll the rest.',
+      'You get three rolls in total per turn.',
+      'Then you must write the result into exactly one empty box, even if it scores zero.',
+    ],
+    winning: 'Thirteen turns each, then add it up. Highest total wins.',
+    sections: [
+      {
+        title: 'What scores what',
+        items: [
+          'Upper section: add up only the number you chose. Get sixty three or more up there and you get a thirty five bonus.',
+          'Three or four of a kind: the total of all five dice. Chance: the same, any time.',
+          'Full house is twenty five, small straight (four in a row) is thirty, large straight (five in a row) is forty.',
+          'Five of a kind is a Yahtzee and scores fifty. A second one is a hundred extra in most houses.',
+          'Nothing fits and every box is awkward? You have to zero something. Choosing which is most of the game.',
+        ],
+      },
+    ],
+  },
+
   'chinese-checkers': {
     goal: 'Get all ten of your marbles across to the point of the star opposite you.',
     players: '2 to 6',

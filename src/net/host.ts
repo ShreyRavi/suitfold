@@ -315,6 +315,8 @@ export class Host {
         game: preset.id,
         slots,
         pucks: preset.pucks?.() ?? [],
+        dice: preset.dice?.() ?? [],
+        lines: preset.lines?.() ?? [],
         cards: [
           ...place(preset, deck.slice(cut), slots),
           // Dealt cards need to exist before they can be taken into a hand.
@@ -503,6 +505,33 @@ export class Host {
     this.commit([{ t: 'puck_remove', id }])
   }
 
+  /**
+   * Rolling belongs to the host for the same reason shuffling does: it has to
+   * be unguessable, and a client that invented its own numbers would be the
+   * whole game. Anybody may ask for a roll; only this tab decides what came up.
+   */
+  roll() {
+    const loose = this.state.dice.filter((d) => !d.held)
+    if (!loose.length) return
+    const bytes = new Uint32Array(loose.length)
+    crypto.getRandomValues(bytes)
+    const values: Record<string, number> = {}
+    loose.forEach((d, i) => {
+      values[d.id] = bytes[i]! % d.faces
+    })
+    // Numbered dice read one to six; lettered ones index their own faces.
+    for (const d of loose) if (!d.letters) values[d.id] = (values[d.id] ?? 0) + 1
+    this.commit([{ t: 'dice_roll', values }])
+  }
+
+  startClock(seconds: number) {
+    this.commit([{ t: 'timer', endsAt: this.now() + seconds * 1000, seconds }])
+  }
+
+  stopClock() {
+    this.commit([{ t: 'timer', endsAt: null, seconds: this.state.timer.seconds }])
+  }
+
   adjustChips(seat: SeatId, by: number) {
     this.commit([{ t: 'chips_adjust', seat, by }])
   }
@@ -568,6 +597,9 @@ export function allowed(action: Action, seat: SeatId): boolean {
       'log_clear',
       'puck_add',
       'puck_remove',
+      // Inventing dice values is exactly the thing a client must not do.
+      'dice_roll',
+      'timer',
     ].includes(action.t)
   ) {
     return false

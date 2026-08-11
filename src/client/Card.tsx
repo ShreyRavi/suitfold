@@ -1,4 +1,5 @@
 import { UNO_LABEL, isJoker, isRed, isUno, isUnoWild, rankOf, suitOf, unoColour, unoValue } from '../table/deck.ts'
+import { dominoPips, isDomino, isLetter, letterOf, letterScore } from '../table/tiles.ts'
 import { Suit } from './Suit.tsx'
 
 const SUIT_NAME: Record<string, string> = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' }
@@ -59,6 +60,8 @@ export function Card({
   }
 
   if (isUno(face)) return <UnoFace face={face} base={base} cardKey={key} />
+  if (isLetter(face)) return <LetterFace face={face} base={base} cardKey={key} />
+  if (isDomino(face)) return <DominoFace face={face} base={base} cardKey={key} />
 
   if (isJoker(face)) {
     return (
@@ -124,6 +127,61 @@ function Index({ label, suit, bottom }: { label: string; suit: string; bottom?: 
     <span className={`ix ${bottom ? 'ix--br' : 'ix--tl'}`} aria-hidden="true">
       <b>{label}</b>
       <Suit s={suit} />
+    </span>
+  )
+}
+
+/**
+ * A Scrabble or Bananagrams tile. It is a card as far as the table is
+ * concerned: it comes off a pile, it sits in a hand only you can see, and you
+ * put it down somewhere. Only the face is different.
+ */
+function LetterFace({ face, base, cardKey }: { face: string; base: string[]; cardKey: string }) {
+  const letter = letterOf(face)
+  const score = letterScore(face)
+  const blank = letter === '_'
+  return (
+    <div
+      className={[...base, 'pc--tile'].join(' ')}
+      key={cardKey}
+      aria-label={blank ? 'blank tile' : `tile ${letter}`}
+    >
+      <span className="tile-l">{blank ? '' : letter}</span>
+      {score > 0 && <span className="tile-n">{score}</span>}
+      {blank && <span className="tile-blank" aria-hidden="true" />}
+    </div>
+  )
+}
+
+/** A domino, drawn as two halves with real pips. */
+function DominoFace({ face, base, cardKey }: { face: string; base: string[]; cardKey: string }) {
+  const [a, b] = dominoPips(face)
+  return (
+    <div className={[...base, 'pc--domino'].join(' ')} key={cardKey} aria-label={`domino ${a} and ${b}`}>
+      <Half n={a} />
+      <span className="dom-bar" aria-hidden="true" />
+      <Half n={b} />
+    </div>
+  )
+}
+
+/** Where the pips sit on one half of a bone, which is the same everywhere. */
+const DOM_PIPS: Record<number, [number, number][]> = {
+  0: [],
+  1: [[50, 50]],
+  2: [[26, 26], [74, 74]],
+  3: [[26, 26], [50, 50], [74, 74]],
+  4: [[26, 26], [74, 26], [26, 74], [74, 74]],
+  5: [[26, 26], [74, 26], [50, 50], [26, 74], [74, 74]],
+  6: [[26, 22], [74, 22], [26, 50], [74, 50], [26, 78], [74, 78]],
+}
+
+function Half({ n }: { n: number }) {
+  return (
+    <span className="dom-half" aria-hidden="true">
+      {(DOM_PIPS[n] ?? []).map(([x, y], i) => (
+        <i key={i} style={{ left: `${x}%`, top: `${y}%` }} />
+      ))}
     </span>
   )
 }

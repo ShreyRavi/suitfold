@@ -3,6 +3,8 @@ import type { CardId, SeatId, TableView } from '../table/model.ts'
 import { CARD_GAP, CARD_H, CARD_W, SNAP, TABLE_H, TABLE_W, seatPlaces } from '../table/model.ts'
 import type { Cursor, Drag } from '../net/peers.ts'
 import { Card } from './Card.tsx'
+import { Piece } from './Piece.tsx'
+import { DieFace, dieLabel } from './Dice.tsx'
 import { ChipStack, money } from './Chips.tsx'
 
 interface Pos {
@@ -24,6 +26,8 @@ export interface TableProps {
   onCursor: (c: Cursor) => void
   /** The dealer button and the blinds. They snap to nothing. */
   onPuck: (id: string, x: number, y: number) => void
+  onDie: (id: string, x: number, y: number) => void
+  onHold: (id: string, held: boolean) => void
 }
 
 /**
@@ -34,7 +38,21 @@ export interface TableProps {
  * a card slides rather than teleports. Only the drop is sent to the host, which
  * is what actually changes the table.
  */
-export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag, onStack, onPuck, onCursor }: TableProps) {
+export function Table({
+  view,
+  me,
+  drags,
+  cursors,
+  onMove,
+  onFlip,
+  onTake,
+  onDrag,
+  onStack,
+  onPuck,
+  onDie,
+  onHold,
+  onCursor,
+}: TableProps) {
   const wrap = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
   const [dragging, setDragging] = useState<{
@@ -46,6 +64,7 @@ export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag
     moved?: boolean
     /** A marker rather than cards, which lands wherever it is dropped. */
     puck?: string
+    die?: string
   } | null>(null)
   const [menu, setMenu] = useState<{ ids: CardId[]; at: Pos } | null>(null)
   /** The card under the pointer, drawn large off to one side. */
@@ -101,6 +120,7 @@ export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag
     puck?: string,
     /** Hold still on this and you get the menu for these cards. */
     menuIds?: CardId[],
+    die?: string,
   ) => {
     if (!me) return
     e.preventDefault()
@@ -113,7 +133,14 @@ export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag
       /* not a live pointer */
     }
     const p = toTable(e.clientX, e.clientY)
-    setDragging({ ids, at: from, grab: { x: p.x - from.x, y: p.y - from.y }, viaBadge, ...(puck ? { puck } : {}) })
+    setDragging({
+      ids,
+      at: from,
+      grab: { x: p.x - from.x, y: p.y - from.y },
+      viaBadge,
+      ...(puck ? { puck } : {}),
+      ...(die ? { die } : {}),
+    })
     onDrag({ ids, x: from.x, y: from.y, holding: true, by: me })
 
     if (menuIds) {
@@ -160,20 +187,25 @@ export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag
 
   const endDrag = () => {
     if (!dragging || !me) return
-    const { ids, at, viaBadge, moved, puck } = dragging
+    const { ids, at, viaBadge, moved, puck, die } = dragging
     clearPress()
     setDragging(null)
     onDrag({ ids, x: at.x, y: at.y, holding: false, by: me })
 
     // A marker has no pile to join and no hand to go into. It stays where you
     // put it, which is the whole point of it.
+    if (die) {
+      onDie(die, clamp(at.x, 20, TABLE_W - 20), clamp(at.y, 20, TABLE_H - 20))
+      return
+    }
+
     if (puck) {
       // A board has holes, and a piece dropped near one drops into it. A
       // lettered marker on a table with no holes just stays where you put it.
       let best: Pos | null = null
-      let bestDist = 34
+      let bestDist = 40
       for (const slot of view.slots) {
-        if (!slot.dot) continue
+        if (!slot.dot && !slot.cell) continue
         const d = Math.hypot(slot.x - at.x, slot.y - at.y)
         if (d < bestDist) {
           bestDist = d
@@ -245,8 +277,45 @@ export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag
         <div className="felt-face" aria-hidden="true" />
 
         {/* Markings on the felt: where things go, not what you may do. */}
+        {/* The board underneath: snakes, ladders, anything drawn rather than
+            picked up. */}
+        {view.lines.length > 0 && (
+          <svg className="lines" viewBox={`0 0 ${TABLE_W} ${TABLE_H}`} aria-hidden="true">
+            {view.lines.map((l) => (
+              <path
+                key={l.id}
+                d={
+                  l.wavy
+                    ? snake(l.x1, l.y1, l.x2, l.y2)
+                    : `M${l.x1} ${l.y1} L${l.x2} ${l.y2}`
+                }
+                stroke={l.colour}
+                strokeWidth={l.wavy ? 9 : 11}
+                strokeLinecap="round"
+                fill="none"
+                opacity={l.wavy ? 0.85 : 0.7}
+                strokeDasharray={l.wavy ? undefined : '2 14'}
+              />
+            ))}
+          </svg>
+        )}
+
         {view.slots.map((slot) =>
-          slot.dot ? (
+          slot.cell ? (
+            <div
+              key={slot.id}
+              className="cell"
+              style={{
+                transform: `translate(${slot.x}px, ${slot.y}px) translate(-50%, -50%)`,
+                width: slot.cell,
+                height: slot.cell,
+                ...(slot.shade ? { background: slot.shade } : {}),
+              }}
+              aria-hidden="true"
+            >
+              {slot.note && <span className="cell-note">{slot.note}</span>}
+            </div>
+          ) : slot.dot ? (
             <div
               key={slot.id}
               className="hole"
@@ -290,9 +359,9 @@ export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag
           return (
             <button
               key={puck.id}
-              className={`puck ${puck.colour ? 'puck--piece' : `puck--${puck.id.replace('pk-', '')}`} ${
-                held || remote ? 'is-live' : ''
-              }`}
+              className={`puck ${
+                puck.id.startsWith('cp-') ? 'puck--chess' : puck.colour ? 'puck--piece' : `puck--${puck.id.replace('pk-', '')}`
+              } ${held || remote ? 'is-live' : ''} ${puck.label.startsWith('w') ? 'is-white' : ''}`}
               style={{
                 transform: `translate(${at.x}px, ${at.y}px) translate(-50%, -50%)`,
                 ...(puck.colour ? { background: puck.colour } : {}),
@@ -304,7 +373,11 @@ export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag
                 startDrag(e, [puck.id], { x: puck.x, y: puck.y }, false, puck.id)
               }}
             >
-              {puck.label}
+              {puck.label.length === 2 && /^[wb]/.test(puck.label) ? (
+                <Piece kind={puck.label[1]!} />
+              ) : (
+                puck.label
+              )}
             </button>
           )
         })}
@@ -415,6 +488,32 @@ export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag
           </div>
         )}
 
+        {/* Dice. Anyone can shove one about; only the host decides what it
+            shows, for the same reason only the host shuffles. */}
+        {view.dice.map((die) => {
+          const held = dragging?.die === die.id
+          const remote = drags[die.id]
+          const at = held ? dragging!.at : remote ? { x: remote.x, y: remote.y } : { x: die.x, y: die.y }
+          return (
+            <button
+              key={die.id}
+              className={`die ${die.held ? 'is-kept' : ''} ${held || remote ? 'is-live' : ''} ${
+                die.letters ? 'die--letter' : ''
+              }`}
+              style={{ transform: `translate(${at.x}px, ${at.y}px) translate(-50%, -50%)` }}
+              aria-label={dieLabel(die)}
+              title={die.held ? 'Kept back from the next roll' : 'Tap to keep this one back'}
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                startDrag(e, [die.id], { x: die.x, y: die.y }, false, undefined, undefined, die.id)
+              }}
+              onDoubleClick={() => onHold(die.id, !die.held)}
+            >
+              <DieFace die={die} />
+            </button>
+          )
+        })}
+
         {/* Everyone else's pointer. It is the cheapest possible presence: four
             numbers at twenty a second, drawn and never stored. */}
         {Object.values(cursors).map((c) => {
@@ -487,6 +586,23 @@ export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+
+/** A snake, as three bends between where it starts and where it drops you. */
+function snake(x1: number, y1: number, x2: number, y2: number) {
+  const dx = x2 - x1
+  const dy = y2 - y1
+  const nx = -dy
+  const ny = dx
+  const len = Math.hypot(nx, ny) || 1
+  const wob = 26
+  const ox = (nx / len) * wob
+  const oy = (ny / len) * wob
+  return (
+    `M${x1} ${y1} ` +
+    `C${x1 + dx * 0.25 + ox} ${y1 + dy * 0.25 + oy}, ${x1 + dx * 0.4 - ox} ${y1 + dy * 0.4 - oy}, ${x1 + dx * 0.5} ${y1 + dy * 0.5} ` +
+    `C${x1 + dx * 0.6 + ox} ${y1 + dy * 0.6 + oy}, ${x1 + dx * 0.8 - ox} ${y1 + dy * 0.8 - oy}, ${x2} ${y2}`
+  )
+}
 
 /** The size of the hover preview, kept in step with .peek in the stylesheet. */
 const PEEK_W = 200

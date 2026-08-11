@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Action, SeatId, TableView } from '../table/model.ts'
 import type { Host } from '../net/host.ts'
 import { money } from './Chips.tsx'
+import { presetById } from '../table/deck.ts'
 
 /**
  * The things you reach for constantly live on the table, not behind a menu.
@@ -22,6 +23,7 @@ export function Toolbar({
   act: (a: Action) => void
 }) {
   const [open, setOpen] = useState<'deal' | 'score' | 'marks' | null>(null)
+  const clock = presetById(view.game).clock ?? 0
   const wrap = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -70,6 +72,19 @@ export function Toolbar({
       <button className="tool" onClick={() => host.undo()} disabled={!host.canUndo}>
         <Icon d="M4 9h11a5 5 0 010 10H9M4 9l4-4M4 9l4 4" /> Undo
       </button>
+      {view.dice.length > 0 && (
+        <button className="tool tool--go" onClick={() => host.roll()}>
+          <Icon d="M4 8l8-4 8 4v8l-8 4-8-4zM12 12v8M4 8l8 4 8-4" /> Roll
+        </button>
+      )}
+      {clock > 0 && (
+        <button
+          className="tool"
+          onClick={() => (view.timer.endsAt ? host.stopClock() : host.startClock(clock))}
+        >
+          <Icon d="M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z" /> {view.timer.endsAt ? 'Stop' : 'Start'} clock
+        </button>
+      )}
       <button className="tool" onClick={() => setOpen(open === 'marks' ? null : 'marks')} aria-expanded={open === 'marks'}>
         <Icon d="M12 3a9 9 0 100 18 9 9 0 000-18zM12 8v8M8 12h8" /> Markers
       </button>

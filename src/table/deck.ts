@@ -1,6 +1,19 @@
-import type { CardId, Puck, Slot } from './model.ts'
+import type { CardId, Die, Line, Puck, Slot } from './model.ts'
 import { CARD_GAP, CARD_H, CARD_W, TABLE_H, TABLE_W } from './model.ts'
 import { marbles, starSlots } from './star.ts'
+import { bananaTiles, dominoTiles, scrabbleTiles } from './tiles.ts'
+import {
+  boggleDice,
+  boggleTray,
+  chessBoard,
+  chessPieces,
+  fiveDice,
+  oneDie,
+  scrabbleBoard,
+  snakesBoard,
+  snakesLines,
+  snakesTokens,
+} from './boards.ts'
 
 /**
  * Decks are lists of card ids, and presets are furniture: which cards come out,
@@ -110,6 +123,14 @@ export interface Preset {
   hand?: { each: number; board?: number; boardSlot?: string }
   /** Draggable markers: the dealer button and the blinds. */
   pucks?: () => Puck[]
+  /** Dice on the table when it is set. */
+  dice?: () => Die[]
+  /** Board furniture drawn underneath: snakes, ladders. */
+  lines?: () => Line[]
+  /** A clock this game is played against, in seconds. */
+  clock?: number
+  /** Somewhere private to write. Boggle needs one, Yahtzee needs one. */
+  pad?: string
 }
 
 const CX = TABLE_W / 2
@@ -355,6 +376,145 @@ export const PRESETS: Preset[] = [
     deal: -1,
     layout: 'pile',
     slots: () => [{ id: 'pile', x: CX, y: CY, label: 'Pile' }],
+  },
+  {
+    id: 'judgement',
+    name: 'Judgement',
+    players: '3-7',
+    hint: 'Bid your tricks exactly, or score nothing',
+    group: 'card games',
+    cards: () => standard(1),
+    deal: 7,
+    layout: 'starter',
+    slots: (n: number) => roundTable(n, 'Trick'),
+    hand: { each: 7 },
+  },
+  {
+    id: 'kot-pees',
+    name: 'Kot Pees',
+    players: '4',
+    hint: 'Court Piece: partners, thirteen each, trump called on the first four',
+    group: 'card games',
+    cards: () => standard(1),
+    deal: 13,
+    layout: 'pile',
+    slots: (n: number) => roundTable(n, 'Trick'),
+    hand: { each: 13 },
+  },
+  {
+    id: 'spade-seven',
+    name: 'Spade Seven',
+    players: '3-8',
+    hint: 'Sevens: build each suit up and down from the seven',
+    group: 'card games',
+    cards: () => standard(1),
+    deal: -1,
+    layout: 'pile',
+    slots: () => [
+      { id: 'sp', x: CX - 3 * CARD_GAP, y: CY, label: 'Spades', wide: 2 },
+      { id: 'he', x: CX - CARD_GAP, y: CY, label: 'Hearts', wide: 2 },
+      { id: 'di', x: CX + CARD_GAP, y: CY, label: 'Diamonds', wide: 2 },
+      { id: 'cl', x: CX + 3 * CARD_GAP, y: CY, label: 'Clubs', wide: 2 },
+    ],
+  },
+  {
+    id: 'spade-queen',
+    name: 'Spade Queen',
+    players: '4',
+    hint: 'Hearts: duck the hearts and the black lady',
+    group: 'card games',
+    cards: () => standard(1),
+    deal: 13,
+    layout: 'pile',
+    slots: (n: number) => roundTable(n, 'Trick'),
+    hand: { each: 13 },
+  },
+  {
+    id: 'chess',
+    name: 'Chess',
+    players: '2',
+    hint: 'Thirty two pieces, sixty four squares',
+    group: 'family',
+    cards: () => [],
+    deal: 0,
+    layout: 'pile',
+    slots: chessBoard,
+    pucks: chessPieces,
+  },
+  {
+    id: 'snakes-ladders',
+    name: 'Snakes and Ladders',
+    players: '2-6',
+    hint: 'A hundred squares, one die, no decisions at all',
+    group: 'family',
+    cards: () => [],
+    deal: 0,
+    layout: 'pile',
+    slots: snakesBoard,
+    pucks: snakesTokens,
+    dice: oneDie,
+    lines: snakesLines,
+  },
+  {
+    id: 'scrabble',
+    name: 'Scrabble',
+    players: '2-4',
+    hint: 'A hundred letters, seven on your rack',
+    group: 'family',
+    cards: scrabbleTiles,
+    deal: 7,
+    layout: 'pile',
+    slots: scrabbleBoard,
+    hand: { each: 7 },
+  },
+  {
+    id: 'bananagrams',
+    name: 'Bananagrams',
+    players: '2-8',
+    hint: 'A hundred and forty four letters, no board, no turns',
+    group: 'family',
+    cards: bananaTiles,
+    deal: 21,
+    layout: 'pile',
+    hand: { each: 21 },
+  },
+  {
+    id: 'dominoes',
+    name: 'Dominoes',
+    players: '2-4',
+    hint: 'Double six, seven bones each',
+    group: 'family',
+    cards: dominoTiles,
+    deal: 7,
+    layout: 'pile',
+    slots: drawDiscard,
+    hand: { each: 7 },
+  },
+  {
+    id: 'boggle',
+    name: 'Boggle',
+    players: '2-8',
+    hint: 'Sixteen letter dice, three minutes, your own list',
+    group: 'family',
+    cards: () => [],
+    deal: 0,
+    layout: 'pile',
+    slots: boggleTray,
+    dice: boggleDice,
+    clock: 180,
+    pad: 'Words you found',
+  },
+  {
+    id: 'yahtzee',
+    name: 'Yahtzee',
+    players: '1-8',
+    hint: 'Five dice, three rolls, thirteen boxes',
+    group: 'family',
+    cards: () => [],
+    deal: 0,
+    layout: 'pile',
+    dice: fiveDice,
+    pad: 'Your scorecard',
   },
   {
     id: 'chinese-checkers',

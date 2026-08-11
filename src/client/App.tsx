@@ -12,6 +12,8 @@ import { Toolbar } from './Toolbar.tsx'
 import { BetBar } from './BetBar.tsx'
 import { Log, Mention, Toasts } from './Log.tsx'
 import { Help, SEEN_HELP } from './Help.tsx'
+import { Clock, Pad } from './Pad.tsx'
+import { presetById } from '../table/deck.ts'
 
 export function App() {
   const t = useTable()
@@ -99,6 +101,9 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
   // Shown once per browser, because the table explains none of itself.
   const [help, setHelp] = useState(() => !localStorage.getItem(SEEN_HELP))
   const [showing, setShowing] = useState(false)
+  // Some games are played on your own bit of paper. Boggle is, Yahtzee is.
+  const padFor = presetById(view.game).pad
+  const [pad, setPad] = useState(true)
   // Wide screens get the log beside the table; small ones slide it over.
   const [log, setLog] = useState(() => matchMedia('(min-width: 1080px)').matches)
   const fileRef = useRef<HTMLDivElement>(null)
@@ -144,6 +149,11 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
             </button>
           )}
         </div>
+        {padFor && !pad && (
+          <button className="bar-log" onClick={() => setPad(true)} title={padFor}>
+            Pad
+          </button>
+        )}
         <button className="bar-help" onClick={() => setHelp(true)} title="How this works" aria-label="How this works">
           ?
         </button>
@@ -178,27 +188,34 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
           onDrag={t.broadcastDrag}
           onStack={(ids) => shuffleStack(ids)}
           onPuck={(id, x, y) => t.act({ t: 'puck', id, x, y })}
+          onDie={(id, x, y) => t.act({ t: 'die_move', id, x, y })}
+          onHold={(id, held) => t.act({ t: 'die_hold', id, held })}
           cursors={t.cursors}
           onCursor={t.broadcastCursor}
         />
-        {view.cards.length === 0 && view.pucks.length === 0 && (
-          <div className="empty-table">
-            <div>
-              {t.host ? (
-                <>
-                  <p>An empty table.</p>
-                  <button className="btn primary" onClick={() => setSheet(true)}>
-                    Pick a game
-                  </button>
-                </>
-              ) : (
-                <p>Waiting for {view.seats[0]?.name ?? 'the host'} to pick a game.</p>
-              )}
+        {/* Nothing on the felt at all: no cards, no pieces, no dice, no board. */}
+        {view.cards.length === 0 &&
+          view.pucks.length === 0 &&
+          view.dice.length === 0 &&
+          view.slots.length === 0 && (
+            <div className="empty-table">
+              <div>
+                {t.host ? (
+                  <>
+                    <p>An empty table.</p>
+                    <button className="btn primary" onClick={() => setSheet(true)}>
+                      Pick a game
+                    </button>
+                  </>
+                ) : (
+                  <p>Waiting for {view.seats[0]?.name ?? 'the host'} to pick a game.</p>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         <Toolbar host={t.host} view={view} me={t.me} onGames={() => setSheet(true)} act={t.act} />
+        <Clock endsAt={view.timer.endsAt} seconds={view.timer.seconds} />
         {/* Over the table, so it lands wherever the table is rather than
             drifting off-centre when the log takes the right-hand column. */}
         <Toasts view={view} me={t.me} logOpen={log} />
@@ -275,6 +292,10 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
           })}
         </div>
       </div>
+
+      {padFor && pad && (
+        <Pad code={t.code} game={view.game} title={padFor} onClose={() => setPad(false)} />
+      )}
 
       <Log
         view={view}

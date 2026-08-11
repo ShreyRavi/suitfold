@@ -21,6 +21,9 @@ import {
 } from '../src/table/model.ts'
 import { PRESETS, standard, uno } from '../src/table/deck.ts'
 import { holes, marbles, starSlots } from '../src/table/star.ts'
+import { bananaTiles, dominoPips, dominoTiles, letterOf, scrabbleTiles } from '../src/table/tiles.ts'
+import { chessBoard, chessPieces, scrabbleBoard, snakesBoard, snakesLines } from '../src/table/boards.ts'
+import { hasRules, rulesFor } from '../src/table/rules.ts'
 import { Host, allowed } from '../src/net/host.ts'
 import type { Wire } from '../src/net/peers.ts'
 
@@ -33,6 +36,8 @@ const dealt = () =>
     cards: standard(1).map((id) => ({ id, faceUp: false, x: TABLE_W / 2, y: TABLE_H / 2 })),
     slots: [],
     pucks: [],
+    dice: [],
+    lines: [],
     game: 'deck',
   })
 
@@ -1209,5 +1214,161 @@ describe('nothing sits on top of anything else', () => {
     const seat = TABLE_H / 2 + 275
     expect(bottom + 13).toBeLessThan(seat - 15)
     expect(top - 13).toBeGreaterThan(TABLE_H / 2 - 275 + 15)
+  })
+})
+
+describe('every game in the picker', () => {
+  test('sets a table without falling over', () => {
+    for (const preset of PRESETS) {
+      const h = hosted(['Mom', 'Dad', 'You'])
+      h.setup(preset.id)
+      expect(h.state.game).toBe(preset.id)
+      expect(h.state.deckName).toBe(preset.name)
+      // Something has to be on the felt, or the game is nothing at all.
+      const stuff =
+        Object.keys(h.state.cards).length + h.state.pucks.length + h.state.dice.length + h.state.slots.length
+      expect(stuff).toBeGreaterThan(0)
+    }
+  })
+
+  test('has rules written for it', () => {
+    for (const preset of PRESETS) {
+      if (preset.group === 'just cards') continue
+      expect(hasRules(preset.id)).toBe(true)
+      const r = rulesFor(preset.id)
+      expect(r.goal.length).toBeGreaterThan(10)
+      expect(r.play.length).toBeGreaterThan(1)
+    }
+  })
+
+  test('deals only what it has', () => {
+    for (const preset of PRESETS) {
+      const h = hosted(['Mom', 'Dad', 'You'])
+      h.setup(preset.id)
+      const dealt = h.state.seats.reduce((n, s) => n + h.handOf(s.id).length, 0)
+      expect(dealt).toBeLessThanOrEqual(Object.keys(h.state.cards).length)
+    }
+  })
+})
+
+describe('dice', () => {
+  test('rolling lands inside the faces', () => {
+    const h = hosted()
+    h.setup('yahtzee')
+    expect(h.state.dice.length).toBe(5)
+    for (let i = 0; i < 40; i++) {
+      h.roll()
+      for (const d of h.state.dice) {
+        expect(d.value).toBeGreaterThanOrEqual(1)
+        expect(d.value).toBeLessThanOrEqual(6)
+      }
+    }
+  })
+
+  test('a die kept back does not change', () => {
+    const h = hosted()
+    h.setup('yahtzee')
+    h.roll()
+    const kept = h.state.dice[0]!
+    h.local({ t: 'die_hold', id: kept.id, held: true })
+    const was = h.state.dice[0]!.value
+    for (let i = 0; i < 20; i++) h.roll()
+    expect(h.state.dice[0]!.value).toBe(was)
+  })
+
+  test('lettered dice index their own letters', () => {
+    const h = hosted()
+    h.setup('boggle')
+    expect(h.state.dice.length).toBe(16)
+    for (let i = 0; i < 20; i++) {
+      h.roll()
+      for (const d of h.state.dice) {
+        expect(d.letters).toBeDefined()
+        expect(d.value).toBeGreaterThanOrEqual(0)
+        expect(d.value).toBeLessThan(d.letters!.length)
+      }
+    }
+  })
+
+  test('nobody but the dealer may say what a die shows', () => {
+    expect(allowed({ t: 'dice_roll', values: { d1: 6 } }, 's2')).toBe(false)
+    expect(allowed({ t: 'timer', endsAt: 1, seconds: 60 }, 's2')).toBe(false)
+    // but anyone can shove one across the table or keep it back
+    expect(allowed({ t: 'die_move', id: 'd1', x: 1, y: 1 }, 's2')).toBe(true)
+    expect(allowed({ t: 'die_hold', id: 'd1', held: true }, 's2')).toBe(true)
+  })
+})
+
+describe('tiles and boards', () => {
+  test('the scrabble bag is a hundred tiles', () => {
+    expect(scrabbleTiles().length).toBe(100)
+    expect(new Set(scrabbleTiles()).size).toBe(100)
+    expect(scrabbleTiles().filter((t) => letterOf(t) === '_').length).toBe(2)
+    expect(scrabbleTiles().filter((t) => letterOf(t) === 'E').length).toBe(12)
+  })
+
+  test('bananagrams is a hundred and forty four', () => {
+    expect(bananaTiles().length).toBe(144)
+    expect(new Set(bananaTiles()).size).toBe(144)
+  })
+
+  test('a double six set is twenty eight bones, each one once', () => {
+    const set = dominoTiles()
+    expect(set.length).toBe(28)
+    expect(new Set(set).size).toBe(28)
+    for (const d of set) {
+      const [a, b] = dominoPips(d)
+      expect(a).toBeLessThanOrEqual(b)
+    }
+  })
+
+  test('the chess board is chequered, with a light square bottom right', () => {
+    const board = chessBoard()
+    expect(board.length).toBe(64)
+    const h1 = board.find((s) => s.id === 'sq-h1')!
+    expect(h1.shade).toBeUndefined()
+    expect(chessPieces().length).toBe(32)
+  })
+
+  test('the queen starts on her own colour', () => {
+    const board = chessBoard()
+    const d1 = board.find((s) => s.id === 'sq-d1')!
+    const whiteQueen = chessPieces().find((p) => p.label === 'wQ')!
+    expect(whiteQueen.x).toBe(d1.x)
+    expect(whiteQueen.y).toBe(d1.y)
+    // The white queen starts on d1, which is a light square. That is what
+    // "queen on her own colour" means, and it is the usual way to get the
+    // board the wrong way round.
+    expect(d1.shade).toBeUndefined()
+    const blackQueen = chessPieces().find((p) => p.label === 'bQ')!
+    const d8 = board.find((s) => s.id === 'sq-d8')!
+    expect(blackQueen.x).toBe(d8.x)
+    expect(d8.shade).toBeDefined()
+  })
+
+  test('the snakes go down and the ladders go up', () => {
+    for (const l of snakesLines()) {
+      // One snake on the classic board runs along a single row, so down here
+      // means never upward rather than always downward.
+      if (l.wavy) expect(l.y2).toBeGreaterThanOrEqual(l.y1)
+      else expect(l.y2).toBeLessThan(l.y1)
+    }
+    expect(snakesLines().filter((l) => l.wavy).length).toBe(10)
+    expect(snakesLines().filter((l) => !l.wavy).length).toBe(9)
+  })
+
+  test('square one is bottom left and a hundred is top left', () => {
+    const board = snakesBoard()
+    const one = board.find((s) => s.id === 'sl-1')!
+    const hundred = board.find((s) => s.id === 'sl-100')!
+    expect(one.y).toBeGreaterThan(hundred.y)
+    expect(Math.round(one.x)).toBe(Math.round(hundred.x))
+  })
+
+  test('scrabble has a star in the middle and eight triple words', () => {
+    const board = scrabbleBoard().filter((s) => s.cell)
+    expect(board.length).toBe(225)
+    expect(board.filter((s) => s.note === 'TW').length).toBe(8)
+    expect(board.find((s) => s.id === 'sc-7-7')!.note).toBe('★')
   })
 })
