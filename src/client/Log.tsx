@@ -103,7 +103,7 @@ function Line({ e, view, me }: { e: LogEntry; view: TableView; me: SeatId | null
       <p className={`log-line is-chat ${atMe ? 'is-at-me' : ''}`}>
         <span className="log-head">
           <span className="log-who" style={{ color: seat?.colour }}>
-            {who}
+            {seat?.emoji} {who}
           </span>
           <time className="log-at">{clock(e.at)}</time>
         </span>
@@ -172,7 +172,7 @@ export function Mention({
     <div className="ask" role="dialog" aria-modal="true" aria-label="Somebody said your name">
       <div className="ask-box">
         <span className="hail-who" style={{ color: from?.colour }}>
-          {from?.name ?? 'Someone'} said
+          {from?.emoji} {from?.name ?? 'Someone'} said
         </span>
         <p className="hail-said">{withNames(hail.text)}</p>
         <time className="fine">{clock(hail.at)}</time>
@@ -201,6 +201,9 @@ export function Mention({
  * looking at your own hand, so it also comes past as a toast. Everything else
  * stays in the log.
  */
+/** Long enough to catch up after looking away, and gone by itself after that. */
+const TOAST_MS = 30_000
+
 export function Toasts({ view, me, logOpen }: { view: TableView; me: SeatId | null; logOpen: boolean }) {
   const [shown, setShown] = useState<LogEntry[]>([])
   // Only lines that arrive after this browser is looking. Joining a table part
@@ -222,7 +225,7 @@ export function Toasts({ view, me, logOpen }: { view: TableView; me: SeatId | nu
     // Each toast goes on its own timer, so a burst of bets does not take the
     // last one away early.
     const gone = fresh.map((e) =>
-      setTimeout(() => setShown((prev) => prev.filter((x) => x.n !== e.n)), 3600),
+      setTimeout(() => setShown((prev) => prev.filter((x) => x.n !== e.n)), TOAST_MS),
     )
     return () => gone.forEach(clearTimeout)
   }, [view.log, logOpen])
@@ -235,13 +238,20 @@ export function Toasts({ view, me, logOpen }: { view: TableView; me: SeatId | nu
         const seat = view.seats.find((s) => s.id === e.seat)
         const who = e.seat === me ? 'You' : (seat?.name ?? 'The table')
         return (
-          <div className={`toast is-${e.kind}`} key={e.n}>
-            <span className="toast-dot" style={{ background: seat?.colour ?? 'var(--ink-faint)' }} />
+          <button
+            className={`toast is-${e.kind}`}
+            key={e.n}
+            onClick={() => setShown((prev) => prev.filter((x) => x.n !== e.n))}
+            aria-label="Dismiss"
+          >
+            <span className="toast-dot" style={{ background: seat?.colour ?? 'var(--ink-faint)' }}>
+              {seat?.emoji}
+            </span>
             <span>
               <b>{who}</b> {e.text}
               {e.amount !== undefined && <em> {money(e.amount)}</em>}
             </span>
-          </div>
+          </button>
         )
       })}
     </div>

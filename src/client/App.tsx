@@ -3,7 +3,7 @@ import type { CardId, TableView } from '../table/model.ts'
 import { TABLE_H, TABLE_W } from '../table/model.ts'
 import { GROUPS, PRESETS } from '../table/deck.ts'
 import { cleanCode } from '../net/peers.ts'
-import { rememberedName, useTable } from './useTable.ts'
+import { rememberedFace, rememberedName, suggestFace, suggestName, useTable } from './useTable.ts'
 import { Table } from './Table.tsx'
 import { Home, Invite } from './Home.tsx'
 import { Rules } from './Rules.tsx'
@@ -18,6 +18,11 @@ export function App() {
   // A link with a code on it means somebody invited you; that gets its own
   // page rather than dropping you on the sales pitch.
   const [invited, setInvited] = useState(() => cleanCode(location.hash.replace('#', '')))
+  // Suggested once and kept for the session, so the field does not reshuffle
+  // itself underneath somebody who is halfway through reading it.
+  const [suggested] = useState(() => ({ name: suggestName(), face: suggestFace() }))
+  const name = rememberedName() || suggested.name
+  const face = rememberedFace() || suggested.face
 
   // Pasting a link into an already-open tab only changes the hash, which does
   // not reload anything — so watch for it.
@@ -33,7 +38,8 @@ export function App() {
         {invited.length >= 4 ? (
           <Invite
             code={invited}
-            initialName={rememberedName()}
+            initialName={name}
+            initialFace={face}
             onJoin={t.join}
             onHome={() => {
               history.replaceState(null, '', location.pathname)
@@ -44,7 +50,11 @@ export function App() {
           <Home
             onCreate={t.create}
             onJoin={t.join}
-            initialName={rememberedName()}
+            initialName={name}
+            initialFace={face}
+            unfinished={t.unfinished}
+            onResume={t.resume}
+            onDiscard={t.discard}
             onRules={(id) => setRules(id)}
           />
         )}
@@ -82,6 +92,10 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
   const [sheet, setSheet] = useState(false)
   const [rules, setRules] = useState<string | null>(null)
   const [picked, setPicked] = useState<CardId[]>([])
+  // Turning your own card face up is the one move nobody else can undo for
+  // you, so it asks — until you say not to, for as long as this tab is open.
+  const [askFirst, setAskFirst] = useState(true)
+  const [showing, setShowing] = useState(false)
   // Wide screens get the log beside the table; small ones slide it over.
   const [log, setLog] = useState(() => matchMedia('(min-width: 1080px)').matches)
   const fileRef = useRef<HTMLDivElement>(null)
@@ -158,6 +172,8 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
           onDrag={t.broadcastDrag}
           onStack={(ids) => shuffleStack(ids)}
           onPuck={(id, x, y) => t.act({ t: 'puck', id, x, y })}
+          cursors={t.cursors}
+          onCursor={t.broadcastCursor}
         />
         {view.cards.length === 0 && (
           <div className="empty-table">
@@ -190,16 +206,7 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
             {/* Chips are shown once, on the bet bar just below. */}
           </span>
           <div className="rail-acts">
-            <button
-              className="mini"
-              disabled={!picked.length}
-              onClick={() => {
-                play(picked, true)
-                setPicked([])
-              }}
-            >
-              Play face up
-            </button>
+            {/* Face down first: it is the one you can take back. */}
             <button
               className="mini"
               disabled={!picked.length}
@@ -209,6 +216,20 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
               }}
             >
               Play face down
+            </button>
+            <button
+              className="mini"
+              disabled={!picked.length}
+              onClick={() => {
+                // Showing a card cannot be undone by the person who showed it.
+                if (askFirst) setShowing(true)
+                else {
+                  play(picked, true)
+                  setPicked([])
+                }
+              }}
+            >
+              Play face up
             </button>
             {picked.length > 0 && (
               <button className="mini" onClick={() => setPicked([])}>
@@ -257,6 +278,41 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
         act={t.act}
       />
       <Mention view={view} me={t.me} onOpenLog={() => setLog(true)} />
+
+      {showing && (
+        <div className="ask" role="dialog" aria-modal="true" aria-label="Show these cards">
+          <div className="ask-box">
+            <h2>Show {picked.length === 1 ? 'this card' : `these ${picked.length} cards`}?</h2>
+            <p>Everyone at the table will see the face. You cannot take that back.</p>
+            <label className="ask-again">
+              <input type="checkbox" onChange={(e) => setAskFirst(!e.target.checked)} />
+              <span>Do not ask again while this tab is open</span>
+            </label>
+            <div className="ask-acts">
+              <button
+                className="btn"
+                onClick={() => {
+                  setShowing(false)
+                  setAskFirst(true)
+                }}
+              >
+                Not yet
+              </button>
+              <button
+                className="btn primary"
+                onClick={() => {
+                  play(picked, true)
+                  setPicked([])
+                  setShowing(false)
+                }}
+              >
+                Show {picked.length === 1 ? 'it' : 'them'}
+              </button>
+            </div>
+          </div>
+          <button className="ask-scrim" onClick={() => setShowing(false)} aria-label="Cancel" />
+        </div>
+      )}
 
       {sheet && <Sheet t={t} onClose={() => setSheet(false)} onRules={(id) => setRules(id)} />}
       {rules && <Rules gameId={rules} onClose={() => setRules(null)} />}

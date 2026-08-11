@@ -1,7 +1,22 @@
 import type { Action, CardId, Note, SeatId, TableState } from '../table/model.ts'
-import { CARD_GAP, TABLE_H, TABLE_W, apply, describe, emptyTable, inHand, mentions, onTable, project, record, stacks } from '../table/model.ts'
+import {
+  CARD_GAP,
+  FACES,
+  TABLE_H,
+  TABLE_W,
+  apply,
+  describe,
+  emptyTable,
+  inHand,
+  mentions,
+  onTable,
+  project,
+  record,
+  stacks,
+} from '../table/model.ts'
 import { cryptoShuffle, place, presetById } from '../table/deck.ts'
 import { SEAT_COLOURS, type PeerId, type Wire } from './peers.ts'
+import { keep } from './keep.ts'
 
 /**
  * The host's tab holds the table. Everyone else's tab draws it.
@@ -21,8 +36,10 @@ export class Host {
     private wire: Wire,
     readonly mySeat: SeatId,
     private onChange: () => void,
+    /** For the crash net. Nothing is written without it. */
+    private code = '',
   ) {
-    this.wire.hello.on((hello, from) => this.seat(from, hello.name))
+    this.wire.hello.on((hello, from) => this.seat(from, hello.name, hello.emoji))
     this.wire.action.on((action, from) => this.fromPeer(action, from))
     this.wire.onPeerLeave((id) => this.dropped(id))
   }
@@ -33,14 +50,41 @@ export class Host {
     return SEAT_COLOURS[i % SEAT_COLOURS.length]!
   }
 
-  seatSelf(name: string) {
-    this.commit([{ t: 'seat_add', id: this.mySeat, name: clean(name) || 'Host', colour: this.colour(0) }])
+  seatSelf(name: string, emoji?: string) {
+    this.commit([
+      {
+        t: 'seat_add',
+        id: this.mySeat,
+        name: clean(name) || 'Host',
+        colour: this.colour(0),
+        emoji: emoji || this.freeFace(),
+      },
+    ])
   }
 
-  private seat(peerId: PeerId, name: string) {
+  /**
+   * A face nobody at the table is already wearing, so two people who both
+   * picked the wolf do not become indistinguishable.
+   */
+  private freeFace(wanted?: string, except?: SeatId) {
+    const taken = new Set(this.state.seats.filter((s) => s.id !== except).map((s) => s.emoji))
+    if (wanted && !taken.has(wanted)) return wanted
+    return FACES.find((f) => !taken.has(f)) ?? FACES[this.state.seats.length % FACES.length]!
+  }
+
+  private seat(peerId: PeerId, name: string, emoji?: string) {
     const existing = this.seatOf.get(peerId)
     if (existing) {
-      this.commit([{ t: 'seat_name', id: existing, name: clean(name) }])
+      // The hello repeats until it is acknowledged, so this runs again for a
+      // seat that already exists. It has to make the name and the face unique
+      // exactly as the first one did, or the second hello quietly undoes the
+      // work of the first and two people end up identical.
+      const others = this.state.seats.filter((s) => s.id !== existing)
+      const settled = unique(clean(name), others.map((s) => s.name))
+      const face = this.freeFace(emoji, existing)
+      const seat = this.state.seats.find((s) => s.id === existing)
+      if (seat?.name === settled && (!emoji || seat.emoji === face)) return
+      this.commit([{ t: 'seat_name', id: existing, name: settled, emoji: face }])
       return
     }
     // Someone who dropped and came back takes their own seat again. Two rules
@@ -60,7 +104,15 @@ export class Host {
 
     const actions: Action[] = returning
       ? [{ t: 'seat_here', id, connected: true }]
-      : [{ t: 'seat_add', id, name: unique(clean(name), this.state.seats.map((s) => s.name)), colour: this.colour(this.state.seats.length) }]
+      : [
+          {
+            t: 'seat_add',
+            id,
+            name: unique(clean(name), this.state.seats.map((s) => s.name)),
+            colour: this.colour(this.state.seats.length),
+            emoji: this.freeFace(emoji),
+          },
+        ]
     this.commit(actions)
   }
 
@@ -74,9 +126,16 @@ export class Host {
     this.commit([{ t: 'seat_here', id: seat, connected: false }])
   }
 
+  /** Seating over the wire, without a wire. Tests only. */
+  helloForTest(peerId: PeerId, name: string, emoji?: string) {
+    this.seat(peerId, name, emoji)
+  }
+
   /** Seating somebody without a live connection. Tests only. */
   addSeatForTest(id: SeatId, name: string) {
-    this.commit([{ t: 'seat_add', id, name, colour: this.colour(this.state.seats.length) }])
+    this.commit([
+      { t: 'seat_add', id, name, colour: this.colour(this.state.seats.length), emoji: this.freeFace() },
+    ])
   }
 
   /** Only the host can do this — it dumps that player's hand back on the table. */
@@ -115,6 +174,7 @@ export class Host {
     if (!said) return
     const to = mentions(said, this.state.seats).filter((id) => id !== seat)
     this.state = record(this.state, { kind: 'chat', text: said, seat, to }, seat, this.now())
+    this.save()
     this.broadcast()
     this.onChange()
   }
@@ -173,6 +233,20 @@ export class Host {
       }
     }
 
+    this.save()
+    this.broadcast()
+    this.onChange()
+  }
+
+  /** Write the table to this tab, so a reload is recoverable. */
+  private save() {
+    if (this.code) keep(this.code, this.state)
+  }
+
+  /** Carry on a table this tab was holding before it went away. */
+  restore(state: TableState) {
+    this.state = state
+    this.save()
     this.broadcast()
     this.onChange()
   }
@@ -194,6 +268,7 @@ export class Host {
       this.mySeat,
       this.now(),
     )
+    this.save()
     this.broadcast()
     this.onChange()
   }
@@ -398,8 +473,34 @@ export class Host {
     this.commit([{ t: 'bet', seat, amount }], seat)
   }
 
-  takePot(seat: SeatId) {
-    this.commit([{ t: 'take_pot', seat }], seat)
+  takePot(seat: SeatId, amount?: number) {
+    this.commit([{ t: 'take_pot', seat, ...(amount === undefined ? {} : { amount }) }], seat)
+  }
+
+  /**
+   * A marker with whatever is written on it. Poker gets its blinds laid out for
+   * it, but every game has something worth remembering — whose deal it is, who
+   * is calling — and a disc on the felt is how a real table remembers it.
+   */
+  addPuck(label: string, hint: string) {
+    const short = label.trim().slice(0, 3).toUpperCase()
+    if (!short) return
+    const id = `pk-${short.toLowerCase()}-${this.state.pucks.length + 1}`
+    // Along the bottom edge, beside whatever is already there.
+    this.commit([
+      {
+        t: 'puck_add',
+        id,
+        label: short,
+        hint: hint.trim().slice(0, 40) || short,
+        x: TABLE_W / 2 - 300 + (this.state.pucks.length % 8) * 56,
+        y: TABLE_H / 2 + 150,
+      },
+    ])
+  }
+
+  removePuck(id: string) {
+    this.commit([{ t: 'puck_remove', id }])
   }
 
   adjustChips(seat: SeatId, by: number) {
@@ -456,9 +557,18 @@ function unique(name: string, taken: string[]): string {
 export function allowed(action: Action, seat: SeatId): boolean {
   // Setting the table and correcting somebody's stack belong to the host.
   if (
-    ['seat_add', 'seat_remove', 'seat_name', 'seat_here', 'reset', 'chips_start', 'chips_adjust', 'log_clear'].includes(
-      action.t,
-    )
+    [
+      'seat_add',
+      'seat_remove',
+      'seat_name',
+      'seat_here',
+      'reset',
+      'chips_start',
+      'chips_adjust',
+      'log_clear',
+      'puck_add',
+      'puck_remove',
+    ].includes(action.t)
   ) {
     return false
   }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CardId, SeatId, TableView } from '../table/model.ts'
 import { CARD_GAP, CARD_H, CARD_W, SNAP, TABLE_H, TABLE_W } from '../table/model.ts'
-import type { Drag } from '../net/peers.ts'
+import type { Cursor, Drag } from '../net/peers.ts'
 import { Card } from './Card.tsx'
 import { ChipStack, money } from './Chips.tsx'
 
@@ -19,6 +19,9 @@ export interface TableProps {
   onTake: (ids: CardId[]) => void
   onDrag: (d: Drag) => void
   onStack: (ids: CardId[], at: Pos) => void
+  /** Everyone's pointer, live. */
+  cursors: Record<SeatId, Cursor>
+  onCursor: (c: Cursor) => void
   /** The dealer button and the blinds. They snap to nothing. */
   onPuck: (id: string, x: number, y: number) => void
 }
@@ -31,7 +34,7 @@ export interface TableProps {
  * a card slides rather than teleports. Only the drop is sent to the host, which
  * is what actually changes the table.
  */
-export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack, onPuck }: TableProps) {
+export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag, onStack, onPuck, onCursor }: TableProps) {
   const wrap = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
   const [dragging, setDragging] = useState<{
@@ -128,7 +131,20 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
   }
   useEffect(() => clearPress, [])
 
+  const sent = useRef(0)
+
+  /** Pointer rate is far faster than anyone needs to see. Twenty a second. */
+  const tellCursor = (e: React.PointerEvent) => {
+    if (!me) return
+    const now = performance.now()
+    if (now - sent.current < 50) return
+    sent.current = now
+    const p = toTable(e.clientX, e.clientY)
+    onCursor({ by: me, x: p.x, y: p.y, on: true })
+  }
+
   const onPointerMove = (e: React.PointerEvent) => {
+    tellCursor(e)
     if (!dragging || !me) return
     const p = toTable(e.clientX, e.clientY)
     const at = { x: p.x - dragging.grab.x, y: p.y - dragging.grab.y }
@@ -194,11 +210,21 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
   }
 
   return (
-    <div className="felt" ref={wrap} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerCancel={endDrag}>
+    <div
+      className="felt"
+      ref={wrap}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      onPointerLeave={() => me && onCursor({ by: me, x: 0, y: 0, on: false })}
+    >
       <div
         className="felt-inner"
         style={{ width: TABLE_W, height: TABLE_H, transform: `translate(-50%, -50%) scale(${scale})` }}
-        onPointerDown={() => setMenu(null)}
+        onPointerDown={() => {
+          setMenu(null)
+          setPeek(null)
+        }}
       >
         <div className="felt-face" aria-hidden="true" />
 
@@ -246,7 +272,9 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
             className={`spot ${seat.connected ? '' : 'is-away'} ${seat.id === me ? 'is-me' : ''}`}
             style={{ transform: `translate(${x}px, ${y}px) translate(-50%, -50%)` }}
           >
-            <span className="spot-dot" style={{ background: seat.colour }} />
+            <span className="spot-face" style={{ background: seat.colour }}>
+              {seat.emoji}
+            </span>
             <span className="spot-name">
               {seat.name}
               {seat.id === me && <i>you</i>}
@@ -288,7 +316,11 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
                 onPointerDown={(e) =>
                   !held && startDrag(e, [top.id], { x: top.x, y: top.y }, false, undefined, cards.map((c) => c.id))
                 }
-                onDoubleClick={() => onFlip([top.id])}
+                onDoubleClick={() => {
+                  // Right-click turns a card over, so a double-click is free to
+                  // do the thing you actually want twice a hand: look at it.
+                  if (top.face) setPeek({ face: top.face, at: { x: top.x, y: top.y } })
+                }}
                 onContextMenu={(e) => {
                   // Right-click turns it over. Everything else is behind a
                   // hold, or the count badge on a pile.
@@ -297,11 +329,6 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
                   setDragging(null)
                   onFlip([top.id])
                 }}
-                onPointerEnter={(e) => {
-                  if (e.pointerType !== 'mouse' || !top.face) return
-                  setPeek({ face: top.face, at: { x: top.x, y: top.y } })
-                }}
-                onPointerLeave={() => setPeek(null)}
               >
                 <Card face={top.face} held={held} />
               </div>
@@ -334,13 +361,33 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
           </div>
         )}
 
+        {/* Everyone else's pointer. It is the cheapest possible presence: four
+            numbers at twenty a second, drawn and never stored. */}
+        {Object.values(cursors).map((c) => {
+          if (c.by === me) return null
+          const seat = view.seats.find((s) => s.id === c.by)
+          if (!seat) return null
+          return (
+            <div key={c.by} className="cursor" style={{ transform: `translate(${c.x}px, ${c.y}px)` }}>
+              <svg viewBox="0 0 12 18" width="14" height="21" aria-hidden="true">
+                <path d="M1 1 11 9 6.4 9.7 9 15.6 6.6 16.6 4.1 10.8 1 13.6Z" fill={seat.colour} stroke="#fff" strokeWidth="1.1" />
+              </svg>
+              <span className="cursor-who" style={{ background: seat.colour }}>
+                {seat.emoji} {seat.name}
+              </span>
+            </div>
+          )
+        })}
+
         {/* A card under the pointer, drawn big enough to read without leaning
             in. It goes beside the card rather than over it, and is clamped to
             the table so it is never half off the edge. */}
         {peek && !dragging && (
-          <div
+          <button
             className="peek"
-            aria-hidden="true"
+            aria-label="Close"
+            onClick={() => setPeek(null)}
+            onPointerDown={(e) => e.stopPropagation()}
             style={{
               transform: `translate(${clamp(
                 peek.at.x < TABLE_W / 2 ? peek.at.x + 62 : peek.at.x - PEEK_W - 62,
@@ -350,7 +397,10 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
             }}
           >
             <Card face={peek.face} />
-          </div>
+            <span className="peek-x" aria-hidden="true">
+              ✕
+            </span>
+          </button>
         )}
 
         {menu && (

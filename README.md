@@ -38,7 +38,17 @@ code. Sharing the link works too — `…/suitfold/#ABC23` fills the code in.
 - **Everyone sits somewhere.** Seats go round the table in the order people
   arrived, with whoever brought the deck at the bottom — the same on every
   screen, so "in front of Mum" means one place rather than a different place in
-  every browser.
+  every browser. You can see everyone's pointer moving, too.
+- **Everyone has a face.** Pick an emoji when you sit down. Two people will
+  both type "Dad"; the second becomes "Dad 2", but the face is what actually
+  tells them apart.
+- **Double-click a card** to read it at full size.
+- **Markers** are discs with something written on them — the dealer button, the
+  blinds, whose turn it is, or anything you type. Any game, any label.
+- **If the dealer's tab dies**, it offers the table back when it reopens. The
+  code stays the same, so everyone else reconnects to their own seat with their
+  own cards. It is kept in that one browser and nowhere else, and closing the
+  table on purpose throws it away.
 - **The log** down the right-hand side lists everything that has happened, with
   the time against each line, and is where you talk. Type `@Dad` and Dad gets a
   notice on top of whatever he is looking at; `@all` gets everyone. Whoever is

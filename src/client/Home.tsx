@@ -1,7 +1,33 @@
 import { useState } from 'react'
+import { FACES } from '../table/model.ts'
 import { GROUPS, PRESETS } from '../table/deck.ts'
 import { cleanCode } from '../net/peers.ts'
 import { Card } from './Card.tsx'
+
+/**
+ * Pick a face. Names collide at a family table — two people will type "Dad" —
+ * and while the host makes the second one "Dad 2", a face tells them apart at
+ * a glance in a way a suffix never does.
+ */
+export function FacePicker({ value, onPick }: { value: string; onPick: (e: string) => void }) {
+  return (
+    <div className="faces" role="radiogroup" aria-label="Pick your face">
+      {FACES.map((f) => (
+        <button
+          key={f}
+          type="button"
+          role="radio"
+          aria-checked={f === value}
+          aria-label={`face ${f}`}
+          className={`face ${f === value ? 'on' : ''}`}
+          onClick={() => onPick(f)}
+        >
+          {f}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 /**
  * The front page. It has one job: make it obvious what this is in about three
@@ -11,14 +37,24 @@ export function Home({
   onCreate,
   onJoin,
   initialName,
+  initialFace,
+  unfinished,
+  onResume,
+  onDiscard,
   onRules,
 }: {
-  onCreate: (name: string) => void
-  onJoin: (code: string, name: string) => void
+  onCreate: (name: string, emoji: string) => void
+  onJoin: (code: string, name: string, emoji: string) => void
   initialName: string
+  initialFace: string
+  /** A table this tab was holding when it went away. */
+  unfinished: { code: string; at: number } | null
+  onResume: (name: string, emoji: string) => void
+  onDiscard: () => void
   onRules: (gameId: string) => void
 }) {
   const [name, setName] = useState(initialName)
+  const [face, setFace] = useState(initialFace)
   const [code, setCode] = useState('')
   const ready = name.trim().length > 0
 
@@ -31,6 +67,23 @@ export function Home({
         </div>
         <span className="home-tag">no accounts · no install · nothing saved</span>
       </header>
+
+      {unfinished && (
+        <div className="carry">
+          <span>
+            Your table <b>{unfinished.code}</b> is still here. This tab was holding it when it
+            closed.
+          </span>
+          <div className="carry-acts">
+            <button className="btn primary" disabled={!ready} onClick={() => onResume(name.trim(), face)}>
+              Carry on
+            </button>
+            <button className="btn" onClick={onDiscard}>
+              Throw it away
+            </button>
+          </div>
+        </div>
+      )}
 
       <section className="hero">
         <div className="hero-words">
@@ -45,6 +98,9 @@ export function Home({
           </p>
 
           <div className="hero-go">
+            <span className="hero-face" aria-hidden="true">
+              {face}
+            </span>
             <input
               className="hero-name"
               value={name}
@@ -53,10 +109,12 @@ export function Home({
               maxLength={14}
               aria-label="Your name"
             />
-            <button className="btn primary big" disabled={!ready} onClick={() => onCreate(name.trim())}>
+            <button className="btn primary big" disabled={!ready} onClick={() => onCreate(name.trim(), face)}>
               Start a table
             </button>
           </div>
+
+          <FacePicker value={face} onPick={setFace} />
 
           <div className="hero-join">
             <span>Been given a code?</span>
@@ -67,7 +125,11 @@ export function Home({
               placeholder="ABC23"
               aria-label="Table code"
             />
-            <button className="btn" disabled={!ready || code.length < 4} onClick={() => onJoin(code, name.trim())}>
+            <button
+              className="btn"
+              disabled={!ready || code.length < 4}
+              onClick={() => onJoin(code, name.trim(), face)}
+            >
               Join
             </button>
           </div>
@@ -163,15 +225,18 @@ function Point({ title, body }: { title: string; body: string }) {
 export function Invite({
   code,
   initialName,
+  initialFace,
   onJoin,
   onHome,
 }: {
   code: string
   initialName: string
-  onJoin: (code: string, name: string) => void
+  initialFace: string
+  onJoin: (code: string, name: string, emoji: string) => void
   onHome: () => void
 }) {
   const [name, setName] = useState(initialName)
+  const [face, setFace] = useState(initialFace)
   const ready = name.trim().length > 0
 
   return (
@@ -197,17 +262,24 @@ export function Invite({
 
         <label className="fld">
           <span>What should we call you?</span>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Dad"
-            maxLength={14}
-            autoFocus
-            onKeyDown={(e) => e.key === 'Enter' && ready && onJoin(code, name.trim())}
-          />
+          <div className="named">
+            <span className="named-face" aria-hidden="true">
+              {face}
+            </span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Dad"
+              maxLength={14}
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && ready && onJoin(code, name.trim(), face)}
+            />
+          </div>
         </label>
 
-        <button className="btn primary big" disabled={!ready} onClick={() => onJoin(code, name.trim())}>
+        <FacePicker value={face} onPick={setFace} />
+
+        <button className="btn primary big" disabled={!ready} onClick={() => onJoin(code, name.trim(), face)}>
           Sit down
         </button>
 

@@ -21,7 +21,7 @@ export function Toolbar({
   /** Betting is something every player does, not only whoever holds the deck. */
   act: (a: Action) => void
 }) {
-  const [open, setOpen] = useState<'deal' | 'score' | null>(null)
+  const [open, setOpen] = useState<'deal' | 'score' | 'marks' | null>(null)
   const wrap = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -70,6 +70,9 @@ export function Toolbar({
       <button className="tool" onClick={() => host.undo()} disabled={!host.canUndo}>
         <Icon d="M4 9h11a5 5 0 010 10H9M4 9l4-4M4 9l4 4" /> Undo
       </button>
+      <button className="tool" onClick={() => setOpen(open === 'marks' ? null : 'marks')} aria-expanded={open === 'marks'}>
+        <Icon d="M12 3a9 9 0 100 18 9 9 0 000-18zM12 8v8M8 12h8" /> Markers
+      </button>
       <button className="tool" onClick={() => setOpen(open === 'score' ? null : 'score')} aria-expanded={open === 'score'}>
         <Icon d="M5 20V9M12 20V4M19 20v-7" /> Score
       </button>
@@ -78,6 +81,7 @@ export function Toolbar({
       </button>
 
       {open === 'deal' && <DealPanel host={host} view={view} me={me} onDone={() => setOpen(null)} />}
+      {open === 'marks' && <MarkPanel host={host} view={view} />}
       {open === 'score' && <ScorePanel host={host} view={view} me={me} />}
     </div>
   )
@@ -200,6 +204,83 @@ function DealPanel({
       >
         Deal
       </button>
+    </div>
+  )
+}
+
+/**
+ * Discs on the felt with something written on them. Poker gets its blinds laid
+ * out for it, but every game has something worth remembering — whose deal it
+ * is, who called, who is out — and a marker is how a real table remembers.
+ */
+const READY_MADE = [
+  { label: 'D', hint: 'Dealer button' },
+  { label: 'SB', hint: 'Small blind' },
+  { label: 'BB', hint: 'Big blind' },
+  { label: 'TRN', hint: 'Whose turn it is' },
+  { label: '1st', hint: 'First to go' },
+  { label: 'OUT', hint: 'Out this round' },
+]
+
+function MarkPanel({ host, view }: { host: Host; view: TableView }) {
+  const [own, setOwn] = useState('')
+
+  return (
+    <div className="pop">
+      <div className="pop-row">
+        <span className="pop-lbl">Put one on the table</span>
+        <div className="segs wrap">
+          {READY_MADE.map((m) => (
+            <button key={m.label} className="seg" title={m.hint} onClick={() => host.addPuck(m.label, m.hint)}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="pop-row">
+        <span className="pop-lbl">Or write your own</span>
+        <div className="segs">
+          <input
+            className="mark-in"
+            value={own}
+            onChange={(e) => setOwn(e.target.value.slice(0, 3))}
+            placeholder="ABC"
+            maxLength={3}
+            aria-label="What the marker says"
+          />
+          <button
+            className="seg"
+            disabled={!own.trim()}
+            onClick={() => {
+              host.addPuck(own, own.trim().toUpperCase())
+              setOwn('')
+            }}
+          >
+            Add
+          </button>
+        </div>
+      </div>
+
+      {view.pucks.length > 0 && (
+        <div className="pop-row">
+          <span className="pop-lbl">On the table now</span>
+          <div className="segs wrap">
+            {view.pucks.map((p) => (
+              <button
+                key={p.id}
+                className="seg is-off"
+                title={`Take the ${p.hint.toLowerCase()} away`}
+                onClick={() => host.removePuck(p.id)}
+              >
+                {p.label} ✕
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <p className="pop-say">Anyone can drag a marker. Nothing about it is enforced.</p>
     </div>
   )
 }

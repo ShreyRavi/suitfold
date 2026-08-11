@@ -20,11 +20,21 @@ export const myPeerId = (): PeerId => selfId
 
 export interface Hello {
   name: string
+  emoji?: string
 }
 
 export interface Snapshot {
   view: TableView
   seat: SeatId | null
+}
+
+/** Where somebody's pointer is, in table coordinates. Never stored. */
+export interface Cursor {
+  by: SeatId
+  x: number
+  y: number
+  /** false = they have left the table surface, so stop drawing them. */
+  on: boolean
 }
 
 /** Live, un-stored, sent at pointer rate. */
@@ -45,6 +55,7 @@ export interface Wire {
   action: { send: Send<Action>; on: On<Action> }
   snapshot: { send: Send<Snapshot>; on: On<Snapshot> }
   drag: { send: Send<Drag>; on: On<Drag> }
+  cursor: { send: Send<Cursor>; on: On<Cursor> }
   chat: { send: Send<string>; on: On<string> }
   onPeerJoin(fn: (id: PeerId) => void): void
   onPeerLeave(fn: (id: PeerId) => void): void
@@ -72,6 +83,7 @@ export function connect(roomCode: string): Wire {
     action: channel<Action>('act'),
     snapshot: channel<Snapshot>('snap'),
     drag: channel<Drag>('drag'),
+    cursor: channel<Cursor>('cur'),
     chat: channel<string>('chat'),
     onPeerJoin: (fn) => {
       room.onPeerJoin = fn

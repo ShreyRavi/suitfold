@@ -44,7 +44,19 @@ export interface Seat {
   name: string
   connected: boolean
   colour: string
+  /** How you are known at a glance. Two people called Dad are still two faces. */
+  emoji: string
 }
+
+/**
+ * The faces you can sit behind. Deliberately a short list of things that read
+ * at fourteen pixels — no flags, no professions, nothing that needs squinting.
+ */
+export const FACES = [
+  '🐺', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐷',
+  '🐸', '🐵', '🦉', '🦅', '🐴', '🦄', '🐙', '🦈',
+  '🌵', '🍄', '⚡️', '🔥', '🌙', '⭐️', '🎩', '👑',
+] as const
 
 /**
  * A place on the table with a name on it: "Discard", "Player 1", "Trick".
@@ -159,18 +171,21 @@ export type Action =
   | { t: 'scores_clear' }
   | { t: 'chips_start'; each: number; on: boolean }
   | { t: 'bet'; seat: SeatId; amount: number }
-  | { t: 'take_pot'; seat: SeatId }
+  /** No amount means the lot. An amount is how a split pot gets shared out. */
+  | { t: 'take_pot'; seat: SeatId; amount?: number }
   | { t: 'chips_adjust'; seat: SeatId; by: number }
   | { t: 'move'; ids: CardId[]; x: number; y: number }
   | { t: 'flip'; ids: CardId[]; faceUp?: boolean }
   | { t: 'take'; ids: CardId[]; seat: SeatId }
   | { t: 'play'; ids: CardId[]; x: number; y: number; faceUp: boolean }
   | { t: 'reorder'; ids: CardId[] }
-  | { t: 'seat_add'; id: SeatId; name: string; colour: string }
-  | { t: 'seat_name'; id: SeatId; name: string }
+  | { t: 'seat_add'; id: SeatId; name: string; colour: string; emoji: string }
+  | { t: 'seat_name'; id: SeatId; name: string; emoji?: string }
   | { t: 'seat_here'; id: SeatId; connected: boolean }
   | { t: 'seat_remove'; id: SeatId }
   | { t: 'puck'; id: string; x: number; y: number }
+  | { t: 'puck_add'; id: string; label: string; hint: string; x: number; y: number }
+  | { t: 'puck_remove'; id: string }
   /** Chat. It changes nothing on the table; the host turns it into a log line. */
   | { t: 'say'; seat: SeatId; text: string }
   /** Wipe the history. Whoever is holding the deck only. */
@@ -220,7 +235,9 @@ export function apply(s: TableState, a: Action): TableState {
 
     case 'take_pot': {
       if (s.pot === 0) return s
-      return { ...s, chips: { ...s.chips, [a.seat]: (s.chips[a.seat] ?? 0) + s.pot }, pot: 0 }
+      const take = a.amount === undefined ? s.pot : Math.max(0, Math.min(Math.floor(a.amount), s.pot))
+      if (take === 0) return s
+      return { ...s, chips: { ...s.chips, [a.seat]: (s.chips[a.seat] ?? 0) + take }, pot: s.pot - take }
     }
 
     case 'chips_adjust':
@@ -296,12 +313,17 @@ export function apply(s: TableState, a: Action): TableState {
       return {
         ...s,
         chips,
-        seats: [...s.seats, { id: a.id, name: a.name, colour: a.colour, connected: true }],
+        seats: [...s.seats, { id: a.id, name: a.name, colour: a.colour, emoji: a.emoji, connected: true }],
       }
     }
 
     case 'seat_name':
-      return { ...s, seats: s.seats.map((x) => (x.id === a.id ? { ...x, name: a.name } : x)) }
+      return {
+        ...s,
+        seats: s.seats.map((x) =>
+          x.id === a.id ? { ...x, name: a.name, ...(a.emoji ? { emoji: a.emoji } : {}) } : x,
+        ),
+      }
 
     case 'seat_here':
       return { ...s, seats: s.seats.map((x) => (x.id === a.id ? { ...x, connected: a.connected } : x)) }
@@ -321,6 +343,13 @@ export function apply(s: TableState, a: Action): TableState {
 
     case 'puck':
       return { ...s, pucks: s.pucks.map((p) => (p.id === a.id ? { ...p, x: a.x, y: a.y } : p)) }
+
+    case 'puck_add':
+      if (s.pucks.some((p) => p.id === a.id)) return s
+      return { ...s, pucks: [...s.pucks, { id: a.id, label: a.label, hint: a.hint, x: a.x, y: a.y }] }
+
+    case 'puck_remove':
+      return { ...s, pucks: s.pucks.filter((p) => p.id !== a.id) }
 
     // Saying something does not move anything. It becomes a log line where the
     // log is written, which is the one place that knows who is speaking.
@@ -513,8 +542,13 @@ export function describe(a: Action, before: TableState): Note | null {
   switch (a.t) {
     case 'bet':
       return { kind: 'chip', text: 'bet', amount: Math.min(a.amount, before.chips[a.seat] ?? 0), seat: a.seat }
-    case 'take_pot':
-      return before.pot > 0 ? { kind: 'chip', text: 'took the pot', amount: before.pot, seat: a.seat } : null
+    case 'take_pot': {
+      if (before.pot === 0) return null
+      const take = a.amount === undefined ? before.pot : Math.max(0, Math.min(Math.floor(a.amount), before.pot))
+      if (take === 0) return null
+      const all = take === before.pot
+      return { kind: 'chip', text: all ? 'took the pot' : 'took part of the pot', amount: take, seat: a.seat }
+    }
     case 'chips_adjust':
       return a.by === 0
         ? null
@@ -558,6 +592,13 @@ export function describe(a: Action, before: TableState): Note | null {
     // Described by whoever ran them, which knows what the whole batch was for.
     case 'log_clear':
       return { kind: 'game', text: 'cleared the log' }
+
+    case 'puck_add':
+      return { kind: 'game', text: `put a ${a.label} marker on the table` }
+    case 'puck_remove': {
+      const gone = before.pucks.find((p) => p.id === a.id)
+      return gone ? { kind: 'game', text: `took the ${gone.hint.toLowerCase()} away` } : null
+    }
 
     case 'reset':
     case 'reorder':

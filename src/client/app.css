@@ -219,21 +219,21 @@ input {
   position: absolute; display: flex; flex-direction: column; align-items: center;
   line-height: .92;
 }
-.ix b { font-size: 1.4em; font-weight: 500; letter-spacing: -.02em; }
-.ix .suit { width: .95em; height: .95em; margin-top: .18em; }
-.ix--tl { top: .45em; left: .55em; }
-.ix--br { bottom: .45em; right: .55em; transform: rotate(180deg); }
+.ix b { font-size: 1.65em; font-weight: 500; letter-spacing: -.02em; }
+.ix .suit { width: 1.12em; height: 1.12em; margin-top: .16em; }
+.ix--tl { top: .4em; left: .5em; }
+.ix--br { bottom: .4em; right: .5em; transform: rotate(180deg); }
 
 /* The pip field. Inset so that even the outermost pip stops short of the
    indices, top and bottom — which is what was wrong before. */
-.field { position: absolute; inset: 28% 26%; }
+.field { position: absolute; inset: 30% 26%; }
 .field i {
   position: absolute; transform: translate(-50%, -50%);
-  font-size: 1.4em; line-height: 0;
+  font-size: 1.62em; line-height: 0;
 }
 .field i.flip { transform: translate(-50%, -50%) rotate(180deg); }
 
-.ace { position: absolute; inset: 0; display: grid; place-items: center; font-size: 3.4em; }
+.ace { position: absolute; inset: 0; display: grid; place-items: center; font-size: 3.9em; }
 
 /* Courts stay typographic rather than pretending to be illustrations. */
 .court {
@@ -241,8 +241,8 @@ input {
   border: 1px solid color-mix(in srgb, currentColor 26%, transparent);
   border-radius: .5em; font-size: 1em;
 }
-.court b { font-size: 2.7em; font-weight: 500; line-height: 1; }
-.court em { position: absolute; right: .45em; bottom: .35em; font-size: 1.3em; }
+.court b { font-size: 3.1em; font-weight: 500; line-height: 1; }
+.court em { position: absolute; right: .4em; bottom: .3em; font-size: 1.5em; }
 .pc--joker .court b { font-size: 2em; }
 .pc--joker .court .suit { width: 2.2em; height: 2.2em; }
 
@@ -916,7 +916,7 @@ input {
 
 /* Your own hand lifts and grows when you point at it, for the same reason. */
 .fan-card:hover { z-index: 40; }
-.fan-card:hover .pc { transform: scale(1.28) translateY(-10px); box-shadow: 0 16px 30px rgba(0,0,0,.3); }
+.fan-card:hover .pc { transform: translateY(-8px); box-shadow: 0 14px 26px rgba(0,0,0,.26); }
 
 /* ---- seats in their own places ----------------------------------------- */
 .spot.is-me {
@@ -950,3 +950,91 @@ input {
   letter-spacing: var(--track-label); text-transform: uppercase;
 }
 .hail-said { margin: var(--s-4) 0 var(--s-5); font-size: 19px; overflow-wrap: anywhere; }
+
+/* ---- faces -------------------------------------------------------------- */
+/* Two people at a family table will both type "Dad". A face tells them apart
+   in a way a "2" on the end of a name never does. */
+.faces {
+  display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px;
+  margin-top: var(--s-5); max-width: 30rem;
+}
+.face {
+  aspect-ratio: 1; display: grid; place-items: center; font-size: 18px;
+  border: 1px solid transparent; border-radius: 9px; line-height: 1;
+}
+.face:hover { background: var(--paper-panel); }
+.face.on { border-color: var(--accent); background: var(--accent-wash); }
+.hero-face, .named-face { font-size: 26px; line-height: 1; flex: none; }
+.named { display: flex; align-items: center; gap: var(--s-5); }
+.spot-face {
+  width: 20px; height: 20px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; font-size: 12px; line-height: 1;
+}
+
+/* ---- carrying a table on ------------------------------------------------ */
+.carry {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: var(--s-5); margin: 0 var(--s-8);
+  padding: var(--s-5) var(--s-7); border-radius: var(--r-panel);
+  background: var(--accent-wash); border: 1px solid var(--accent);
+}
+.carry b { font-family: var(--font-mono); letter-spacing: .12em; }
+.carry-acts { display: flex; gap: var(--s-4); }
+.carry .btn { min-height: 40px; }
+
+/* ---- everyone's pointer ------------------------------------------------- */
+/* Four numbers, twenty times a second, drawn and thrown away. */
+.cursor {
+  position: absolute; top: 0; left: 0; z-index: 65; pointer-events: none;
+  display: flex; align-items: flex-start; gap: 2px;
+  transition: transform 90ms linear;
+}
+.cursor-who {
+  margin-top: 10px; padding: 2px 7px; border-radius: 999px;
+  color: #fff; font-size: 11px; white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0,0,0,.28);
+}
+@media (prefers-reduced-motion: reduce) { .cursor { transition: none; } }
+
+/* ---- the zoom ----------------------------------------------------------- */
+/* Opened on purpose with a double-click, and closed the same way. It used to
+   appear on hover, which meant it appeared constantly. */
+.peek { padding: 0; cursor: zoom-out; }
+.peek-x {
+  position: absolute; top: -10px; right: -10px;
+  width: 26px; height: 26px; border-radius: 999px;
+  display: grid; place-items: center; font-size: 12px;
+  background: var(--ink); color: var(--paper);
+  box-shadow: 0 3px 10px rgba(0,0,0,.34);
+}
+
+/* ---- typing an amount --------------------------------------------------- */
+input.betbar-custom-val {
+  width: 6.5rem; min-height: 40px; text-align: center;
+  font-family: var(--font-mono); font-size: var(--text-lg);
+}
+.ask-some {
+  display: flex; align-items: center; gap: var(--s-4);
+  margin: var(--s-5) 0; justify-content: center; flex-wrap: wrap;
+}
+.ask-some > span { font-size: var(--text-md); color: var(--ink-faint); }
+.ask-some input {
+  width: 7rem; min-height: 42px; text-align: center;
+  font-family: var(--font-mono);
+}
+.ask-again {
+  display: flex; align-items: center; justify-content: center; gap: var(--s-4);
+  margin: var(--s-5) 0; font-size: var(--text-md); color: var(--ink-faint);
+}
+.ask-again input { width: auto; min-height: 0; }
+
+/* ---- markers ------------------------------------------------------------ */
+.mark-in {
+  width: 5rem; min-height: 34px; text-align: center;
+  font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .1em;
+}
+.seg.is-off { color: var(--suit-red); border-color: color-mix(in srgb, var(--suit-red) 40%, transparent); }
+
+/* Toasts are dismissible now, and stay long enough to catch up on. */
+.toast { pointer-events: auto; cursor: pointer; border: 0; text-align: left; }
+.toast-dot { display: grid; place-items: center; width: 18px; height: 18px; font-size: 10px; }

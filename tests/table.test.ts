@@ -71,7 +71,7 @@ describe('the table model', () => {
   })
 
   test('taking a card removes it from the table and puts it in a hand', () => {
-    const s = run(dealt(), { t: 'seat_add', id: 'a', name: 'A', colour: '#000' }, { t: 'take', ids: ['AS'], seat: 'a' })
+    const s = run(dealt(), { t: 'seat_add', id: 'a', name: 'A', colour: '#000', emoji: '🐺' }, { t: 'take', ids: ['AS'], seat: 'a' })
     expect(onTable(s).length).toBe(51)
     expect(inHand(s, 'a').map((c) => c.id)).toEqual(['AS'])
   })
@@ -79,7 +79,7 @@ describe('the table model', () => {
   test('playing a card puts it back on the table where you say', () => {
     const s = run(
       dealt(),
-      { t: 'seat_add', id: 'a', name: 'A', colour: '#000' },
+      { t: 'seat_add', id: 'a', name: 'A', colour: '#000', emoji: '🐺' },
       { t: 'take', ids: ['AS'], seat: 'a' },
       { t: 'play', ids: ['AS'], x: 120, y: 90, faceUp: true },
     )
@@ -90,7 +90,7 @@ describe('the table model', () => {
   test('a player leaving puts their cards back on the table, face down', () => {
     const s = run(
       dealt(),
-      { t: 'seat_add', id: 'a', name: 'A', colour: '#000' },
+      { t: 'seat_add', id: 'a', name: 'A', colour: '#000', emoji: '🐺' },
       { t: 'take', ids: ['AS', 'KS'], seat: 'a' },
       { t: 'seat_remove', id: 'a' },
     )
@@ -103,8 +103,8 @@ describe('what each player can see', () => {
   const seated = () =>
     run(
       dealt(),
-      { t: 'seat_add', id: 'a', name: 'A', colour: '#000' },
-      { t: 'seat_add', id: 'b', name: 'B', colour: '#111' },
+      { t: 'seat_add', id: 'a', name: 'A', colour: '#000', emoji: '🐺' },
+      { t: 'seat_add', id: 'b', name: 'B', colour: '#111', emoji: '🐺' },
       { t: 'take', ids: ['AS', 'KS'], seat: 'a' },
       { t: 'take', ids: ['AD'], seat: 'b' },
       { t: 'flip', ids: ['2C'], faceUp: true },
@@ -151,6 +151,7 @@ const silent = (): Wire => ({
   action: { send: () => {}, on: () => {} },
   snapshot: { send: () => {}, on: () => {} },
   drag: { send: () => {}, on: () => {} },
+  cursor: { send: () => {}, on: () => {} },
   chat: { send: () => {}, on: () => {} },
   onPeerJoin: () => {},
   onPeerLeave: () => {},
@@ -161,7 +162,7 @@ const silent = (): Wire => ({
 function hosted(names = ['Mom', 'Dad', 'You']) {
   const h = new Host(silent(), 'host', () => {})
   h.seatSelf(names[0]!)
-  names.slice(1).forEach((n, i) => h.state = apply(h.state, { t: 'seat_add', id: `s${i + 2}`, name: n, colour: '#000' }))
+  names.slice(1).forEach((n, i) => h.state = apply(h.state, { t: 'seat_add', id: `s${i + 2}`, name: n, colour: '#000', emoji: '🐺' }))
   return h
 }
 
@@ -853,9 +854,9 @@ describe('clearing the log', () => {
 
 describe('saying somebody’s name', () => {
   const seats = [
-    { id: 'a', name: 'Dad', connected: true, colour: '#000' },
-    { id: 'b', name: 'Mum', connected: true, colour: '#111' },
-    { id: 'c', name: 'Dad 2', connected: true, colour: '#222' },
+    { id: 'a', name: 'Dad', connected: true, colour: '#000', emoji: '🐺' },
+    { id: 'b', name: 'Mum', connected: true, colour: '#111', emoji: '🐺' },
+    { id: 'c', name: 'Dad 2', connected: true, colour: '#222', emoji: '🐺' },
   ]
 
   test('an @name finds that seat', () => {
@@ -895,5 +896,161 @@ describe('saying somebody’s name', () => {
     const h = hosted()
     h.say('s2', 'just talking')
     expect(h.state.log[h.state.log.length - 1]!.to).toBeUndefined()
+  })
+})
+
+describe('splitting a pot', () => {
+  const potted = () => {
+    const h = hosted()
+    h.buyIn(1000)
+    h.bet('s2', 300)
+    h.bet('s3', 300)
+    return h
+  }
+
+  test('no amount still takes the lot', () => {
+    const h = potted()
+    h.takePot('s2')
+    expect(h.state.pot).toBe(0)
+    // 1000, less the 300 they put in, plus the whole 600 pot.
+    expect(h.state.chips['s2']).toBe(1300)
+  })
+
+  test('an amount leaves the rest in the middle', () => {
+    const h = potted()
+    h.takePot('s2', 250)
+    expect(h.state.pot).toBe(350)
+    expect(h.state.chips['s2']).toBe(950)
+    expect(h.state.log[h.state.log.length - 1]!.text).toBe('took part of the pot')
+  })
+
+  test('you cannot take more than is there', () => {
+    const h = potted()
+    h.takePot('s2', 5000)
+    expect(h.state.pot).toBe(0)
+    expect(h.state.chips['s2']).toBe(1300)
+  })
+
+  test('taking nothing does nothing', () => {
+    const h = potted()
+    const before = h.state.log.length
+    h.takePot('s2', 0)
+    expect(h.state.pot).toBe(600)
+    expect(h.state.log.length).toBe(before)
+  })
+
+  test('two people can share one pot', () => {
+    const h = potted()
+    h.takePot('s2', 300)
+    h.takePot('s3', 300)
+    expect(h.state.pot).toBe(0)
+    expect(h.state.chips['s2']).toBe(1000)
+    expect(h.state.chips['s3']).toBe(1000)
+  })
+})
+
+describe('markers for any game', () => {
+  test('the dealer can put one on a game that has none', () => {
+    const h = hosted()
+    h.setup('indian-rummy')
+    expect(h.state.pucks).toEqual([])
+    h.addPuck('trn', 'Whose turn it is')
+    expect(h.state.pucks.length).toBe(1)
+    expect(h.state.pucks[0]!.label).toBe('TRN')
+    expect(h.state.log[h.state.log.length - 1]!.text).toContain('TRN')
+  })
+
+  test('a blank one is not a marker', () => {
+    const h = hosted()
+    h.addPuck('   ', 'nothing')
+    expect(h.state.pucks).toEqual([])
+  })
+
+  test('markers do not collide, even with the same label', () => {
+    const h = hosted()
+    h.addPuck('D', 'Dealer')
+    h.addPuck('D', 'Dealer')
+    expect(h.state.pucks.length).toBe(2)
+    expect(new Set(h.state.pucks.map((p) => p.id)).size).toBe(2)
+  })
+
+  test('and can be taken away again', () => {
+    const h = hosted()
+    h.addPuck('D', 'Dealer button')
+    h.removePuck(h.state.pucks[0]!.id)
+    expect(h.state.pucks).toEqual([])
+    expect(h.state.log[h.state.log.length - 1]!.text).toBe('took the dealer button away')
+  })
+
+  test('only the dealer may add or remove them', () => {
+    expect(allowed({ t: 'puck_add', id: 'x', label: 'D', hint: 'D', x: 0, y: 0 }, 's2')).toBe(false)
+    expect(allowed({ t: 'puck_remove', id: 'x' }, 's2')).toBe(false)
+    // but anyone can shove one around
+    expect(allowed({ t: 'puck', id: 'x', x: 1, y: 1 }, 's2')).toBe(true)
+  })
+})
+
+describe('faces', () => {
+  test('everybody gets a different one', () => {
+    const h = hosted(['Mom'])
+    for (let i = 0; i < 6; i++) h.addSeatForTest(`p${i}`, `Player ${i}`)
+    const faces = h.state.seats.map((s) => s.emoji)
+    expect(new Set(faces).size).toBe(faces.length)
+  })
+
+  test('you get the one you asked for if nobody has it', () => {
+    const h = new Host(silent(), 'host', () => {})
+    h.seatSelf('Mom', '🦊')
+    expect(h.state.seats[0]!.emoji).toBe('🦊')
+  })
+
+  test('two people called Dad are two seats with two faces', () => {
+    const h = new Host(silent(), 'host', () => {})
+    h.seatSelf('Dad')
+    h.addSeatForTest('s2', 'Dad')
+    expect(h.state.seats.length).toBe(2)
+    expect(h.state.seats[0]!.emoji).not.toBe(h.state.seats[1]!.emoji)
+  })
+})
+
+describe('two people with the same name', () => {
+  /** The hello repeats until acknowledged, so seating runs more than once. */
+  const twice = () => {
+    const h = new Host(silent(), 'host', () => {})
+    h.seatSelf('Dad', '🐺')
+    h.helloForTest('peer-1', 'Dad', '🐺')
+    h.helloForTest('peer-1', 'Dad', '🐺')
+    h.helloForTest('peer-1', 'Dad', '🐺')
+    return h
+  }
+
+  test('the second one is renamed, and stays renamed', () => {
+    const h = twice()
+    expect(h.state.seats.map((s) => s.name)).toEqual(['Dad', 'Dad 2'])
+  })
+
+  test('and gets a different face, and keeps it', () => {
+    const h = twice()
+    expect(h.state.seats[0]!.emoji).toBe('🐺')
+    expect(h.state.seats[1]!.emoji).not.toBe('🐺')
+  })
+
+  test('a repeated hello that changes nothing is not a new log line', () => {
+    const h = twice()
+    const before = h.state.log.length
+    h.helloForTest('peer-1', 'Dad', '🐺')
+    expect(h.state.log.length).toBe(before)
+  })
+
+  test('changing your name for real still works', () => {
+    const h = twice()
+    h.helloForTest('peer-1', 'Mum', '🦊')
+    expect(h.state.seats[1]!.name).toBe('Mum')
+    expect(h.state.seats[1]!.emoji).toBe('🦊')
+  })
+
+  test('one seat each, not one seat shared', () => {
+    const h = twice()
+    expect(h.state.seats.length).toBe(2)
   })
 })
