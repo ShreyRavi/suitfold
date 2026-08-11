@@ -126,8 +126,8 @@ function clampTo(raw: string, most: number) {
 }
 
 /**
- * The pot, or a named part of it. Splitting one is ordinary — two people tie,
- * or somebody was short and can only win what they covered — and the table
+ * The pot, or a named part of it. Splitting one is ordinary - two people tie,
+ * or somebody was short and can only win what they covered - and the table
  * cannot work out which, so it lets you say.
  */
 function TakePot({

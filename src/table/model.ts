@@ -1,7 +1,7 @@
 /**
  * The table.
  *
- * A card is not "in a zone" — it is at a position, like a real card on a real
+ * A card is not "in a zone" - it is at a position, like a real card on a real
  * table. That is the whole model, and it is what makes the table feel alive:
  * you pick a card up, you put it somewhere, and everyone sees it move.
  *
@@ -14,8 +14,8 @@ export type CardId = string
 export type SeatId = string
 
 /** The table is a fixed coordinate space, scaled to whatever screen shows it. */
-export const TABLE_W = 1000
-export const TABLE_H = 640
+export const TABLE_W = 1200
+export const TABLE_H = 720
 /** Drop within this distance of another card and the two snap together. */
 export const SNAP = 26
 /**
@@ -23,8 +23,8 @@ export const SNAP = 26
  * scaled to whatever screen shows it, so this is both the CSS size of a card
  * and the spacing everything else has to respect.
  */
-export const CARD_W = 80
-export const CARD_H = 112
+export const CARD_W = 96
+export const CARD_H = 134
 /** A row of board cards, and a laid-out grid, need a card's width plus air. */
 export const CARD_GAP = CARD_W + 8
 
@@ -50,7 +50,7 @@ export interface Seat {
 
 /**
  * The faces you can sit behind. Deliberately a short list of things that read
- * at fourteen pixels — no flags, no professions, nothing that needs squinting.
+ * at fourteen pixels - no flags, no professions, nothing that needs squinting.
  */
 export const FACES = [
   '🐺', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐷',
@@ -60,7 +60,7 @@ export const FACES = [
 
 /**
  * A place on the table with a name on it: "Discard", "Player 1", "Trick".
- * Slots hold nothing and enforce nothing — they are markings on the felt that
+ * Slots hold nothing and enforce nothing - they are markings on the felt that
  * tell everyone where things go, and cards snap to them when dropped nearby.
  * This is what makes a freeform table read as a particular game.
  */
@@ -71,11 +71,16 @@ export interface Slot {
   label: string
   /** Wider than a card, for a row of community cards. */
   wide?: number
+  /**
+   * A hole rather than a card space: drawn as a small ring, and it takes
+   * pieces instead of cards. This is what turns the felt into a board.
+   */
+  dot?: boolean
 }
 
 /**
  * A marker you shove around: the dealer button, the blinds. It holds no cards
- * and enforces no turn order — it is the little plastic disc that reminds
+ * and enforces no turn order - it is the little plastic disc that reminds
  * everyone whose deal it is, and it moves because somebody drags it.
  */
 export interface Puck {
@@ -86,13 +91,15 @@ export interface Puck {
   label: string
   /** What it means, for the tooltip. */
   hint: string
+  /** Set for a playing piece rather than a lettered marker. */
+  colour?: string
 }
 
 /**
  * One line of the table's history. Everyone gets the same list in the same
  * order, because the host writes it as it applies each change.
  *
- * It never names a card. That is not squeamishness — the log is projected to
+ * It never names a card. That is not squeamishness - the log is projected to
  * every player, so "Dad picked up the ace" would be a hole straight through
  * the secrecy boundary. Counts only.
  */
@@ -120,7 +127,7 @@ export interface TableState {
   /** Whatever anyone is keeping track of: tricks, points, lives. */
   scores: Record<SeatId, number>
   /**
-   * Chips are an amount, not two hundred draggable discs — but they are drawn
+   * Chips are an amount, not two hundred draggable discs - but they are drawn
    * as real stacks. Nothing here is enforced: the table never decides whether
    * a bet is legal, the same way it never decides whether a run is valid.
    */
@@ -184,7 +191,7 @@ export type Action =
   | { t: 'seat_here'; id: SeatId; connected: boolean }
   | { t: 'seat_remove'; id: SeatId }
   | { t: 'puck'; id: string; x: number; y: number }
-  | { t: 'puck_add'; id: string; label: string; hint: string; x: number; y: number }
+  | { t: 'puck_add'; id: string; label: string; hint: string; x: number; y: number; colour?: string }
   | { t: 'puck_remove'; id: string }
   /** Chat. It changes nothing on the table; the host turns it into a log line. */
   | { t: 'say'; seat: SeatId; text: string }
@@ -306,7 +313,7 @@ export function apply(s: TableState, a: Action): TableState {
 
     case 'seat_add': {
       if (s.seats.some((x) => x.id === a.id)) return s
-      // Arriving after the game was set up is normal — people turn up late.
+      // Arriving after the game was set up is normal - people turn up late.
       // Buy them in for the same as everyone else, or they can sit at a poker
       // table with no chips and no way to put anything in the pot.
       const chips = s.chipsOn && s.chips[a.id] === undefined ? { ...s.chips, [a.id]: s.buyIn } : s.chips
@@ -346,7 +353,10 @@ export function apply(s: TableState, a: Action): TableState {
 
     case 'puck_add':
       if (s.pucks.some((p) => p.id === a.id)) return s
-      return { ...s, pucks: [...s.pucks, { id: a.id, label: a.label, hint: a.hint, x: a.x, y: a.y }] }
+      return {
+        ...s,
+        pucks: [...s.pucks, { id: a.id, label: a.label, hint: a.hint, x: a.x, y: a.y, ...(a.colour ? { colour: a.colour } : {}) }],
+      }
 
     case 'puck_remove':
       return { ...s, pucks: s.pucks.filter((p) => p.id !== a.id) }
@@ -417,6 +427,39 @@ export function stacks(s: TableState): Card[][] {
     by.set(key, list)
   }
   return [...by.values()]
+}
+
+/**
+ * Where everyone sits, and where the cards they play go.
+ *
+ * Seat order is the order people sat down and seat zero, whoever brought the
+ * deck, sits at the bottom. That frame is the same on every screen on purpose:
+ * if the table rotated to put each viewer at the bottom then "the card in
+ * front of Mum" would mean a different place in every browser.
+ *
+ * `drop` is the space in front of that seat. It is pulled in from the pill by
+ * enough to leave the middle of the table free for the game itself.
+ */
+export const SEAT_RX = 450
+export const SEAT_RY = 275
+const DROP_IN = 0.68
+
+export function seatPlaces(seats: Seat[]) {
+  const n = Math.max(seats.length, 1)
+  return seats.map((seat, i) => {
+    const a = Math.PI / 2 + (Math.PI * 2 * i) / n
+    const cos = Math.cos(a)
+    const sin = Math.sin(a)
+    return {
+      seat,
+      x: TABLE_W / 2 + SEAT_RX * cos,
+      y: TABLE_H / 2 + SEAT_RY * sin,
+      drop: {
+        x: TABLE_W / 2 + SEAT_RX * DROP_IN * cos,
+        y: TABLE_H / 2 + SEAT_RY * DROP_IN * sin,
+      },
+    }
+  })
 }
 
 /** Where a card dropped here should land: onto a pile, into a slot, or free. */
@@ -525,7 +568,7 @@ export interface Note {
   text: string
   amount?: number
   to?: SeatId[]
-  /** When the action names its own subject — "Mum sat down", not "you seated Mum". */
+  /** When the action names its own subject - "Mum sat down", not "you seated Mum". */
   seat?: SeatId
 }
 
@@ -535,7 +578,7 @@ const many = (n: number, one: string, more: string) => (n === 1 ? one : `${more.
  * One action, in words. Pure and given the table as it was, so it can say
  * "took the pot" with the amount that was actually in it.
  *
- * Returns null for the plumbing — a reorder on its own means nothing, and the
+ * Returns null for the plumbing - a reorder on its own means nothing, and the
  * compound moves (deal, gather, shuffle) are described by whoever ran them.
  */
 export function describe(a: Action, before: TableState): Note | null {
@@ -562,7 +605,7 @@ export function describe(a: Action, before: TableState): Note | null {
       return { kind: 'game', text: 'reset the scores' }
 
     // Moving a card is most of what anybody does. Logging it buries the lines
-    // that matter — who bet, who dealt — under a wall of "moved a card".
+    // that matter - who bet, who dealt - under a wall of "moved a card".
     case 'move':
       return null
     case 'flip':
@@ -626,7 +669,7 @@ export function record(s: TableState, note: Note, by: SeatId | null, at: number)
 
 /**
  * Who was named with an @. Matched against the seats actually at the table, so
- * "@Dad" finds Dad and "@dinner" finds nobody — and names with a space in them
+ * "@Dad" finds Dad and "@dinner" finds nobody - and names with a space in them
  * ("Dad 2") still match, which a plain word-grab would miss.
  *
  * "@all" and "@table" mean everyone, because somebody will type it.

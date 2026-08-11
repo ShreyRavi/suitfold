@@ -33,7 +33,7 @@ export function Toolbar({
     return () => document.removeEventListener('pointerdown', away)
   }, [open])
 
-  // Guests get no toolbar actions — the table belongs to whoever holds the
+  // Guests get no toolbar actions - the table belongs to whoever holds the
   // deck. Their betting lives with their hand, at the bottom.
   if (!host) {
     return (
@@ -210,8 +210,8 @@ function DealPanel({
 
 /**
  * Discs on the felt with something written on them. Poker gets its blinds laid
- * out for it, but every game has something worth remembering — whose deal it
- * is, who called, who is out — and a marker is how a real table remembers.
+ * out for it, but every game has something worth remembering - whose deal it
+ * is, who called, who is out - and a marker is how a real table remembers.
  */
 const READY_MADE = [
   { label: 'D', hint: 'Dealer button' },
@@ -287,9 +287,9 @@ function MarkPanel({ host, view }: { host: Host; view: TableView }) {
 
 /**
  * Betting moves an amount from your stack to the pot. The table never decides
- * whether the bet is legal — only that you have the chips.
+ * whether the bet is legal - only that you have the chips.
  */
-/** Tricks, points, lives — whatever this table is counting. */
+/** Tricks, points, lives - whatever this table is counting. */
 function ScorePanel({ host, view, me }: { host: Host; view: TableView; me: SeatId | null }) {
   return (
     <div className="pop">

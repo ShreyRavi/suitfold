@@ -10,7 +10,7 @@ import { emptyTable } from '../table/model.ts'
  * change and offered back when it starts up again.
  *
  * This is not a save file and not a ledger. One table, on one machine, that
- * the person who made it can carry on or throw away — nothing leaves the tab,
+ * the person who made it can carry on or throw away - nothing leaves the tab,
  * and guests keep nothing at all.
  */
 const KEY = 'suitfold.table'
@@ -57,7 +57,7 @@ export function forget(): null {
 
 /**
  * What comes back is a table, not a room. Everybody who was connected is not
- * connected any more — they have to come back through the link — so the seats
+ * connected any more - they have to come back through the link - so the seats
  * are marked away and the deck is handed to whoever is restoring it.
  */
 export function reopen(k: Kept, mySeat: string): TableState {

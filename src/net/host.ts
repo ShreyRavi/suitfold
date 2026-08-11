@@ -138,7 +138,7 @@ export class Host {
     ])
   }
 
-  /** Only the host can do this — it dumps that player's hand back on the table. */
+  /** Only the host can do this - it dumps that player's hand back on the table. */
   removeSeat(seat: SeatId) {
     const peer = this.peerOf.get(seat)
     if (peer) this.seatOf.delete(peer)
@@ -191,7 +191,7 @@ export class Host {
 
   /**
    * You may move a card that is on the table or in your own hand. You may not
-   * reach into somebody else's hand — which, since the projection never sent
+   * reach into somebody else's hand - which, since the projection never sent
    * you those ids, mostly means this catches a client that made them up.
    */
   private ownsCards(action: Action, seat: SeatId): boolean {
@@ -206,7 +206,7 @@ export class Host {
    * The one place the table changes.
    *
    * `by` is who did it, which the log needs and nothing else does. `note` is
-   * for the compound moves — a deal is a dozen actions and one sentence, so
+   * for the compound moves - a deal is a dozen actions and one sentence, so
    * dealing says "dealt 2 each" rather than filling the log with "picked up".
    */
   private commit(actions: Action[], by: SeatId | null = this.mySeat, note?: Note) {
@@ -401,7 +401,7 @@ export class Host {
   }
 
   /**
-   * Everything on the table and in every hand, back into one face-down pile —
+   * Everything on the table and in every hand, back into one face-down pile -
    * on the deck's own spot when the game marked one, which is where you would
    * put a gathered deck on a real table.
    */
@@ -419,7 +419,7 @@ export class Host {
     )
   }
 
-  /** Every face-down pile, biggest first — the things you can deal from. */
+  /** Every face-down pile, biggest first - the things you can deal from. */
   sources(): { x: number; y: number; count: number }[] {
     return stacks(this.state)
       .filter((p) => p.length > 0 && p.every((c) => !c.faceUp))
@@ -479,8 +479,8 @@ export class Host {
 
   /**
    * A marker with whatever is written on it. Poker gets its blinds laid out for
-   * it, but every game has something worth remembering — whose deal it is, who
-   * is calling — and a disc on the felt is how a real table remembers it.
+   * it, but every game has something worth remembering - whose deal it is, who
+   * is calling - and a disc on the felt is how a real table remembers it.
    */
   addPuck(label: string, hint: string) {
     const short = label.trim().slice(0, 3).toUpperCase()
@@ -493,8 +493,8 @@ export class Host {
         id,
         label: short,
         hint: hint.trim().slice(0, 40) || short,
-        x: TABLE_W / 2 - 300 + (this.state.pucks.length % 8) * 56,
-        y: TABLE_H / 2 + 150,
+        x: TABLE_W / 2 - 470 + (this.state.pucks.length % 8) * 56,
+        y: TABLE_H / 2 + 60,
       },
     ])
   }

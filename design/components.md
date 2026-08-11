@@ -23,7 +23,7 @@ Tokens: `--accent --ink-soft --font-mono --text-sm --r-card`.
 Anatomy: `.seat-head` (`.seat-name` + `.seat-metric`) over `.chip-stack`.
 Sandbox metric = card count. Poker metric = stack. Chip stack hidden when chips are off.
 States: default, `.seat--to-act` (accent ring), `.seat--folded` (dimmed **and** the word
-folded), plus all-in / disconnected / busted / stood-up on the same pattern — each carries
+folded), plus all-in / disconnected / busted / stood-up on the same pattern - each carries
 a word, never colour alone.
 Tokens: `--paper-panel --line --r-panel --text-lg --text-sm --ink-faint`.
 
@@ -37,7 +37,7 @@ Long hands widen the overlap; the card never shrinks below `--card-w-sm`.
 
 ## .rail
 Your side of the table: `.rail-label`, `.rail-value` (chips), `.rail-note` (what is
-selected, in words). Fixed to the bottom — the re-entry anchor.
+selected, in words). Fixed to the bottom - the re-entry anchor.
 
 ## .btn / .btn--primary
 Minimum 52px tall (over the 44pt floor), primary is accent-filled and always names the act.
@@ -47,5 +47,5 @@ Wordmark left, night context right, host menu at a 44×44 target.
 
 ## Not yet drawn (specified, pending)
 `.pot`, `.pot--side` (one row per pot with an explicit eligible-seat list),
-`.raise` (preset chips: min / ½ pot / pot / all-in, plus a keypad — no slider),
+`.raise` (preset chips: min / ½ pot / pot / all-in, plus a keypad - no slider),
 `.log-entry`, `.host-action`, `.turn-indicator`, `.zone-menu`.

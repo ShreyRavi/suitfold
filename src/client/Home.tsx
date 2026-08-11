@@ -5,7 +5,7 @@ import { cleanCode } from '../net/peers.ts'
 import { Card } from './Card.tsx'
 
 /**
- * Pick a face. Names collide at a family table — two people will type "Dad" —
+ * Pick a face. Names collide at a family table - two people will type "Dad" -
  * and while the host makes the second one "Dad 2", a face tells them apart at
  * a glance in a way a suffix never does.
  */
@@ -156,7 +156,7 @@ export function Home({
         />
         <Point
           title="No rules in the way"
-          body="The table deals and moves cards. It never tells you what you may do — so you can play house rules, or a game it has never heard of."
+          body="The table deals and moves cards. It never tells you what you may do - so you can play house rules, or a game it has never heard of."
         />
       </section>
 
@@ -196,14 +196,14 @@ export function Home({
         </ol>
         <p className="how-note">
           There is no server. The browsers talk to each other directly, so nothing you do here is
-          stored anywhere — close the tab and the game is over. Whoever starts the table is holding
+          stored anywhere - close the tab and the game is over. Whoever starts the table is holding
           the deck, so keep that tab open.
         </p>
       </section>
 
       <footer className="home-foot">
         <span>suitfold</span>
-        <span>free, and always will be — there is nothing to charge for</span>
+        <span>free, and always will be - there is nothing to charge for</span>
       </footer>
     </div>
   )

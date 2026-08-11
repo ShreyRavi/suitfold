@@ -1,4 +1,4 @@
-/* suitfold — reset, element defaults, and the component layer.
+/* suitfold - reset, element defaults, and the component layer.
    Screens link only tokens.css + base.css, so shared components live here.
    Nothing below hardcodes a value: everything reads a token. */
 

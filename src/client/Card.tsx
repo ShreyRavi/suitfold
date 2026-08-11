@@ -30,7 +30,7 @@ const PIPS: Record<string, [number, number][]> = {
 }
 
 /**
- * One card. `face` is null when the viewer is not entitled to see it — decided
+ * One card. `face` is null when the viewer is not entitled to see it - decided
  * where the deck lives, so a hidden card genuinely has no face in this browser.
  */
 export function Card({

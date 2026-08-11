@@ -1,10 +1,11 @@
 import type { CardId, Puck, Slot } from './model.ts'
 import { CARD_GAP, CARD_H, CARD_W, TABLE_H, TABLE_W } from './model.ts'
+import { marbles, starSlots } from './star.ts'
 
 /**
  * Decks are lists of card ids, and presets are furniture: which cards come out,
  * how many each person gets, and where they start. No rules are enforced
- * anywhere — the game lives in the heads of the people at the table.
+ * anywhere - the game lives in the heads of the people at the table.
  */
 
 export const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K'] as const
@@ -30,7 +31,7 @@ export function standard(decks = 1, jokers = 0): CardId[] {
   return out
 }
 
-/** Nine through ace only — the short deck euchre uses. */
+/** Nine through ace only - the short deck euchre uses. */
 export const euchre = (): CardId[] => {
   const out: CardId[] = []
   for (const s of SUITS) for (const r of ['9', 'T', 'J', 'Q', 'K', 'A']) out.push(`${r}${s}`)
@@ -95,7 +96,7 @@ export interface Preset {
   deal: number
   layout: Layout
   /**
-   * Markings on the felt. They hold nothing and enforce nothing — they say
+   * Markings on the felt. They hold nothing and enforce nothing - they say
    * where things go, which is what makes a freeform table read as a game.
    */
   slots?: (seats: number) => Slot[]
@@ -115,14 +116,14 @@ const CX = TABLE_W / 2
 const CY = TABLE_H / 2
 
 /**
- * The dealer button and the two blinds. Nothing about them is enforced — they
+ * The dealer button and the two blinds. Nothing about them is enforced - they
  * sit on the felt and somebody drags them one seat to the left between hands,
  * which is exactly what the plastic discs on a real table are for.
  */
 const blinds = (): Puck[] => [
-  { id: 'pk-d', x: CX - 300, y: CY + 150, label: 'D', hint: 'Dealer button' },
-  { id: 'pk-sb', x: CX - 244, y: CY + 150, label: 'SB', hint: 'Small blind' },
-  { id: 'pk-bb', x: CX - 188, y: CY + 150, label: 'BB', hint: 'Big blind' },
+  { id: 'pk-d', x: CX - 470, y: CY + 60, label: 'D', hint: 'Dealer button' },
+  { id: 'pk-sb', x: CX - 414, y: CY + 60, label: 'SB', hint: 'Small blind' },
+  { id: 'pk-bb', x: CX - 358, y: CY + 60, label: 'BB', hint: 'Big blind' },
 ]
 
 /** Draw pile on the left of centre, discard on the right. */
@@ -134,8 +135,8 @@ const drawDiscard = (): Slot[] => [
 /** One slot per player, spread around the middle, plus a shared one. */
 const roundTable = (n: number, middle: string): Slot[] => {
   const out: Slot[] = [{ id: 'middle', x: CX, y: CY, label: middle }]
-  const rx = 250
-  const ry = 168
+  const rx = 300
+  const ry = 200
   for (let i = 0; i < Math.max(n, 2); i++) {
     const angle = (Math.PI * 2 * i) / Math.max(n, 2) - Math.PI / 2
     out.push({
@@ -153,16 +154,18 @@ export const PRESETS: Preset[] = [
   {
     id: 'holdem',
     name: 'Poker',
-    players: '2–10',
+    players: '2-10',
     hint: "Two each, Texas Hold'em",
     group: 'card games',
     cards: () => standard(1),
     deal: 2,
     layout: 'pile',
+    // The middle of the table is the board, and the spaces in front of each
+    // player are theirs, so the deck and the pot go out to the side.
     slots: () => [
-      { id: 'deck', x: CX - 300, y: CY, label: 'Deck' },
-      { id: 'board', x: CX, y: CY - 40, label: 'Board', wide: 5 },
-      { id: 'pot', x: CX, y: CY + 90, label: 'Pot' },
+      { id: 'deck', x: CX - 430, y: CY - 110, label: 'Deck' },
+      { id: 'board', x: CX, y: CY, label: 'Board', wide: 5 },
+      { id: 'pot', x: CX + 430, y: CY - 110, label: 'Pot' },
     ],
     chips: 2000,
     hand: { each: 2, board: 5, boardSlot: 'board' },
@@ -171,7 +174,7 @@ export const PRESETS: Preset[] = [
   {
     id: 'indian-rummy',
     name: 'Indian Rummy',
-    players: '2–6',
+    players: '2-6',
     hint: 'Two decks + jokers, 13 each, open pile',
     group: 'card games',
     cards: () => standard(2, 2),
@@ -195,7 +198,7 @@ export const PRESETS: Preset[] = [
   {
     id: 'blackjack',
     name: 'Blackjack',
-    players: '2–7',
+    players: '2-7',
     hint: 'Two each, dealer draws from the shoe',
     group: 'card games',
     cards: () => standard(2),
@@ -260,7 +263,7 @@ export const PRESETS: Preset[] = [
   {
     id: 'big-two',
     name: 'Big Two / President',
-    players: '3–4',
+    players: '3-4',
     hint: 'Whole deck dealt out',
     group: 'card games',
     cards: () => standard(1),
@@ -273,7 +276,7 @@ export const PRESETS: Preset[] = [
   {
     id: 'uno',
     name: 'Uno',
-    players: '2–10',
+    players: '2-10',
     hint: '108 cards, 7 each, one turned up',
     group: 'family',
     cards: uno,
@@ -285,7 +288,7 @@ export const PRESETS: Preset[] = [
   {
     id: 'crazy-eights',
     name: 'Crazy Eights',
-    players: '2–7',
+    players: '2-7',
     hint: 'Uno with a normal deck, 7 each',
     group: 'family',
     cards: () => standard(1),
@@ -297,7 +300,7 @@ export const PRESETS: Preset[] = [
   {
     id: 'bluff',
     name: 'Bluff / Cheat',
-    players: '3–8',
+    players: '3-8',
     hint: 'Whole deck dealt out',
     group: 'family',
     cards: () => standard(1),
@@ -308,7 +311,7 @@ export const PRESETS: Preset[] = [
   {
     id: 'go-fish',
     name: 'Go Fish',
-    players: '2–6',
+    players: '2-6',
     hint: '7 each, rest in the pond',
     group: 'family',
     cards: () => standard(1),
@@ -320,7 +323,7 @@ export const PRESETS: Preset[] = [
   {
     id: 'old-maid',
     name: 'Old Maid',
-    players: '2–8',
+    players: '2-8',
     hint: 'One queen removed, all dealt out',
     group: 'family',
     cards: oldMaid,
@@ -345,13 +348,27 @@ export const PRESETS: Preset[] = [
   {
     id: 'snap',
     name: 'Snap',
-    players: '2–6',
+    players: '2-6',
     hint: 'Whole deck dealt out',
     group: 'family',
     cards: () => standard(1),
     deal: -1,
     layout: 'pile',
     slots: () => [{ id: 'pile', x: CX, y: CY, label: 'Pile' }],
+  },
+  {
+    id: 'chinese-checkers',
+    name: 'Chinese Checkers',
+    players: '2-6',
+    hint: 'A star, sixty marbles, no cards at all',
+    group: 'family',
+    // No deck. The board is a hundred and twenty one places on the felt and
+    // the marbles are markers, both of which the table already understands.
+    cards: () => [],
+    deal: 0,
+    layout: 'pile',
+    slots: starSlots,
+    pucks: marbles,
   },
   {
     id: 'memory',
@@ -460,7 +477,7 @@ export function place(preset: Preset, undealt: CardId[], slots: Slot[] = []): Pl
   return undealt.map((id) => ({ id, faceUp: false, x: mid.x, y: mid.y }))
 }
 
-/** Unbiased shuffle — rejection sampling, never `% n`. */
+/** Unbiased shuffle - rejection sampling, never `% n`. */
 export function shuffle<T>(input: readonly T[], rng: () => number = Math.random): T[] {
   const a = input.slice()
   for (let i = a.length - 1; i > 0; i--) {

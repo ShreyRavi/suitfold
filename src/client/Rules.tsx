@@ -2,7 +2,7 @@ import { presetById } from '../table/deck.ts'
 import { rulesFor } from '../table/rules.ts'
 
 /**
- * How to play, in plain words. suitfold enforces none of it — which is exactly
+ * How to play, in plain words. suitfold enforces none of it - which is exactly
  * why it is written down. If the app will not settle an argument, the least it
  * can do is remind everyone what the argument is about.
  */

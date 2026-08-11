@@ -12,10 +12,15 @@ import {
   stacks,
   type Action,
   LOG_MAX,
+  CARD_W,
+  CARD_H,
+  CARD_GAP,
   mentions,
+  seatPlaces,
   type TableState,
 } from '../src/table/model.ts'
 import { PRESETS, standard, uno } from '../src/table/deck.ts'
+import { holes, marbles, starSlots } from '../src/table/star.ts'
 import { Host, allowed } from '../src/net/host.ts'
 import type { Wire } from '../src/net/peers.ts'
 
@@ -25,7 +30,7 @@ const dealt = () =>
   run(emptyTable(), {
     t: 'reset',
     deckName: 'test',
-    cards: standard(1).map((id) => ({ id, faceUp: false, x: 500, y: 320 })),
+    cards: standard(1).map((id) => ({ id, faceUp: false, x: TABLE_W / 2, y: TABLE_H / 2 })),
     slots: [],
     pucks: [],
     game: 'deck',
@@ -36,7 +41,7 @@ describe('the table model', () => {
     const s = dealt()
     expect(onTable(s).length).toBe(52)
     expect(stacks(s).length).toBe(1)
-    expect(onTable(s).every((c) => c.x === 500 && c.y === 320)).toBe(true)
+    expect(onTable(s).every((c) => c.x === TABLE_W / 2 && c.y === TABLE_H / 2)).toBe(true)
   })
 
   test('moving a card off the pile makes two piles', () => {
@@ -271,7 +276,7 @@ describe('the host', () => {
     const after = h.tableCards()
     expect(after.length).toBe(before.length)
     expect(new Set(after.map((c) => c.id))).toEqual(new Set(before.map((c) => c.id)))
-    expect(after.every((c) => c.x === 500 && c.y === 320)).toBe(true)
+    expect(after.every((c) => c.x === before[0]!.x && c.y === before[0]!.y)).toBe(true)
   })
 
   test('nobody can move a card out of somebody else’s hand', () => {
@@ -333,7 +338,7 @@ describe('dealing and undo', () => {
     // Leave only 4 cards face down to deal from.
     const pile = h.tableCards()
     h['commit']([{ t: 'play', ids: pile.slice(4).map((c) => c.id), x: 100, y: 100, faceUp: true }])
-    h.deal({ count: 5, seats: h.state.seats.map((s) => s.id), from: { x: 500, y: 320 } })
+    h.deal({ count: 5, seats: h.state.seats.map((s) => s.id), from: { x: TABLE_W / 2, y: TABLE_H / 2 } })
     const sizes = h.state.seats.map((s) => h.handOf(s.id).length).sort()
     expect(sizes).toEqual([1, 1, 2]) // nobody gets five while somebody gets none
   })
@@ -352,7 +357,7 @@ describe('dealing and undo', () => {
     const before = h.sources()
     expect(before.length).toBe(1)
     expect(before[0]!.count).toBe(52)
-    h.turnUp({ x: 500, y: 320 })
+    h.turnUp({ x: TABLE_W / 2, y: TABLE_H / 2 })
     const after = h.sources()
     expect(after[0]!.count).toBe(51) // the turned card is face up, so not a source
   })
@@ -526,7 +531,8 @@ describe('dealing a whole hand in one press', () => {
     for (const s of h.state.seats) expect(h.handOf(s.id).length).toBe(2)
 
     // Five separate spots in the middle, so each can be turned on its own.
-    const board = h.tableCards().filter((c) => Math.abs(c.y - 280) < 40 && !c.faceUp)
+    const boardSlot = h.state.slots.find((sl) => sl.id === 'board')!
+    const board = h.tableCards().filter((c) => Math.abs(c.y - boardSlot.y) < 40 && !c.faceUp)
     const spots = new Set(board.map((c) => `${c.x},${c.y}`))
     expect(spots.size).toBeGreaterThanOrEqual(5)
     expect(h.tableCards().every((c) => !c.faceUp)).toBe(true)
@@ -597,7 +603,7 @@ describe('gathering and moving whole piles', () => {
     h.gather()
     const piles = stacks(h.state)
     expect(piles.length).toBe(1)
-    expect(piles[0]![0]!.x).toBe(500)
+    expect(piles[0]![0]!.x).toBe(TABLE_W / 2)
   })
 
   test('moving a whole pile keeps it together and in order', () => {
@@ -734,7 +740,7 @@ describe('the dealer button and the blinds', () => {
     expect(h.state.pucks).toEqual([])
   })
 
-  test('anyone may move one — it is a reminder, not a rule', () => {
+  test('anyone may move one - it is a reminder, not a rule', () => {
     expect(allowed({ t: 'puck', id: 'pk-d', x: 10, y: 10 }, 's2')).toBe(true)
   })
 
@@ -1052,5 +1058,156 @@ describe('two people with the same name', () => {
   test('one seat each, not one seat shared', () => {
     const h = twice()
     expect(h.state.seats.length).toBe(2)
+  })
+})
+
+describe('where people sit', () => {
+  const seatsOf = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: `s${i}`,
+      name: `P${i}`,
+      connected: true,
+      colour: '#000',
+      emoji: '🐺',
+    }))
+
+  test('whoever brought the deck sits at the bottom', () => {
+    for (const n of [1, 2, 3, 4, 6]) {
+      const first = seatPlaces(seatsOf(n))[0]!
+      expect(Math.round(first.x)).toBe(TABLE_W / 2)
+      expect(first.y).toBeGreaterThan(TABLE_H / 2)
+    }
+  })
+
+  test('everybody gets their own place', () => {
+    for (const n of [2, 3, 4, 5, 6, 8]) {
+      const spots = seatPlaces(seatsOf(n)).map((p) => `${Math.round(p.x)},${Math.round(p.y)}`)
+      expect(new Set(spots).size).toBe(n)
+    }
+  })
+
+  test('the same seat is in the same place for everyone', () => {
+    // No viewer is passed in, so there is nothing to rotate by. That is the
+    // point: one frame of reference, the dealer's.
+    const a = seatPlaces(seatsOf(4))
+    const b = seatPlaces(seatsOf(4))
+    expect(a.map((p) => p.drop)).toEqual(b.map((p) => p.drop))
+  })
+
+  test('the space in front of you is between you and the middle', () => {
+    for (const p of seatPlaces(seatsOf(6))) {
+      const toSeat = Math.hypot(p.x - TABLE_W / 2, p.y - TABLE_H / 2)
+      const toDrop = Math.hypot(p.drop.x - TABLE_W / 2, p.drop.y - TABLE_H / 2)
+      expect(toDrop).toBeLessThan(toSeat)
+      expect(toDrop).toBeGreaterThan(0)
+    }
+  })
+
+  test('and every one of them is on the table', () => {
+    for (const n of [1, 2, 3, 4, 5, 6, 8]) {
+      for (const p of seatPlaces(seatsOf(n))) {
+        expect(p.drop.x).toBeGreaterThan(CARD_W / 2)
+        expect(p.drop.x).toBeLessThan(TABLE_W - CARD_W / 2)
+        expect(p.drop.y).toBeGreaterThan(CARD_H / 2)
+        expect(p.drop.y).toBeLessThan(TABLE_H - CARD_H / 2)
+      }
+    }
+  })
+
+  test('nobody is asked to play their cards on top of the board', () => {
+    const h = hosted(['Mom', 'Dad'])
+    h.setup('poker')
+    const board = h.state.slots.find((s) => s.id === 'board')!
+    for (const p of seatPlaces(h.state.seats)) {
+      const clear = Math.abs(p.drop.y - board.y) > CARD_H || Math.abs(p.drop.x - board.x) > CARD_GAP * 3
+      expect(clear).toBe(true)
+    }
+  })
+})
+
+describe('the star board', () => {
+  test('it is a six pointed star of a hundred and twenty one holes', () => {
+    const board = holes()
+    expect(board.length).toBe(121)
+    expect(new Set(board.map((h) => `${h.row},${h.at}`)).size).toBe(121)
+  })
+
+  test('six points of ten, and sixty one holes in the middle', () => {
+    const board = holes()
+    for (let home = 0; home < 6; home++) {
+      expect(board.filter((h) => h.home === home).length).toBe(10)
+    }
+    expect(board.filter((h) => h.home === null).length).toBe(61)
+  })
+
+  test('sixty marbles, one per point hole, six colours', () => {
+    const ms = marbles()
+    expect(ms.length).toBe(60)
+    expect(new Set(ms.map((m) => m.colour)).size).toBe(6)
+    expect(new Set(ms.map((m) => m.id)).size).toBe(60)
+  })
+
+  test('every marble starts in a hole', () => {
+    const spots = new Set(starSlots().map((s) => `${s.x},${s.y}`))
+    for (const m of marbles()) expect(spots.has(`${m.x},${m.y}`)).toBe(true)
+  })
+
+  test('the whole board fits on the table', () => {
+    for (const h of holes()) {
+      expect(h.x).toBeGreaterThan(20)
+      expect(h.x).toBeLessThan(TABLE_W - 20)
+      expect(h.y).toBeGreaterThan(20)
+      expect(h.y).toBeLessThan(TABLE_H - 20)
+    }
+  })
+
+  test('the rows interlock, as a triangular lattice does', () => {
+    const board = holes()
+    const rows = new Map<number, number[]>()
+    for (const h of board) rows.set(h.row, [...(rows.get(h.row) ?? []), h.at])
+    for (const [row, ats] of rows) {
+      const next = rows.get(row + 1)
+      if (!next) continue
+      // Neighbouring rows sit half a step apart, so their parities differ.
+      expect(Math.abs(ats[0]! % 2)).not.toBe(Math.abs(next[0]! % 2))
+    }
+  })
+
+  test('setting it up puts no cards on the table', () => {
+    const h = hosted()
+    h.setup('chinese-checkers')
+    expect(Object.keys(h.state.cards).length).toBe(0)
+    expect(h.state.pucks.length).toBe(60)
+    expect(h.state.slots.length).toBe(121)
+    expect(h.state.slots.every((s) => s.dot)).toBe(true)
+  })
+
+  test('a marble is a marker like any other, so anyone can move one', () => {
+    const h = hosted()
+    h.setup('chinese-checkers')
+    const marble = h.state.pucks[0]!
+    expect(allowed({ t: 'puck', id: marble.id, x: 1, y: 1 }, 's2')).toBe(true)
+  })
+})
+
+describe('nothing sits on top of anything else', () => {
+  /** The toolbar floats over the bottom of the felt, roughly this deep. */
+  const TOOLBAR_TOP = TABLE_H - 66
+
+  test('nobody is seated underneath the toolbar', () => {
+    const seatsOf = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({ id: `s${i}`, name: `P${i}`, connected: true, colour: '#000', emoji: '🐺' }))
+    for (const n of [1, 2, 3, 4, 5, 6]) {
+      for (const p of seatPlaces(seatsOf(n))) expect(p.y).toBeLessThan(TOOLBAR_TOP)
+    }
+  })
+
+  test('the star clears the seats at both ends', () => {
+    const ys = holes().map((h) => h.y)
+    const top = Math.min(...ys)
+    const bottom = Math.max(...ys)
+    const seat = TABLE_H / 2 + 275
+    expect(bottom + 13).toBeLessThan(seat - 15)
+    expect(top - 13).toBeGreaterThan(TABLE_H / 2 - 275 + 15)
   })
 })

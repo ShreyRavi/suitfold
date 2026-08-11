@@ -10,7 +10,7 @@ import { money } from './Chips.tsx'
  * about who put what in the pot has nothing to settle it. This is that.
  *
  * The list comes from the host as part of the table, so everyone's is the same
- * list in the same order — it is not each browser guessing from what it saw.
+ * list in the same order - it is not each browser guessing from what it saw.
  */
 export function Log({
   view,

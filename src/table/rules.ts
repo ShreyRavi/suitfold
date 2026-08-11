@@ -1,7 +1,7 @@
 /**
  * How to play, in plain words.
  *
- * suitfold enforces none of this — the rules live in the heads of the people at
+ * suitfold enforces none of this - the rules live in the heads of the people at
  * the table. That is exactly why they are written down here: if the app will
  * not settle an argument, the least it can do is remind everyone what the
  * argument is about.
@@ -25,33 +25,61 @@ export interface Rules {
 export const POKER_HANDS: RuleSection = {
   title: 'Which hand beats which',
   items: [
-    'Royal flush — 10, J, Q, K, A all in one suit. The best hand there is.',
-    'Straight flush — five in a row, all one suit, like 5-6-7-8-9 of hearts.',
-    'Four of a kind — all four of the same number, like four 7s.',
-    'Full house — three of one number and two of another, like three 9s and two Kings.',
-    'Flush — any five cards of the same suit, in no order.',
-    'Straight — five in a row of mixed suits, like 4-5-6-7-8.',
-    'Three of a kind — three of the same number.',
-    'Two pair — two of one number and two of another.',
-    'One pair — two of the same number.',
-    'High card — none of the above. Your biggest card is your hand.',
+    'Royal flush - 10, J, Q, K, A all in one suit. The best hand there is.',
+    'Straight flush - five in a row, all one suit, like 5-6-7-8-9 of hearts.',
+    'Four of a kind - all four of the same number, like four 7s.',
+    'Full house - three of one number and two of another, like three 9s and two Kings.',
+    'Flush - any five cards of the same suit, in no order.',
+    'Straight - five in a row of mixed suits, like 4-5-6-7-8.',
+    'Three of a kind - three of the same number.',
+    'Two pair - two of one number and two of another.',
+    'One pair - two of the same number.',
+    'High card - none of the above. Your biggest card is your hand.',
   ],
 }
 
 export const POKER_EDGE: RuleSection = {
   title: 'The bits people argue about',
   items: [
-    'The ace is both the lowest and the highest card. A-2-3-4-5 is a straight (the smallest one) and 10-J-Q-K-A is a straight (the biggest one). K-A-2 is NOT a straight — it does not wrap around.',
+    'The ace is both the lowest and the highest card. A-2-3-4-5 is a straight (the smallest one) and 10-J-Q-K-A is a straight (the biggest one). K-A-2 is NOT a straight - it does not wrap around.',
     'If two people have the same pair, the next highest card decides it. That card is called the kicker. Keep going card by card until something differs.',
-    'Flushes are compared card by card, all five of them — not just the highest one.',
+    'Flushes are compared card by card, all five of them - not just the highest one.',
     'Suits never break a tie. There is no "spades beat hearts" in poker.',
     'If two hands are genuinely identical, the pot is split. Any odd chip goes to the first player left of the dealer.',
-    'Your best five cards win, using any mix of your two and the five in the middle — including all five in the middle and neither of yours. That is called playing the board, and everyone still in usually ties.',
+    'Your best five cards win, using any mix of your two and the five in the middle - including all five in the middle and neither of yours. That is called playing the board, and everyone still in usually ties.',
     'You can only lose the chips you have in front of you. If you are all-in for less than someone bets, you can only win the part everyone matched. The rest is a side pot you are not in.',
   ],
 }
 
 export const RULES: Record<string, Rules> = {
+  'chinese-checkers': {
+    goal: 'Get all ten of your marbles across to the point of the star opposite you.',
+    players: '2 to 6',
+    setup: [
+      'The board is a six pointed star. Every point holds ten marbles of one colour.',
+      'Take the point nearest you. With two players take opposite points, with three take alternate ones, with six take the lot.',
+      'Any point you are not using can be left full or cleared off to the side.',
+    ],
+    play: [
+      'Take turns. On your turn you move one marble, and one only.',
+      'A step: slide a marble into any touching empty hole, in any of the six directions.',
+      'A hop: jump a marble straight over one neighbouring marble of any colour into the empty hole directly beyond it.',
+      'A hop can be followed by another hop, and another, as far as you can keep going. One turn can cross the whole board.',
+      'You may not step and hop in the same turn, and you never take anything off the board.',
+    ],
+    winning: 'The first person to fill the ten holes of the far point with their own marbles has won.',
+    sections: [
+      {
+        title: 'The arguments people have',
+        items: [
+          'Somebody parks a marble in their home point and refuses to move it, so the other side can never fill it. The usual house rule is that it counts as filled if you have got every hole you can and the rest are held by somebody else.',
+          'Hopping over a marble sitting in its own home is allowed. Landing there and staying is what is not.',
+          'Some families allow a long hop over any number of empty holes. It is a different game, and a faster one. Agree before you start, not halfway through.',
+        ],
+      },
+    ],
+  },
+
   holdem: {
     goal: 'Make the best five-card hand, or bet hard enough that everyone else gives up.',
     players: '2 to 10',
@@ -75,12 +103,12 @@ export const RULES: Record<string, Rules> = {
     players: '2 to 6',
     setup: [
       'Two decks shuffled together with jokers. Everybody gets 13 cards.',
-      'One card is turned face up — every card of that number is a joker for this hand, on top of the printed jokers.',
+      'One card is turned face up - every card of that number is a joker for this hand, on top of the printed jokers.',
     ],
     play: [
       'On your turn take one card, from the face-down pile or the face-up one, then throw one away. You always end your turn with 13.',
       'You are trying to build runs and sets. A run is three or more in a row in the same suit, like 4-5-6 of hearts. A set is three or four of the same number in different suits.',
-      'Jokers can stand in for any missing card — except inside your one pure run.',
+      'Jokers can stand in for any missing card - except inside your one pure run.',
     ],
     winning:
       'You need every card in a group, at least two runs, and at least one of those runs pure (no joker in it). Then you can declare.',
@@ -126,7 +154,7 @@ export const RULES: Record<string, Rules> = {
         items: [
           'An ace and a ten-card as your first two is blackjack, and normally pays one and a half times your bet.',
           'If you and the dealer tie, nobody wins and you keep your bet. That is a push.',
-          'A hand with an ace counted as 11 is soft — you cannot bust by taking one more card, because the ace can drop to 1.',
+          'A hand with an ace counted as 11 is soft - you cannot bust by taking one more card, because the ace can drop to 1.',
         ],
       },
     ],
@@ -188,7 +216,7 @@ export const RULES: Record<string, Rules> = {
         title: 'The strange bit: bowers',
         items: [
           'The Jack of the trump suit is the best card in the game. It is called the right bower.',
-          'The other Jack of the same colour becomes a trump too, and is second best. That is the left bower — and it stops being its own suit for the whole hand.',
+          'The other Jack of the same colour becomes a trump too, and is second best. That is the left bower - and it stops being its own suit for the whole hand.',
           'So if hearts are trumps, the Jack of diamonds is a heart. This surprises everybody the first time.',
         ],
       },
@@ -209,7 +237,7 @@ export const RULES: Record<string, Rules> = {
       {
         title: 'What scores',
         items: [
-          'Any cards adding to 15 — two points, every combination counts separately.',
+          'Any cards adding to 15 - two points, every combination counts separately.',
           'A pair is 2, three of a kind is 6, four of a kind is 12.',
           'A run of three or more, one point per card.',
           'Four cards of the same suit in your hand is 4, and 5 if the turned card matches too.',
@@ -252,11 +280,11 @@ export const RULES: Record<string, Rules> = {
       {
         title: 'The special cards',
         items: [
-          'Skip — the next person misses their turn.',
-          'Reverse — play turns around and goes the other way. With two players it acts like a skip.',
-          'Draw Two — the next person takes two and misses their turn.',
-          'Wild — you choose which colour is in play now.',
-          'Wild Draw Four — you choose the colour and the next person takes four. Officially you may only play it if you have nothing of the current colour.',
+          'Skip - the next person misses their turn.',
+          'Reverse - play turns around and goes the other way. With two players it acts like a skip.',
+          'Draw Two - the next person takes two and misses their turn.',
+          'Wild - you choose which colour is in play now.',
+          'Wild Draw Four - you choose the colour and the next person takes four. Officially you may only play it if you have nothing of the current colour.',
           'When you get down to one card, say "Uno". Forget, and get caught, and you take two.',
         ],
       },
@@ -270,7 +298,7 @@ export const RULES: Record<string, Rules> = {
     play: [
       'Play a card matching the top one by suit or by number.',
       'If you cannot, take from the pile until you can.',
-      'An 8 is wild — play it on anything and say which suit comes next.',
+      'An 8 is wild - play it on anything and say which suit comes next.',
     ],
     winning: 'First to no cards left.',
   },
@@ -356,7 +384,7 @@ export const RULES: Record<string, Rules> = {
   },
 }
 
-/** Games with no rules of their own — you brought your own. */
+/** Games with no rules of their own - you brought your own. */
 export const NO_RULES: Rules = {
   goal: 'Whatever you like. This is just a table with cards on it.',
   players: 'any',

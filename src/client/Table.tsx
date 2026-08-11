@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CardId, SeatId, TableView } from '../table/model.ts'
-import { CARD_GAP, CARD_H, CARD_W, SNAP, TABLE_H, TABLE_W } from '../table/model.ts'
+import { CARD_GAP, CARD_H, CARD_W, SNAP, TABLE_H, TABLE_W, seatPlaces } from '../table/model.ts'
 import type { Cursor, Drag } from '../net/peers.ts'
 import { Card } from './Card.tsx'
 import { ChipStack, money } from './Chips.tsx'
@@ -80,6 +80,8 @@ export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag
     },
     [scale],
   )
+
+  const places = seatPlaces(view.seats)
 
   // Piles are derived, never stored: cards sharing a spot are a pile.
   const piles = new Map<string, typeof view.cards>()
@@ -166,7 +168,20 @@ export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag
     // A marker has no pile to join and no hand to go into. It stays where you
     // put it, which is the whole point of it.
     if (puck) {
-      onPuck(puck, clamp(at.x, 18, TABLE_W - 18), clamp(at.y, 18, TABLE_H - 18))
+      // A board has holes, and a piece dropped near one drops into it. A
+      // lettered marker on a table with no holes just stays where you put it.
+      let best: Pos | null = null
+      let bestDist = 34
+      for (const slot of view.slots) {
+        if (!slot.dot) continue
+        const d = Math.hypot(slot.x - at.x, slot.y - at.y)
+        if (d < bestDist) {
+          bestDist = d
+          best = { x: slot.x, y: slot.y }
+        }
+      }
+      const to = best ?? { x: clamp(at.x, 18, TABLE_W - 18), y: clamp(at.y, 18, TABLE_H - 18) }
+      onPuck(puck, to.x, to.y)
       return
     }
 
@@ -195,7 +210,8 @@ export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag
       }
     }
     // Slots pull a little harder, because they are what you were aiming at.
-    for (const slot of view.slots) {
+    // Holes are for pieces, not cards, so they are not a target here.
+    for (const slot of [...view.slots.filter((sl) => !sl.dot), ...places.map((p) => ({ ...p.drop }))]) {
       const d = Math.hypot(slot.x - at.x, slot.y - at.y)
       if (d < Math.max(bestDist, SNAP * 1.7)) {
         bestDist = d
@@ -229,19 +245,42 @@ export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag
         <div className="felt-face" aria-hidden="true" />
 
         {/* Markings on the felt: where things go, not what you may do. */}
-        {view.slots.map((slot) => (
-          <div
-            key={slot.id}
-            className="slot"
-            style={{
-              transform: `translate(${slot.x - (slot.wide ? (slot.wide * CARD_GAP) / 2 : CARD_W / 2)}px, ${slot.y - CARD_H / 2}px)`,
-              width: slot.wide ? slot.wide * CARD_GAP : CARD_W,
-            }}
-            aria-hidden="true"
-          >
-            <span className="slot-label">{slot.label}</span>
-          </div>
-        ))}
+        {view.slots.map((slot) =>
+          slot.dot ? (
+            <div
+              key={slot.id}
+              className="hole"
+              style={{ transform: `translate(${slot.x}px, ${slot.y}px) translate(-50%, -50%)` }}
+              aria-hidden="true"
+            />
+          ) : (
+            <div
+              key={slot.id}
+              className="slot"
+              style={{
+                transform: `translate(${slot.x - (slot.wide ? (slot.wide * CARD_GAP) / 2 : CARD_W / 2)}px, ${slot.y - CARD_H / 2}px)`,
+                width: slot.wide ? slot.wide * CARD_GAP : CARD_W,
+              }}
+              aria-hidden="true"
+            >
+              <span className="slot-label">{slot.label}</span>
+            </div>
+          ),
+        )}
+
+        {/* The space in front of each player, where what they play goes. It is
+            a marking like any other: it holds nothing and stops nothing. */}
+        {view.cards.length > 0 &&
+          places.map(({ seat, drop }) => (
+            <div
+              key={`drop-${seat.id}`}
+              className={`slot slot--seat ${seat.id === me ? 'is-me' : ''}`}
+              style={{ transform: `translate(${drop.x - CARD_W / 2}px, ${drop.y - CARD_H / 2}px)`, width: CARD_W }}
+              aria-hidden="true"
+            >
+              <span className="slot-label">{seat.id === me ? 'You' : seat.name}</span>
+            </div>
+          ))}
 
         {/* The dealer button and the blinds. Drag one round as the deal moves. */}
         {view.pucks.map((puck) => {
@@ -251,8 +290,13 @@ export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag
           return (
             <button
               key={puck.id}
-              className={`puck puck--${puck.id.replace('pk-', '')} ${held || remote ? 'is-live' : ''}`}
-              style={{ transform: `translate(${at.x - 17}px, ${at.y - 17}px)` }}
+              className={`puck ${puck.colour ? 'puck--piece' : `puck--${puck.id.replace('pk-', '')}`} ${
+                held || remote ? 'is-live' : ''
+              }`}
+              style={{
+                transform: `translate(${at.x}px, ${at.y}px) translate(-50%, -50%)`,
+                ...(puck.colour ? { background: puck.colour } : {}),
+              }}
               title={puck.hint}
               aria-label={puck.hint}
               onPointerDown={(e) => {
@@ -266,7 +310,7 @@ export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag
         })}
 
         {/* Everyone else sits around the edge; you are the rail at the bottom. */}
-        {seatSpots(view).map(({ seat, x, y, count }) => (
+        {places.map(({ seat, x, y }) => (
           <div
             key={seat.id}
             className={`spot ${seat.connected ? '' : 'is-away'} ${seat.id === me ? 'is-me' : ''}`}
@@ -279,7 +323,17 @@ export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag
               {seat.name}
               {seat.id === me && <i>you</i>}
             </span>
-            <span className="spot-count">{count}</span>
+            {/* A fan of backs, not a number. Counting somebody's cards is part
+                of the game, and a digit does the counting for you. */}
+            <span
+              className="spot-hand"
+              title={`${view.handCounts[seat.id] ?? 0} cards`}
+              style={{ width: 10 + Math.max(view.handCounts[seat.id] ?? 0, 1) * 5 }}
+            >
+              {Array.from({ length: view.handCounts[seat.id] ?? 0 }).map((_, i) => (
+                <i key={i} style={{ left: i * 5 }} />
+              ))}
+            </span>
             {view.chipsOn && (
               <span className="spot-chips">
                 <ChipStack amount={view.chips[seat.id] ?? 0} />
@@ -335,7 +389,7 @@ export function Table({ view, me, drags, cursors, onMove, onFlip, onTake, onDrag
 
               {cards.length > 1 && (
                 /* Dragging a card takes that card. Dragging the count takes the
-                   whole pile — you pick a stack up by the label on it. Press
+                   whole pile - you pick a stack up by the label on it. Press
                    without moving and it is a tap, which opens the menu. */
                 <button
                   className="pile-count"
@@ -444,26 +498,3 @@ function potAt(view: TableView) {
   return slot ? { x: slot.x, y: slot.y } : { x: TABLE_W / 2, y: TABLE_H / 2 + 120 }
 }
 
-/**
- * Everyone in their own place around the table, including you.
- *
- * Seat order is the order people sat down, and seat zero — whoever brought the
- * deck — sits at the bottom. That is the dealer's frame, and it is deliberately
- * the same on every screen: if the table rotated to put each viewer at the
- * bottom, "the card in front of Mum" would mean a different place in every
- * browser, and the cards themselves live in one shared coordinate space.
- */
-function seatSpots(view: TableView) {
-  const n = Math.max(view.seats.length, 1)
-  const rx = 330
-  const ry = 205
-  return view.seats.map((seat, i) => {
-    const angle = Math.PI / 2 + (Math.PI * 2 * i) / n
-    return {
-      seat,
-      x: TABLE_W / 2 + rx * Math.cos(angle),
-      y: TABLE_H / 2 + ry * Math.sin(angle),
-      count: view.handCounts[seat.id] ?? 0,
-    }
-  })
-}

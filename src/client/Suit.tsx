@@ -2,8 +2,8 @@
  * The four suits, drawn rather than typed.
  *
  * These used to be the text characters ♠ ♥ ♦ ♣, which was a mistake twice over.
- * A glyph is whatever the device's font decides it is — Windows, Android and
- * older iOS all draw a different heart, and some draw it in colour — and a
+ * A glyph is whatever the device's font decides it is - Windows, Android and
+ * older iOS all draw a different heart, and some draw it in colour - and a
  * glyph's box is mostly padding, so pips ended up sitting on top of the corner
  * index. Shapes we draw ourselves are the same everywhere and sized exactly.
  */

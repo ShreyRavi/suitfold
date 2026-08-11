@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CardId, TableView } from '../table/model.ts'
-import { TABLE_H, TABLE_W } from '../table/model.ts'
+import type { CardId, SeatId, TableView } from '../table/model.ts'
+import { TABLE_H, TABLE_W, seatPlaces } from '../table/model.ts'
 import { GROUPS, PRESETS } from '../table/deck.ts'
 import { cleanCode } from '../net/peers.ts'
 import { rememberedFace, rememberedName, suggestFace, suggestName, useTable } from './useTable.ts'
@@ -11,6 +11,7 @@ import { Card } from './Card.tsx'
 import { Toolbar } from './Toolbar.tsx'
 import { BetBar } from './BetBar.tsx'
 import { Log, Mention, Toasts } from './Log.tsx'
+import { Help, SEEN_HELP } from './Help.tsx'
 
 export function App() {
   const t = useTable()
@@ -25,7 +26,7 @@ export function App() {
   const face = rememberedFace() || suggested.face
 
   // Pasting a link into an already-open tab only changes the hash, which does
-  // not reload anything — so watch for it.
+  // not reload anything - so watch for it.
   useEffect(() => {
     const onHash = () => setInvited(cleanCode(location.hash.replace('#', '')))
     addEventListener('hashchange', onHash)
@@ -93,8 +94,10 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
   const [rules, setRules] = useState<string | null>(null)
   const [picked, setPicked] = useState<CardId[]>([])
   // Turning your own card face up is the one move nobody else can undo for
-  // you, so it asks — until you say not to, for as long as this tab is open.
+  // you, so it asks - until you say not to, for as long as this tab is open.
   const [askFirst, setAskFirst] = useState(true)
+  // Shown once per browser, because the table explains none of itself.
+  const [help, setHelp] = useState(() => !localStorage.getItem(SEEN_HELP))
   const [showing, setShowing] = useState(false)
   // Wide screens get the log beside the table; small ones slide it over.
   const [log, setLog] = useState(() => matchMedia('(min-width: 1080px)').matches)
@@ -122,7 +125,7 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
   const unread = log ? 0 : view.log.filter((e) => e.kind === 'chat').length
 
   const play = (ids: CardId[], faceUp: boolean) => {
-    const at = freeSpot(view)
+    const at = myPlace(view, t.me)
     t.act({ t: 'play', ids, x: at.x, y: at.y, faceUp })
   }
 
@@ -141,6 +144,9 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
             </button>
           )}
         </div>
+        <button className="bar-help" onClick={() => setHelp(true)} title="How this works" aria-label="How this works">
+          ?
+        </button>
         <button
           className={`bar-log ${log ? 'on' : ''}`}
           onClick={() => setLog(!log)}
@@ -175,7 +181,7 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
           cursors={t.cursors}
           onCursor={t.broadcastCursor}
         />
-        {view.cards.length === 0 && (
+        {view.cards.length === 0 && view.pucks.length === 0 && (
           <div className="empty-table">
             <div>
               {t.host ? (
@@ -242,7 +248,8 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
         {view.chipsOn && t.me && <BetBar view={view} me={t.me} act={t.act} />}
 
         <div className="fan">
-          {myHand.length === 0 && (
+          {/* A game with no cards in it has nothing to say here. */}
+          {myHand.length === 0 && view.cards.length > 0 && (
             <div className="fan-empty">
               Drag a card down here to pick it up. Only you can see what is here.
             </div>
@@ -314,6 +321,15 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
         </div>
       )}
 
+      {help && (
+        <Help
+          onClose={() => {
+            localStorage.setItem(SEEN_HELP, '1')
+            setHelp(false)
+          }}
+        />
+      )}
+
       {sheet && <Sheet t={t} onClose={() => setSheet(false)} onRules={(id) => setRules(id)} />}
       {rules && <Rules gameId={rules} onClose={() => setRules(null)} />}
       {t.note && <div className="note">{t.note}</div>}
@@ -322,12 +338,19 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
 }
 
 /**
- * Where a card played out of your hand should land.
+ * Where a card played out of your hand should land: the space in front of you.
  *
  * It used to be the middle of the table, which is where the board, the pot and
- * the deck already are — so playing a card buried whatever the hand was about.
- * The corners are empty on nearly every layout, so try those first.
+ * the deck already are, so playing a card buried whatever the hand was about.
+ * Then it was a free corner, which was better, but it meant your cards and
+ * everybody else's ended up in one heap nobody could read.
  */
+function myPlace(view: TableView, me: SeatId | null) {
+  const mine = seatPlaces(view.seats).find((p) => p.seat.id === me)
+  return mine ? mine.drop : freeSpot(view)
+}
+
+/** Nobody is sitting anywhere, so anywhere clear will do. */
 function freeSpot(view: TableView) {
   const spots = [
     { x: 150, y: TABLE_H - 130 },
@@ -344,14 +367,14 @@ function freeSpot(view: TableView) {
     // The blinds live in a corner too, and a card dropped on top of the dealer
     // button hides the one thing on the felt that says whose deal it is.
     view.pucks.some((pk) => Math.hypot(pk.x - p.x, pk.y - p.y) < 80)
-  // Somewhere free, or failing that the first corner — stacking on your own
+  // Somewhere free, or failing that the first corner - stacking on your own
   // previous card is better than landing on the board.
   return spots.find((p) => !busy(p)) ?? spots[0]!
 }
 
 /**
  * A held hand is an arc, not a row. Cards tilt away from the middle and dip at
- * the edges, and they overlap only as much as the count demands — enough that
+ * the edges, and they overlap only as much as the count demands - enough that
  * thirteen cards still show their corner index.
  */
 function fanAt(i: number, n: number) {
@@ -450,7 +473,7 @@ function Sheet({
               </div>
               <p className="fine">
                 A game here only decides which cards come out, how many each person gets, and where
-                they start. Nothing is enforced — you play it the way your family plays it.
+                they start. Nothing is enforced - you play it the way your family plays it.
               </p>
             </div>
 

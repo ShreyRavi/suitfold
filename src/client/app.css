@@ -1,4 +1,4 @@
-/* suitfold — a live card table.
+/* suitfold - a live card table.
    Built on design/tokens.css: clay, paper and ink, not casino felt. */
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -107,11 +107,11 @@ input {
 }
 /* Positioned rather than grid-centred. The table is a fixed 1000px wide and
    then scaled down, so on any phone it is an item far wider than the box that
-   holds it — and grid alignment quietly gives up on centring those and pins
+   holds it - and grid alignment quietly gives up on centring those and pins
    them to the start, which put three quarters of the table off-screen. */
 .felt-inner { position: absolute; left: 50%; top: 50%; transform-origin: center; }
 .felt-face {
-  position: absolute; inset: 30px 44px; border-radius: 210px / 150px;
+  position: absolute; inset: 26px 34px; border-radius: 210px / 150px;
   background:
     radial-gradient(112% 92% at 50% 30%,
       color-mix(in srgb, var(--table) 88%, #8a6f4a) 0%,
@@ -185,7 +185,7 @@ input {
 
 /* ---- a card ------------------------------------------------------------ */
 .pc {
-  position: relative; width: 80px; height: 112px; flex: none; font-size: 8px;
+  position: relative; width: 96px; height: 134px; flex: none; font-size: 9.6px;
   background:
     linear-gradient(158deg, #fffdf8 0%, var(--card-face) 55%, #f4eee1 100%);
   border: 1px solid var(--card-edge);
@@ -204,6 +204,10 @@ input {
 @media (prefers-reduced-motion: reduce) { .pc { animation: none; } }
 
 .pc--sm { width: 60px; height: 84px; font-size: 6px; }
+/* Your own hand is drawn at real size rather than table size, and the rail has
+   to stay short or it eats the table. */
+.fan .pc { width: 74px; height: 103px; font-size: 7.4px; }
+.fan .pc--sm { width: 58px; height: 81px; font-size: 5.8px; }
 .pc.is-red { color: var(--suit-red); }
 
 /* Everything on a card face is sized in em off one font-size, which is a tenth
@@ -214,7 +218,7 @@ input {
 .suit { display: block; width: 1em; height: 1em; }
 
 /* The corner index: rank over its suit, and the same again upside down. It is
-   deliberately small — the pip field below has to clear it. */
+   deliberately small - the pip field below has to clear it. */
 .ix {
   position: absolute; display: flex; flex-direction: column; align-items: center;
   line-height: .92;
@@ -225,7 +229,7 @@ input {
 .ix--br { bottom: .4em; right: .5em; transform: rotate(180deg); }
 
 /* The pip field. Inset so that even the outermost pip stops short of the
-   indices, top and bottom — which is what was wrong before. */
+   indices, top and bottom - which is what was wrong before. */
 .field { position: absolute; inset: 30% 26%; }
 .field i {
   position: absolute; transform: translate(-50%, -50%);
@@ -266,9 +270,12 @@ input {
 /* ---- your hand --------------------------------------------------------- */
 .rail {
   flex: none; background: var(--rail); border-top: 1px solid var(--rule);
-  padding: var(--s-5) var(--s-7) calc(env(safe-area-inset-bottom, 0px) + var(--s-7));
+  padding: var(--s-4) var(--s-7) calc(env(safe-area-inset-bottom, 0px) + var(--s-4));
   box-shadow: 0 -8px 24px rgba(0,0,0,.14);
-  z-index: 2;
+  /* Above the toolbar that floats over the felt. The rail is a grid item, and
+     a grid item with a z-index makes its own stacking context, so anything
+     inside it, a confirmation included, was trapped underneath. */
+  z-index: 40;
 }
 .rail-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-5); }
 .lbl { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--track-label); color: var(--ink-faint); }
@@ -281,7 +288,7 @@ input {
 .mini:disabled { opacity: .4; cursor: default; }
 .fan {
   position: relative; display: flex; justify-content: center; align-items: flex-end;
-  padding-top: var(--s-6); height: 150px; overflow: hidden;
+  padding-top: var(--s-4); height: 116px; overflow: hidden;
 }
 .fan-card {
   flex: none; padding: 0; line-height: 0;
@@ -460,7 +467,7 @@ input {
 /* Borrowed from how playingcards.io makes a freeform table legible: named
    outlines that say where things go, without enforcing anything. */
 .slot {
-  position: absolute; top: 0; left: 0; height: 112px;
+  position: absolute; top: 0; left: 0; height: 134px;
   border: 2px dashed color-mix(in srgb, #2a1d12 26%, transparent);
   border-radius: 8px; pointer-events: none;
   background: color-mix(in srgb, #fff 6%, transparent);
@@ -611,7 +618,7 @@ input {
 .betbar-custom .btn { min-height: 44px; padding: 0 var(--s-7); }
 
 /* ---- confirming the one move you cannot take back socially -------------- */
-.ask { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; }
+.ask { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; }
 .ask-scrim { position: absolute; inset: 0; background: rgba(20,14,8,.5); border: 0; cursor: default; }
 .ask-box {
   position: relative; z-index: 1; width: min(21rem, 88vw);
@@ -808,13 +815,13 @@ input {
 .log.is-open { display: flex; }
 .log-bar {
   flex: none; display: flex; align-items: center; justify-content: space-between;
-  padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--rule);
+  padding: var(--s-4) var(--s-5); border-bottom: 1px solid var(--rule);
 }
 .log-x { padding: 2px 8px; }
 
 .log-list {
   flex: 1; min-height: 0; overflow-y: auto;
-  padding: var(--s-5) var(--s-6); display: flex; flex-direction: column; gap: 7px;
+  padding: var(--s-4) var(--s-5); display: flex; flex-direction: column; gap: 5px;
   overscroll-behavior: contain;
 }
 .log-empty { margin: 0; color: var(--ink-faint); font-size: var(--text-sm); }
@@ -837,7 +844,7 @@ input {
 
 .log-say {
   flex: none; display: flex; gap: var(--s-4);
-  padding: var(--s-5) var(--s-6) calc(env(safe-area-inset-bottom, 0px) + var(--s-5));
+  padding: var(--s-4) var(--s-5) calc(env(safe-area-inset-bottom, 0px) + var(--s-4));
   border-top: 1px solid var(--rule);
 }
 .log-say input {
@@ -848,7 +855,7 @@ input {
 
 /* Beside the table when there is room for it, over the table when there is not. */
 @media (min-width: 1080px) {
-  .app.with-log { display: grid; grid-template-columns: 1fr minmax(258px, 310px); grid-template-rows: auto minmax(0, 1fr) auto; }
+  .app.with-log { display: grid; grid-template-columns: 1fr minmax(216px, 248px); grid-template-rows: auto minmax(0, 1fr) auto; }
   .app.with-log > .bar { grid-column: 1 / -1; }
   .app.with-log > .felt-wrap { grid-column: 1; grid-row: 2; }
   .app.with-log > .rail { grid-column: 1; grid-row: 3; }
@@ -1038,3 +1045,55 @@ input.betbar-custom-val {
 /* Toasts are dismissible now, and stay long enough to catch up on. */
 .toast { pointer-events: auto; cursor: pointer; border: 0; text-align: left; }
 .toast-dot { display: grid; place-items: center; width: 18px; height: 18px; font-size: 10px; }
+
+/* ---- the space in front of each player --------------------------------- */
+/* What you play lands here, so a hand does not end up in one unreadable heap
+   in the middle of the table. */
+.slot--seat { border-style: solid; opacity: .5; }
+.slot--seat.is-me { border-color: color-mix(in srgb, var(--accent) 60%, transparent); opacity: .75; }
+
+/* A fan of backs rather than a number, because counting somebody's cards is
+   part of the game and a digit does the counting for you. */
+.spot-hand { position: relative; height: 21px; flex: none; }
+.spot-hand i {
+  position: absolute; top: 0; width: 15px; height: 21px; border-radius: 2px;
+  background: var(--card-back);
+  border: 1px solid color-mix(in srgb, var(--card-back-edge) 70%, black);
+  box-shadow: -1px 0 0 rgba(255,255,255,.28);
+}
+
+/* ---- a board ------------------------------------------------------------ */
+/* Holes are places on the felt like any other. The only thing that makes this
+   a board rather than a card table is that they are small and round. */
+.hole {
+  position: absolute; top: 0; left: 0; width: 22px; height: 22px; border-radius: 50%;
+  background: color-mix(in srgb, #2a1d12 22%, transparent);
+  box-shadow: inset 0 2px 3px rgba(0,0,0,.34), 0 1px 0 rgba(255,255,255,.14);
+  pointer-events: none;
+}
+.puck--piece {
+  width: 26px; height: 26px; border: 0; font-size: 0;
+  box-shadow:
+    inset 0 -3px 6px rgba(0,0,0,.34), inset 0 3px 5px rgba(255,255,255,.42),
+    0 3px 5px rgba(0,0,0,.34);
+}
+
+/* ---- how this works ----------------------------------------------------- */
+.bar-help {
+  flex: none; width: 30px; height: 30px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--paper-panel);
+  color: var(--ink-faint); font-size: var(--text-md);
+}
+.bar-help:hover { border-color: var(--accent); color: var(--accent); }
+.help-box { width: min(34rem, 92vw); text-align: left; }
+.help-box h2 { text-align: center; }
+.help-lede { text-align: center; }
+.help-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--s-4) var(--s-7); margin-bottom: var(--s-7);
+}
+.help-bit { margin: 0 !important; font-size: var(--text-md) !important; }
+.help-bit b {
+  font-family: var(--font-mono) !important; font-size: var(--text-sm);
+  color: var(--accent) !important; letter-spacing: .04em;
+}
