@@ -335,16 +335,18 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
         )}
 
         {/* A card under the pointer, drawn big enough to read without leaning
-            in. It sits on the opposite side to the card so it never covers the
-            thing you are looking at. */}
+            in. It goes beside the card rather than over it, and is clamped to
+            the table so it is never half off the edge. */}
         {peek && !dragging && (
           <div
             className="peek"
             aria-hidden="true"
             style={{
-              transform: `translate(${clamp(peek.at.x, 120, TABLE_W - 120) - 100}px, ${
-                peek.at.y > TABLE_H / 2 ? peek.at.y - 300 : peek.at.y + 70
-              }px)`,
+              transform: `translate(${clamp(
+                peek.at.x < TABLE_W / 2 ? peek.at.x + 62 : peek.at.x - PEEK_W - 62,
+                8,
+                TABLE_W - PEEK_W - 8,
+              )}px, ${clamp(peek.at.y - PEEK_H / 2, 8, TABLE_H - PEEK_H - 8)}px)`,
             }}
           >
             <Card face={peek.face} />
@@ -381,6 +383,10 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+
+/** The size of the hover preview, kept in step with .peek in the stylesheet. */
+const PEEK_W = 200
+const PEEK_H = 280
 
 /** The pot goes in the Pot slot if the game drew one, otherwise the middle. */
 function potAt(view: TableView) {
