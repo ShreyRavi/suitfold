@@ -70,6 +70,8 @@ export interface TableState {
   topZ: number
   /** What the table was last set up with, for the toolbar label. */
   deckName: string
+  /** Which preset, so the toolbar can offer that game's full deal. */
+  game: string
 }
 
 export const emptyTable = (): TableState => ({
@@ -82,6 +84,7 @@ export const emptyTable = (): TableState => ({
   chipsOn: false,
   topZ: 0,
   deckName: '',
+  game: '',
 })
 
 // ---------------------------------------------------------------------------
@@ -94,6 +97,7 @@ export type Action =
       deckName: string
       cards: { id: CardId; faceUp: boolean; x: number; y: number }[]
       slots: Slot[]
+      game: string
     }
   | { t: 'score'; seat: SeatId; by: number }
   | { t: 'scores_clear' }
@@ -121,7 +125,7 @@ export function apply(s: TableState, a: Action): TableState {
       a.cards.forEach((c, i) => {
         cards[c.id] = { id: c.id, x: c.x, y: c.y, z: i + 1, faceUp: c.faceUp, hand: null }
       })
-      return { ...s, cards, slots: a.slots, topZ: a.cards.length, deckName: a.deckName }
+      return { ...s, cards, slots: a.slots, topZ: a.cards.length, deckName: a.deckName, game: a.game }
     }
 
     case 'score':
@@ -342,6 +346,7 @@ export interface TableView {
   pot: number
   chipsOn: boolean
   deckName: string
+  game: string
   handCounts: Record<SeatId, number>
 }
 
@@ -381,6 +386,7 @@ export function project(s: TableState, viewer: SeatId | null): TableView {
     pot: s.pot,
     chipsOn: s.chipsOn,
     deckName: s.deckName,
+    game: s.game,
     handCounts,
   }
 }

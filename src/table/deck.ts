@@ -101,6 +101,12 @@ export interface Preset {
   slots?: (seats: number) => Slot[]
   /** Chips each player starts with. Omitted means this game is not for chips. */
   chips?: number
+  /**
+   * What one hand of this game looks like, for the single-press deal: cards to
+   * each player, and how many go face down in the middle to be turned over as
+   * the hand goes.
+   */
+  hand?: { each: number; board?: number; boardSlot?: string }
 }
 
 const CX = TABLE_W / 2
@@ -146,6 +152,7 @@ export const PRESETS: Preset[] = [
       { id: 'pot', x: CX, y: CY + 90, label: 'Pot' },
     ],
     chips: 2000,
+    hand: { each: 2, board: 5, boardSlot: 'board' },
   },
   {
     id: 'indian-rummy',
@@ -157,6 +164,7 @@ export const PRESETS: Preset[] = [
     deal: 13,
     layout: 'starter',
     slots: drawDiscard,
+    hand: { each: 13 },
   },
   {
     id: 'gin',
@@ -168,6 +176,7 @@ export const PRESETS: Preset[] = [
     deal: 10,
     layout: 'starter',
     slots: drawDiscard,
+    hand: { each: 10 },
   },
   {
     id: 'blackjack',
@@ -180,6 +189,7 @@ export const PRESETS: Preset[] = [
     layout: 'pile',
     slots: (n: number) => [{ id: 'deck', x: CX - 320, y: CY, label: 'Shoe' }, ...roundTable(n, 'Dealer')],
     chips: 500,
+    hand: { each: 2 },
   },
   {
     id: 'hearts',
@@ -191,6 +201,7 @@ export const PRESETS: Preset[] = [
     deal: 13,
     layout: 'pile',
     slots: (n: number) => roundTable(n, 'Trick'),
+    hand: { each: 13 },
   },
   {
     id: 'spades',
@@ -202,6 +213,7 @@ export const PRESETS: Preset[] = [
     deal: 13,
     layout: 'pile',
     slots: (n: number) => roundTable(n, 'Trick'),
+    hand: { each: 13 },
   },
   {
     id: 'euchre',
@@ -213,6 +225,7 @@ export const PRESETS: Preset[] = [
     deal: 5,
     layout: 'starter',
     slots: (n: number) => roundTable(n, 'Trick'),
+    hand: { each: 5 },
   },
   {
     id: 'cribbage',
@@ -228,6 +241,7 @@ export const PRESETS: Preset[] = [
       { id: 'cut', x: CX - 62, y: CY, label: 'Cut' },
       { id: 'play', x: CX, y: CY + 96, label: 'Play', wide: 4 },
     ],
+    hand: { each: 6 },
   },
   {
     id: 'big-two',
@@ -252,6 +266,7 @@ export const PRESETS: Preset[] = [
     deal: 7,
     layout: 'starter',
     slots: drawDiscard,
+    hand: { each: 7 },
   },
   {
     id: 'crazy-eights',
@@ -263,6 +278,7 @@ export const PRESETS: Preset[] = [
     deal: 7,
     layout: 'starter',
     slots: drawDiscard,
+    hand: { each: 7 },
   },
   {
     id: 'bluff',
@@ -285,6 +301,7 @@ export const PRESETS: Preset[] = [
     deal: 7,
     layout: 'pile',
     slots: () => [{ id: 'pond', x: CX, y: CY, label: 'Pond' }],
+    hand: { each: 7 },
   },
   {
     id: 'old-maid',

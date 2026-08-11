@@ -177,6 +177,7 @@ export class Host {
       {
         t: 'reset',
         deckName: preset.name,
+        game: preset.id,
         slots,
         cards: [
           ...place(preset, deck.slice(cut), slots),
@@ -190,6 +191,59 @@ export class Host {
       actions.push({ t: 'take', ids: h.cards, seat: h.seat })
     }
     this.commit(actions)
+  }
+
+  /**
+   * One press: gather everything, shuffle, deal a hand of whatever game is set
+   * up, and lay the middle cards out face down so they can be turned over as
+   * the hand goes. It is what a dealer does in one motion.
+   */
+  dealHand() {
+    const preset = presetById(this.state.game)
+    const spec = preset.hand
+    const seats = this.state.seats
+    if (!spec || seats.length === 0) return
+
+    const slots = preset.slots?.(seats.length) ?? []
+    const deck = cryptoShuffle(Object.keys(this.state.cards))
+    const home = slots.find((s) => s.id === 'draw' || s.id === 'deck')
+    const rest = { x: home?.x ?? TABLE_W / 2, y: home?.y ?? TABLE_H / 2 }
+
+    let cut = 0
+    const hands: { seat: SeatId; cards: CardId[] }[] = []
+    for (const seat of seats) {
+      const hand = deck.slice(cut, cut + spec.each)
+      cut += hand.length
+      if (hand.length) hands.push({ seat: seat.id, cards: hand })
+    }
+
+    // The middle cards get their own spots so each can be turned individually.
+    const board: { id: CardId; x: number; y: number }[] = []
+    if (spec.board) {
+      const slot = slots.find((s) => s.id === (spec.boardSlot ?? 'board'))
+      const cx = slot?.x ?? TABLE_W / 2
+      const cy = slot?.y ?? TABLE_H / 2
+      const gap = 74
+      const left = cx - ((spec.board - 1) * gap) / 2
+      for (let i = 0; i < spec.board; i++) {
+        const card = deck[cut++]
+        if (card) board.push({ id: card, x: left + i * gap, y: cy })
+      }
+    }
+
+    const actions: Action[] = [
+      // Everything back to the deck first, so a half-played table deals clean.
+      { t: 'play', ids: deck, x: rest.x, y: rest.y, faceUp: false },
+      { t: 'reorder', ids: deck },
+    ]
+    for (const h of hands) actions.push({ t: 'take', ids: h.cards, seat: h.seat })
+    for (const b of board) actions.push({ t: 'move', ids: [b.id], x: b.x, y: b.y })
+    this.commit(actions)
+  }
+
+  /** Does the game that is set up know what one hand looks like? */
+  get canDealHand() {
+    return !!presetById(this.state.game).hand && this.state.seats.length > 0 && Object.keys(this.state.cards).length > 0
   }
 
   /** Shuffle a pile in place: same spot, new order. */

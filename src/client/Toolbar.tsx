@@ -43,6 +43,11 @@ export function Toolbar({
             <button className="tool" onClick={() => setOpen(open === 'bet' ? null : 'bet')} aria-expanded={open === 'bet'}>
               <Icon d="M4 8h16v9H4zM4 8a8 3 0 0116 0M4 12a8 3 0 0016 0" /> Bet
             </button>
+            {view.pot > 0 && me && (
+              <button className="tool tool--pot" onClick={() => act({ t: 'take_pot', seat: me })}>
+                Take pot <b>{money(view.pot)}</b>
+              </button>
+            )}
             <span className="tools-note">{money(view.chips[me] ?? 0)}</span>
           </>
         ) : (
@@ -55,8 +60,13 @@ export function Toolbar({
 
   return (
     <div className="tools" ref={wrap}>
+      {host.canDealHand && (
+        <button className="tool tool--go" onClick={() => host.dealHand()}>
+          <Icon d="M3 6h11v12H3zM8 4h11v12" /> New hand
+        </button>
+      )}
       <button className="tool" onClick={() => setOpen(open === 'deal' ? null : 'deal')} aria-expanded={open === 'deal'}>
-        <Icon d="M3 6h11v12H3zM8 4h11v12" /> Deal
+        <Icon d="M12 5v14M5 12h14" /> Deal
       </button>
       <button
         className="tool"
@@ -78,6 +88,11 @@ export function Toolbar({
       {betting && (
         <button className="tool" onClick={() => setOpen(open === 'bet' ? null : 'bet')} aria-expanded={open === 'bet'}>
           <Icon d="M4 8h16v9H4zM4 8a8 3 0 0116 0M4 12a8 3 0 0016 0" /> Bet
+        </button>
+      )}
+      {betting && view.pot > 0 && me && (
+        <button className="tool tool--pot" onClick={() => act({ t: 'take_pot', seat: me })}>
+          Take pot <b>{money(view.pot)}</b>
         </button>
       )}
       <button className="tool" onClick={() => setOpen(open === 'score' ? null : 'score')} aria-expanded={open === 'score'}>
@@ -226,14 +241,24 @@ function BetPanel({
   onDone: () => void
 }) {
   const mine = me ? (view.chips[me] ?? 0) : 0
-  const [amount, setAmount] = useState(() => Math.min(25, mine))
-  const step = mine > 2000 ? 100 : mine > 500 ? 25 : 5
-  const clamp = (v: number) => Math.max(0, Math.min(v, mine))
+  const [custom, setCustom] = useState(0)
 
   if (!me) return null
 
+  const bet = (amount: number) => {
+    if (amount <= 0) return
+    act({ t: 'bet', seat: me, amount: Math.min(amount, mine) })
+    onDone()
+  }
+
+  // Amounts worth offering depend on what you are actually holding: the same
+  // four buttons are useless whether your stack is 80 or 8,000.
+  const unit = mine >= 4000 ? 100 : mine >= 1000 ? 25 : mine >= 300 ? 10 : 5
+  const quick = [unit, unit * 2, unit * 4, unit * 10].filter((n) => n < mine)
+  const step = unit
+
   return (
-    <div className="pop">
+    <div className="pop pop--bet">
       <div className="bet-mine">
         <span className="pop-lbl">YOUR CHIPS</span>
         <b>
@@ -241,59 +266,31 @@ function BetPanel({
         </b>
       </div>
 
-      <div className="bet-amount">{money(amount)}</div>
-
-      <div className="segs">
-        {[5, 25, 50, 100].map((n) => (
-          <button key={n} className={`seg ${amount === n ? 'on' : ''}`} disabled={n > mine} onClick={() => setAmount(n)}>
-            {n}
+      {/* One tap is the whole bet. No select-then-confirm. */}
+      <div className="bet-grid">
+        {quick.map((n) => (
+          <button key={n} className="bet-chip" onClick={() => bet(n)}>
+            {money(n)}
           </button>
         ))}
-        <button className={`seg ${amount === mine ? 'on' : ''}`} onClick={() => setAmount(mine)}>
+        <button className="bet-chip bet-chip--all" onClick={() => bet(mine)} disabled={mine === 0}>
           All in
+          <i>{money(mine)}</i>
         </button>
       </div>
 
-      <div className="segs">
-        <button className="seg" onClick={() => setAmount(clamp(amount - step))}>
-          − {step}
+      <div className="bet-custom">
+        <button className="seg" onClick={() => setCustom(Math.max(0, custom - step))} aria-label="less">
+          −
         </button>
-        <button className="seg" onClick={() => setAmount(clamp(amount + step))}>
-          + {step}
+        <span className="bet-custom-val">{money(custom)}</span>
+        <button className="seg" onClick={() => setCustom(Math.min(mine, custom + step))} aria-label="more">
+          +
+        </button>
+        <button className="btn primary" disabled={custom <= 0} onClick={() => bet(custom)}>
+          Bet
         </button>
       </div>
-
-      <p className="pop-say">
-        {amount === 0 ? (
-          'Nothing to put in.'
-        ) : (
-          <>
-            <b>Into the pot: {money(amount)}</b> · {money(mine)} → {money(mine - amount)}
-          </>
-        )}
-      </p>
-
-      <button
-        className="btn primary"
-        disabled={amount === 0}
-        onClick={() => {
-          act({ t: 'bet', seat: me, amount })
-          onDone()
-        }}
-      >
-        Bet {money(amount)}
-      </button>
-
-      <button
-        className="btn"
-        disabled={view.pot === 0}
-        onClick={() => {
-          act({ t: 'take_pot', seat: me })
-          onDone()
-        }}
-      >
-        Take the pot ({money(view.pot)})
-      </button>
     </div>
   )
 }

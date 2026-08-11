@@ -25,6 +25,7 @@ const dealt = () =>
     deckName: 'test',
     cards: standard(1).map((id) => ({ id, faceUp: false, x: 500, y: 320 })),
     slots: [],
+    game: 'deck',
   })
 
 describe('the table model', () => {
@@ -509,5 +510,62 @@ describe('chips', () => {
     h.undo()
     expect(h.state.pot).toBe(0)
     expect(h.state.chips['host']).toBe(2000)
+  })
+})
+
+describe('dealing a whole hand in one press', () => {
+  test('poker deals two each and lays five face down in the middle', () => {
+    const h = hosted(['A', 'B', 'C'])
+    h.setup('holdem')
+    h.dealHand()
+
+    for (const s of h.state.seats) expect(h.handOf(s.id).length).toBe(2)
+
+    // Five separate spots in the middle, so each can be turned on its own.
+    const board = h.tableCards().filter((c) => Math.abs(c.y - 280) < 40 && !c.faceUp)
+    const spots = new Set(board.map((c) => `${c.x},${c.y}`))
+    expect(spots.size).toBeGreaterThanOrEqual(5)
+    expect(h.tableCards().every((c) => !c.faceUp)).toBe(true)
+    // Nothing is lost or duplicated.
+    expect(Object.keys(h.state.cards).length).toBe(52)
+  })
+
+  test('dealing again cleans up the half-played table first', () => {
+    const h = hosted(['A', 'B'])
+    h.setup('holdem')
+    h.dealHand()
+    // Muddle the table: flip things, move things.
+    const some = h.tableCards().slice(0, 6).map((c) => c.id)
+    h['commit']([{ t: 'flip', ids: some, faceUp: true }])
+
+    h.dealHand()
+    for (const s of h.state.seats) expect(h.handOf(s.id).length).toBe(2)
+    expect(h.tableCards().every((c) => !c.faceUp)).toBe(true)
+    expect(Object.keys(h.state.cards).length).toBe(52)
+  })
+
+  test('games without a hand recipe do not offer one', () => {
+    const h = hosted()
+    h.setup('memory')
+    expect(h.canDealHand).toBe(false)
+    h.setup('holdem')
+    expect(h.canDealHand).toBe(true)
+  })
+
+  test('a full deal does not touch the chips', () => {
+    const h = hosted(['A', 'B'])
+    h.setup('holdem')
+    h.bet('host', 300)
+    h.dealHand()
+    expect(h.state.pot).toBe(300)
+    expect(h.state.chips['host']).toBe(1700)
+  })
+
+  test('uno deals seven each in one press', () => {
+    const h = hosted(['A', 'B', 'C'])
+    h.setup('uno')
+    h.dealHand()
+    for (const s of h.state.seats) expect(h.handOf(s.id).length).toBe(7)
+    expect(Object.keys(h.state.cards).length).toBe(108)
   })
 })

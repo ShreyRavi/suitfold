@@ -22,8 +22,11 @@ code. Sharing the link works too — `…/suitfold/#ABC23` fills the code in.
   Cards snap into them. They hold nothing and enforce nothing; they just say where
   things go, which is what makes a table read as Hearts rather than a pile of cards.
 - **Score** in the toolbar counts whatever this table is counting: tricks, points, lives.
-- **Chips**, on games that use them. Everyone buys in, **Bet** moves an amount into the pot,
-  and whoever wins takes it. They are drawn as real stacks but they are an amount underneath,
+- **New hand** deals the whole table in one press: everything gathered and shuffled, cards to
+  each player, and for poker the five middle cards laid face down so you turn the flop, the
+  turn and the river as you go.
+- **Chips**, on games that use them. Everyone buys in, one tap on an amount puts it in the pot,
+  and **Take pot** appears the moment there is one to take. They are drawn as real stacks but they are an amount underneath,
   so calling a bet is one tap rather than dragging seven discs. Nothing is enforced — the
   table only checks you have the chips, never whether the bet was legal.
 
