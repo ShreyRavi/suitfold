@@ -19,6 +19,8 @@ export interface TableProps {
   onTake: (ids: CardId[]) => void
   onDrag: (d: Drag) => void
   onStack: (ids: CardId[], at: Pos) => void
+  /** The dealer button and the blinds. They snap to nothing. */
+  onPuck: (id: string, x: number, y: number) => void
 }
 
 /**
@@ -29,7 +31,7 @@ export interface TableProps {
  * a card slides rather than teleports. Only the drop is sent to the host, which
  * is what actually changes the table.
  */
-export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack }: TableProps) {
+export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack, onPuck }: TableProps) {
   const wrap = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
   const [dragging, setDragging] = useState<{
@@ -39,6 +41,8 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
     /** Started on the count badge, which grabs the whole pile. */
     viaBadge?: boolean
     moved?: boolean
+    /** A marker rather than cards, which lands wherever it is dropped. */
+    puck?: string
   } | null>(null)
   const [menu, setMenu] = useState<{ ids: CardId[]; at: Pos } | null>(null)
 
@@ -79,7 +83,7 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
     piles.set(key, list)
   }
 
-  const startDrag = (e: React.PointerEvent, ids: CardId[], from: Pos, viaBadge = false) => {
+  const startDrag = (e: React.PointerEvent, ids: CardId[], from: Pos, viaBadge = false, puck?: string) => {
     if (!me) return
     e.preventDefault()
     // Capture keeps the drag alive if the pointer leaves the card. It throws
@@ -91,7 +95,7 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
       /* not a live pointer */
     }
     const p = toTable(e.clientX, e.clientY)
-    setDragging({ ids, at: from, grab: { x: p.x - from.x, y: p.y - from.y }, viaBadge })
+    setDragging({ ids, at: from, grab: { x: p.x - from.x, y: p.y - from.y }, viaBadge, ...(puck ? { puck } : {}) })
     onDrag({ ids, x: from.x, y: from.y, holding: true, by: me })
   }
 
@@ -107,9 +111,16 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
 
   const endDrag = () => {
     if (!dragging || !me) return
-    const { ids, at, viaBadge, moved } = dragging
+    const { ids, at, viaBadge, moved, puck } = dragging
     setDragging(null)
     onDrag({ ids, x: at.x, y: at.y, holding: false, by: me })
+
+    // A marker has no pile to join and no hand to go into. It stays where you
+    // put it, which is the whole point of it.
+    if (puck) {
+      onPuck(puck, clamp(at.x, 18, TABLE_W - 18), clamp(at.y, 18, TABLE_H - 18))
+      return
+    }
 
     // Pressing the badge without moving is a tap, and a tap opens the menu.
     if (viaBadge && !moved) {
@@ -154,7 +165,7 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
     <div className="felt" ref={wrap} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerCancel={endDrag}>
       <div
         className="felt-inner"
-        style={{ width: TABLE_W, height: TABLE_H, transform: `scale(${scale})` }}
+        style={{ width: TABLE_W, height: TABLE_H, transform: `translate(-50%, -50%) scale(${scale})` }}
         onPointerDown={() => setMenu(null)}
       >
         <div className="felt-face" aria-hidden="true" />
@@ -173,6 +184,28 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
             <span className="slot-label">{slot.label}</span>
           </div>
         ))}
+
+        {/* The dealer button and the blinds. Drag one round as the deal moves. */}
+        {view.pucks.map((puck) => {
+          const held = dragging?.puck === puck.id
+          const remote = drags[puck.id]
+          const at = held ? dragging!.at : remote ? { x: remote.x, y: remote.y } : { x: puck.x, y: puck.y }
+          return (
+            <button
+              key={puck.id}
+              className={`puck puck--${puck.id.replace('pk-', '')} ${held || remote ? 'is-live' : ''}`}
+              style={{ transform: `translate(${at.x - 17}px, ${at.y - 17}px)` }}
+              title={puck.hint}
+              aria-label={puck.hint}
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                startDrag(e, [puck.id], { x: puck.x, y: puck.y }, false, puck.id)
+              }}
+            >
+              {puck.label}
+            </button>
+          )
+        })}
 
         {/* Everyone else sits around the edge; you are the rail at the bottom. */}
         {seatSpots(view, me).map(({ seat, x, y, count }) => (

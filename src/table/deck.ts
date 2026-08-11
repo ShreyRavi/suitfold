@@ -1,4 +1,4 @@
-import type { CardId, Slot } from './model.ts'
+import type { CardId, Puck, Slot } from './model.ts'
 import { TABLE_H, TABLE_W } from './model.ts'
 
 /**
@@ -107,10 +107,23 @@ export interface Preset {
    * the hand goes.
    */
   hand?: { each: number; board?: number; boardSlot?: string }
+  /** Draggable markers: the dealer button and the blinds. */
+  pucks?: () => Puck[]
 }
 
 const CX = TABLE_W / 2
 const CY = TABLE_H / 2
+
+/**
+ * The dealer button and the two blinds. Nothing about them is enforced — they
+ * sit on the felt and somebody drags them one seat to the left between hands,
+ * which is exactly what the plastic discs on a real table are for.
+ */
+const blinds = (): Puck[] => [
+  { id: 'pk-d', x: CX - 300, y: CY + 150, label: 'D', hint: 'Dealer button' },
+  { id: 'pk-sb', x: CX - 244, y: CY + 150, label: 'SB', hint: 'Small blind' },
+  { id: 'pk-bb', x: CX - 188, y: CY + 150, label: 'BB', hint: 'Big blind' },
+]
 
 /** Draw pile on the left of centre, discard on the right. */
 const drawDiscard = (): Slot[] => [
@@ -153,6 +166,7 @@ export const PRESETS: Preset[] = [
     ],
     chips: 2000,
     hand: { each: 2, board: 5, boardSlot: 'board' },
+    pucks: blinds,
   },
   {
     id: 'indian-rummy',

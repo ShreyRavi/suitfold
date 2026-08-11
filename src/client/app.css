@@ -105,7 +105,11 @@ input {
       color-mix(in srgb, var(--table-edge) 34%, #140e08));
   touch-action: none; /* the whole surface is a drag target */
 }
-.felt-inner { position: relative; transform-origin: center; }
+/* Positioned rather than grid-centred. The table is a fixed 1000px wide and
+   then scaled down, so on any phone it is an item far wider than the box that
+   holds it — and grid alignment quietly gives up on centring those and pins
+   them to the start, which put three quarters of the table off-screen. */
+.felt-inner { position: absolute; left: 50%; top: 50%; transform-origin: center; }
 .felt-face {
   position: absolute; inset: 30px 44px; border-radius: 210px / 150px;
   background:
@@ -181,7 +185,7 @@ input {
 
 /* ---- a card ------------------------------------------------------------ */
 .pc {
-  position: relative; width: 68px; height: 96px; flex: none;
+  position: relative; width: 68px; height: 96px; flex: none; font-size: 6.8px;
   background:
     linear-gradient(158deg, #fffdf8 0%, var(--card-face) 55%, #f4eee1 100%);
   border: 1px solid var(--card-edge);
@@ -199,43 +203,48 @@ input {
 }
 @media (prefers-reduced-motion: reduce) { .pc { animation: none; } }
 
-.pc--sm { width: 52px; height: 74px; }
+.pc--sm { width: 52px; height: 74px; font-size: 5.2px; }
 .pc.is-red { color: var(--suit-red); }
 
-/* The corner index: rank over its suit, and the same again upside down. */
-.ix { position: absolute; display: flex; flex-direction: column; align-items: center; line-height: .95; }
-.ix b { font-size: 15px; font-weight: 500; }
-.ix i { font-style: normal; font-size: 11px; margin-top: 1px; }
-.ix--tl { top: 5px; left: 5px; }
-.ix--br { bottom: 5px; right: 5px; transform: rotate(180deg); }
-.pc--sm .ix b { font-size: 12px; }
-.pc--sm .ix i { font-size: 9px; }
+/* Everything on a card face is sized in em off one font-size, which is a tenth
+   of the card's width. That is the only reason a small card, a table card and
+   the big cards on the front page are the same drawing rather than three sets
+   of numbers that drift apart. */
 
-/* Pip field for the number cards. The lower half is inverted, as on a real deck. */
-.field { position: absolute; inset: 0; }
+.suit { display: block; width: 1em; height: 1em; }
+
+/* The corner index: rank over its suit, and the same again upside down. It is
+   deliberately small — the pip field below has to clear it. */
+.ix {
+  position: absolute; display: flex; flex-direction: column; align-items: center;
+  line-height: .92;
+}
+.ix b { font-size: 1.4em; font-weight: 500; letter-spacing: -.02em; }
+.ix .suit { width: .95em; height: .95em; margin-top: .18em; }
+.ix--tl { top: .45em; left: .55em; }
+.ix--br { bottom: .45em; right: .55em; transform: rotate(180deg); }
+
+/* The pip field. Inset so that even the outermost pip stops short of the
+   indices, top and bottom — which is what was wrong before. */
+.field { position: absolute; inset: 28% 26%; }
 .field i {
   position: absolute; transform: translate(-50%, -50%);
-  font-style: normal; font-size: 15px; line-height: 1;
+  font-size: 1.4em; line-height: 0;
 }
 .field i.flip { transform: translate(-50%, -50%) rotate(180deg); }
-.pc--sm .field i { font-size: 11px; }
 
-.ace {
-  position: absolute; inset: 0; display: grid; place-items: center;
-  font-size: 34px; line-height: 1;
-}
-.pc--sm .ace { font-size: 25px; }
+.ace { position: absolute; inset: 0; display: grid; place-items: center; font-size: 3.4em; }
 
 /* Courts stay typographic rather than pretending to be illustrations. */
 .court {
-  position: absolute; inset: 12% 14%; display: grid; place-items: center;
+  position: absolute; inset: 20% 22%; display: grid; place-items: center;
   border: 1px solid color-mix(in srgb, currentColor 26%, transparent);
-  border-radius: 4px; font-size: 27px; font-weight: 500; line-height: 1;
+  border-radius: .5em; font-size: 1em;
 }
-.court em { position: absolute; right: 5px; bottom: 3px; font-style: normal; font-size: 13px; }
-.pc--sm .court { font-size: 20px; }
-.pc--sm .court em { font-size: 10px; }
-.pc--joker .court { font-size: 22px; }
+.court b { font-size: 2.7em; font-weight: 500; line-height: 1; }
+.court em { position: absolute; right: .45em; bottom: .35em; font-size: 1.3em; }
+.pc--joker .court b { font-size: 2em; }
+.pc--joker .court .suit { width: 2.2em; height: 2.2em; }
 
 /* The back gets a real pattern instead of flat stripes. */
 .pc--back {
@@ -316,7 +325,7 @@ input {
 }
 
 @media (min-width: 720px) {
-  .pc { width: 68px; height: 96px; }
+  .pc { width: 74px; height: 104px; font-size: 7.4px; }
   .sheet-body { padding-top: var(--s-9); }
 }
 
@@ -660,12 +669,7 @@ input {
   transform-origin: 50% 140%;
   filter: drop-shadow(0 10px 20px rgba(0,0,0,.16));
 }
-.hero-card .pc { width: 108px; height: 152px; }
-.hero-card .pc .ix b { font-size: 22px; }
-.hero-card .pc .ix i { font-size: 16px; }
-.hero-card .pc .ace { font-size: 54px; }
-.hero-card .pc .court { font-size: 42px; }
-.hero-card .pc .field i { font-size: 22px; }
+.hero-card .pc { width: 108px; height: 152px; font-size: 10.8px; }
 
 .strip {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s-7);
@@ -708,7 +712,7 @@ input {
 @media (max-width: 860px) {
   .hero { grid-template-columns: 1fr; gap: var(--s-8); }
   .hero-art { height: 200px; order: -1; }
-  .hero-card .pc { width: 84px; height: 118px; }
+  .hero-card .pc { width: 84px; height: 118px; font-size: 8.4px; }
   .strip { grid-template-columns: 1fr; gap: var(--s-8); }
 }
 
@@ -719,7 +723,7 @@ input {
   padding: var(--s-9) var(--s-8) calc(env(safe-area-inset-bottom, 0px) + var(--s-9));
 }
 .invite-art { position: relative; height: 132px; display: grid; place-items: center; }
-.invite-art .hero-card .pc { width: 86px; height: 120px; }
+.invite-art .hero-card .pc { width: 86px; height: 120px; font-size: 8.6px; }
 .invite-box {
   width: min(24rem, 100%); text-align: center;
   display: flex; flex-direction: column; gap: var(--s-6); align-items: stretch;
@@ -782,3 +786,116 @@ input {
 }
 .bar-game:hover { color: var(--accent); }
 .bar-game:hover i { border-color: var(--accent); }
+
+/* ---- the log, and chat ------------------------------------------------- */
+/* Around a real table you can hear everyone and see every hand move. This is
+   the substitute: one shared list, written by the host as it happens. */
+.bar-log {
+  flex: none; display: inline-flex; align-items: center; gap: var(--s-3);
+  padding: 6px 11px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--paper-panel); font-size: var(--text-md); color: var(--ink-soft);
+}
+.bar-log.on { border-color: var(--accent); color: var(--accent); background: var(--accent-wash); }
+.bar-log b {
+  min-width: 16px; padding: 0 4px; border-radius: 999px;
+  background: var(--accent); color: var(--paper);
+  font-size: 10px; font-weight: 400; text-align: center;
+}
+
+.log {
+  display: none; flex-direction: column; min-height: 0;
+  background: var(--paper-raised); border-left: 1px solid var(--rule);
+}
+.log.is-open { display: flex; }
+.log-bar {
+  flex: none; display: flex; align-items: center; justify-content: space-between;
+  padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--rule);
+}
+.log-x { padding: 2px 8px; }
+
+.log-list {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: var(--s-5) var(--s-6); display: flex; flex-direction: column; gap: 7px;
+  overscroll-behavior: contain;
+}
+.log-empty { margin: 0; color: var(--ink-faint); font-size: var(--text-sm); }
+
+.log-line { margin: 0; display: flex; gap: var(--s-4); font-size: var(--text-sm); line-height: 1.35; }
+.log-dot { flex: none; width: 6px; height: 6px; border-radius: 999px; margin-top: 6px; }
+.log-what { color: var(--ink-soft); }
+.log-what b { font-weight: 500; color: var(--ink); }
+.log-what em, .toast em { font-style: normal; font-family: var(--font-mono); color: var(--accent); }
+/* Cards move constantly; chips and the game do not. Keep the noise quiet. */
+.log-line.is-card .log-what { color: var(--ink-faint); }
+
+.log-line.is-chat {
+  flex-direction: column; gap: 1px;
+  padding: var(--s-4) var(--s-5); border-radius: var(--r-panel);
+  background: var(--paper-panel); font-size: var(--text-md);
+}
+.log-who { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.log-said { color: var(--ink); overflow-wrap: anywhere; }
+
+.log-say {
+  flex: none; display: flex; gap: var(--s-4);
+  padding: var(--s-5) var(--s-6) calc(env(safe-area-inset-bottom, 0px) + var(--s-5));
+  border-top: 1px solid var(--rule);
+}
+.log-say input {
+  flex: 1; min-width: 0; padding: 7px 10px;
+  border: 1px solid var(--line); border-radius: var(--r-panel);
+  background: var(--paper); color: var(--ink); font-size: var(--text-md);
+}
+
+/* Beside the table when there is room for it, over the table when there is not. */
+@media (min-width: 1080px) {
+  .app.with-log { display: grid; grid-template-columns: 1fr minmax(258px, 310px); grid-template-rows: auto minmax(0, 1fr) auto; }
+  .app.with-log > .bar { grid-column: 1 / -1; }
+  .app.with-log > .felt-wrap { grid-column: 1; grid-row: 2; }
+  .app.with-log > .rail { grid-column: 1; grid-row: 3; }
+  .app.with-log > .log { grid-column: 2; grid-row: 2 / 4; }
+}
+@media (max-width: 1079px) {
+  .log.is-open {
+    position: fixed; z-index: 90; top: 0; right: 0; bottom: 0; width: min(320px, 86vw);
+    box-shadow: -14px 0 40px rgba(0,0,0,.16);
+  }
+}
+
+/* ---- toasts ------------------------------------------------------------ */
+/* Chips moving is the one thing you cannot miss while looking at your hand. */
+/* Bottom right of the table: the seats live along the top and the tools along
+   the bottom middle, so this is the one corner nothing else wants. */
+.toasts {
+  position: absolute; z-index: 95; right: var(--s-6); bottom: var(--s-6);
+  display: flex; flex-direction: column; gap: var(--s-4); align-items: flex-end;
+  pointer-events: none;
+}
+.toast {
+  display: flex; align-items: center; gap: var(--s-5);
+  padding: 8px 14px; border-radius: 999px;
+  background: var(--ink); color: var(--paper); font-size: var(--text-md);
+  box-shadow: 0 8px 26px rgba(0,0,0,.24);
+  animation: toast-in 200ms var(--ease) both;
+}
+.toast b { font-weight: 500; }
+.toast em { color: #f3c96b; }
+.toast-dot { width: 8px; height: 8px; border-radius: 999px; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px) scale(.96); } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+
+/* ---- the dealer button and the blinds ---------------------------------- */
+/* Plastic discs on the felt. They enforce nothing; you drag them one seat
+   round between hands, exactly as you would reach across and do it. */
+.puck {
+  position: absolute; z-index: 4; width: 34px; height: 34px; border-radius: 999px;
+  display: grid; place-items: center; touch-action: none;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .02em;
+  border: 2px solid rgba(255,255,255,.82);
+  box-shadow: 0 2px 4px rgba(0,0,0,.28), 0 6px 14px rgba(0,0,0,.18), inset 0 -2px 5px rgba(0,0,0,.22);
+  background: #f6f2e8; color: #2f2a24;
+  transition: transform 160ms var(--ease);
+}
+.puck.is-live { transition: none; cursor: grabbing; }
+.puck--sb { background: #2e8b57; color: #fff; }
+.puck--bb { background: #1f4b7a; color: #fff; }

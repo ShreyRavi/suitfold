@@ -10,6 +10,7 @@ import { Rules } from './Rules.tsx'
 import { Card } from './Card.tsx'
 import { Toolbar } from './Toolbar.tsx'
 import { BetBar } from './BetBar.tsx'
+import { Log, Toasts } from './Log.tsx'
 
 export function App() {
   const t = useTable()
@@ -81,6 +82,8 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
   const [sheet, setSheet] = useState(false)
   const [rules, setRules] = useState<string | null>(null)
   const [picked, setPicked] = useState<CardId[]>([])
+  // Wide screens get the log beside the table; small ones slide it over.
+  const [log, setLog] = useState(() => matchMedia('(min-width: 1080px)').matches)
   const fileRef = useRef<HTMLDivElement>(null)
 
   const myHand = view.cards.filter((c) => c.hand === t.me).sort((a, b) => a.z - b.z)
@@ -101,11 +104,14 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
     [t],
   )
 
+  // Only worth counting while the log is shut; once it is open you can see it.
+  const unread = log ? 0 : view.log.filter((e) => e.kind === 'chat').length
+
   const play = (ids: CardId[], faceUp: boolean) =>
     t.act({ t: 'play', ids, x: TABLE_W / 2, y: TABLE_H / 2 - 60, faceUp })
 
   return (
-    <div className="app">
+    <div className={`app ${log ? 'with-log' : ''}`}>
       <header className="bar">
         <div className="brand">
           <i className="mark">♠</i>
@@ -119,6 +125,15 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
             </button>
           )}
         </div>
+        <button
+          className={`bar-log ${log ? 'on' : ''}`}
+          onClick={() => setLog(!log)}
+          title="What has happened"
+          aria-pressed={log}
+        >
+          Log
+          {unread > 0 && <b>{unread}</b>}
+        </button>
         <button className="bar-code" onClick={() => setSheet(true)} title="Share this table">
           {t.code}
           <b>{t.peers + 1}</b>
@@ -140,6 +155,7 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
           onTake={take}
           onDrag={t.broadcastDrag}
           onStack={(ids) => shuffleStack(ids)}
+          onPuck={(id, x, y) => t.act({ t: 'puck', id, x, y })}
         />
         {view.cards.length === 0 && (
           <div className="empty-table">
@@ -159,6 +175,9 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
         )}
 
         <Toolbar host={t.host} view={view} me={t.me} onGames={() => setSheet(true)} act={t.act} />
+        {/* Over the table, so it lands wherever the table is rather than
+            drifting off-centre when the log takes the right-hand column. */}
+        <Toasts view={view} me={t.me} logOpen={log} />
       </div>
 
       <div className="rail" ref={fileRef}>
@@ -226,6 +245,8 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
           })}
         </div>
       </div>
+
+      <Log view={view} me={t.me} open={log} onClose={() => setLog(false)} act={t.act} />
 
       {sheet && <Sheet t={t} onClose={() => setSheet(false)} onRules={(id) => setRules(id)} />}
       {rules && <Rules gameId={rules} onClose={() => setRules(null)} />}

@@ -11,6 +11,7 @@ import {
   snapTarget,
   stacks,
   type Action,
+  LOG_MAX,
   type TableState,
 } from '../src/table/model.ts'
 import { PRESETS, standard, uno } from '../src/table/deck.ts'
@@ -25,6 +26,7 @@ const dealt = () =>
     deckName: 'test',
     cards: standard(1).map((id) => ({ id, faceUp: false, x: 500, y: 320 })),
     slots: [],
+    pucks: [],
     game: 'deck',
   })
 
@@ -607,5 +609,178 @@ describe('gathering and moving whole piles', () => {
     expect(moved.length).toBe(1)
     expect(moved[0]!.length).toBe(52)
     expect(moved[0]!.map((c) => c.id)).toEqual(ids) // order survives the move
+  })
+})
+
+// ---------------------------------------------------------------------------
+
+describe('the log', () => {
+  test('a bet says who, and how much', () => {
+    const h = hosted()
+    h.buyIn(500)
+    h.bet('s2', 75)
+    const last = h.state.log[h.state.log.length - 1]!
+    expect(last.kind).toBe('chip')
+    expect(last.seat).toBe('s2')
+    expect(last.text).toBe('bet')
+    expect(last.amount).toBe(75)
+  })
+
+  test('taking the pot reports what was actually in it', () => {
+    const h = hosted()
+    h.buyIn(500)
+    h.bet('s2', 60)
+    h.bet('s3', 40)
+    h.takePot('s2')
+    const last = h.state.log[h.state.log.length - 1]!
+    expect(last.text).toBe('took the pot')
+    expect(last.amount).toBe(100)
+    expect(last.seat).toBe('s2')
+  })
+
+  test('a bet capped by the stack logs what was really put in', () => {
+    const h = hosted()
+    h.buyIn(50)
+    h.bet('s2', 500)
+    const last = h.state.log[h.state.log.length - 1]!
+    expect(last.amount).toBe(50)
+    expect(h.state.pot).toBe(50)
+  })
+
+  test('a deal is one line, not one line per card', () => {
+    const h = hosted()
+    const before = h.state.log.length
+    h.setup('poker')
+    expect(h.state.log.length).toBe(before + 1)
+    expect(h.state.log[h.state.log.length - 1]!.text).toContain('Poker')
+  })
+
+  test('sitting down is credited to whoever sat, not to the host', () => {
+    const h = new Host(silent(), 'host', () => {})
+    h.seatSelf('Mom')
+    const last = h.state.log[h.state.log.length - 1]!
+    expect(last.text).toBe('sat down')
+    expect(last.seat).toBe('host')
+  })
+
+  test('chat is a log line and moves nothing', () => {
+    const h = hosted()
+    h.setup('poker')
+    const cards = JSON.stringify(h.state.cards)
+    h.say('s2', '  is it my go?  ')
+    const last = h.state.log[h.state.log.length - 1]!
+    expect(last.kind).toBe('chat')
+    expect(last.text).toBe('is it my go?')
+    expect(last.seat).toBe('s2')
+    expect(JSON.stringify(h.state.cards)).toBe(cards)
+  })
+
+  test('empty chat is not a line', () => {
+    const h = hosted()
+    const before = h.state.log.length
+    h.say('s2', '   ')
+    expect(h.state.log.length).toBe(before)
+  })
+
+  test('undo is itself recorded, and the log never rewinds', () => {
+    const h = hosted()
+    h.setup('poker')
+    const n = h.state.logN
+    h.undo()
+    expect(h.state.logN).toBe(n + 1)
+    expect(h.state.log[h.state.log.length - 1]!.text).toBe('took that back')
+  })
+
+  test('the log never names a card', () => {
+    const h = hosted()
+    h.setup('poker')
+    h.dealHand()
+    h.gather()
+    const ids = Object.keys(h.state.cards)
+    for (const line of h.state.log) {
+      for (const id of ids) expect(line.text.includes(id)).toBe(false)
+    }
+  })
+
+  test('it does not grow without limit', () => {
+    const h = hosted()
+    for (let i = 0; i < LOG_MAX + 40; i++) h.say('s2', `line ${i}`)
+    expect(h.state.log.length).toBe(LOG_MAX)
+    // The oldest are the ones dropped.
+    expect(h.state.log[h.state.log.length - 1]!.text).toBe(`line ${LOG_MAX + 39}`)
+  })
+
+  test('every player is sent the log', () => {
+    const h = hosted()
+    h.buyIn(100)
+    h.bet('s2', 10)
+    const seen = project(h.state, 's3')
+    expect(seen.log[seen.log.length - 1]!.text).toBe('bet')
+  })
+})
+
+describe('the dealer button and the blinds', () => {
+  test('poker puts three markers on the felt', () => {
+    const h = hosted()
+    h.setup('poker')
+    expect(h.state.pucks.map((p) => p.label)).toEqual(['D', 'SB', 'BB'])
+  })
+
+  test('a game without blinds has none', () => {
+    const h = hosted()
+    h.setup('indian-rummy')
+    expect(h.state.pucks).toEqual([])
+  })
+
+  test('anyone may move one — it is a reminder, not a rule', () => {
+    expect(allowed({ t: 'puck', id: 'pk-d', x: 10, y: 10 }, 's2')).toBe(true)
+  })
+
+  test('moving one moves only that one, and says which', () => {
+    const h = hosted()
+    h.setup('poker')
+    const sb = h.state.pucks.find((p) => p.id === 'pk-sb')!
+    h.local({ t: 'puck', id: 'pk-d', x: 400, y: 120 })
+    const moved = h.state.pucks.find((p) => p.id === 'pk-d')!
+    expect([moved.x, moved.y]).toEqual([400, 120])
+    expect(h.state.pucks.find((p) => p.id === 'pk-sb')).toEqual(sb)
+    expect(h.state.log[h.state.log.length - 1]!.text).toBe('moved the dealer button')
+  })
+})
+
+describe('turning up late', () => {
+  test('somebody who joins after the game started is bought in', () => {
+    const h = hosted(['Mom'])
+    h.setup('poker')
+    expect(h.state.chips['host']).toBe(2000)
+    h.addSeatForTest('s9', 'Latecomer')
+    expect(h.state.chips['s9']).toBe(2000)
+    expect(h.state.chipsOn).toBe(true)
+  })
+
+  test('and can then actually put something in the pot', () => {
+    const h = hosted(['Mom'])
+    h.setup('poker')
+    h.addSeatForTest('s9', 'Latecomer')
+    h.bet('s9', 300)
+    expect(h.state.pot).toBe(300)
+    expect(h.state.chips['s9']).toBe(1700)
+  })
+
+  test('a game without chips does not hand out any', () => {
+    const h = hosted(['Mom'])
+    h.setup('indian-rummy')
+    h.addSeatForTest('s9', 'Latecomer')
+    expect(h.state.chipsOn).toBe(false)
+    expect(h.state.chips['s9']).toBeUndefined()
+  })
+
+  test('coming back to your own seat does not top you up', () => {
+    const h = hosted(['Mom'])
+    h.setup('poker')
+    h.bet('host', 500)
+    expect(h.state.chips['host']).toBe(1500)
+    h.addSeatForTest('host', 'Mom')
+    expect(h.state.chips['host']).toBe(1500)
   })
 })

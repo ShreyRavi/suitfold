@@ -1,25 +1,32 @@
 import { UNO_LABEL, isJoker, isRed, isUno, isUnoWild, rankOf, suitOf, unoColour, unoValue } from '../table/deck.ts'
+import { Suit } from './Suit.tsx'
 
-const PIP: Record<string, string> = { S: '♠', H: '♥', D: '♦', C: '♣' }
 const SUIT_NAME: Record<string, string> = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' }
 const UNO_NAME: Record<string, string> = { R: 'red', G: 'green', B: 'blue', Y: 'yellow' }
 const UNO_GLYPH: Record<string, string> = { S: '⊘', V: '⇄', T: '+2', W: '', F: '+4' }
 
 /**
- * The classic pip arrangement, as a 3-column by 7-row grid. Real cards put the
- * lower half upside down, which is the detail that makes a drawn card read as a
- * playing card rather than a rank in a box.
+ * Where the pips go, as fractions of the pip field: 0, ½ or 1 across, and
+ * anywhere from 0 to 1 down. The field itself is inset far enough that nothing
+ * can reach the corner indices, so these are the real arrangement off a real
+ * deck rather than numbers chosen to dodge a collision.
+ *
+ * Anything below halfway is drawn upside down, as it is on a printed card.
  */
+const T3 = 1 / 3
 const PIPS: Record<string, [number, number][]> = {
-  '2': [[1, 0], [1, 6]],
-  '3': [[1, 0], [1, 3], [1, 6]],
-  '4': [[0, 0], [2, 0], [0, 6], [2, 6]],
-  '5': [[0, 0], [2, 0], [1, 3], [0, 6], [2, 6]],
-  '6': [[0, 0], [2, 0], [0, 3], [2, 3], [0, 6], [2, 6]],
-  '7': [[0, 0], [2, 0], [1, 1.5], [0, 3], [2, 3], [0, 6], [2, 6]],
-  '8': [[0, 0], [2, 0], [1, 1.5], [0, 3], [2, 3], [1, 4.5], [0, 6], [2, 6]],
-  '9': [[0, 0], [2, 0], [0, 2], [2, 2], [1, 3], [0, 4], [2, 4], [0, 6], [2, 6]],
-  T: [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2], [0, 4], [2, 4], [1, 5], [0, 6], [2, 6]],
+  '2': [[0.5, 0], [0.5, 1]],
+  '3': [[0.5, 0], [0.5, 0.5], [0.5, 1]],
+  '4': [[0, 0], [1, 0], [0, 1], [1, 1]],
+  '5': [[0, 0], [1, 0], [0.5, 0.5], [0, 1], [1, 1]],
+  '6': [[0, 0], [1, 0], [0, 0.5], [1, 0.5], [0, 1], [1, 1]],
+  '7': [[0, 0], [1, 0], [0.5, 0.25], [0, 0.5], [1, 0.5], [0, 1], [1, 1]],
+  '8': [[0, 0], [1, 0], [0.5, 0.25], [0, 0.5], [1, 0.5], [0.5, 0.75], [0, 1], [1, 1]],
+  '9': [[0, 0], [1, 0], [0, T3], [1, T3], [0.5, 0.5], [0, 2 * T3], [1, 2 * T3], [0, 1], [1, 1]],
+  T: [
+    [0, 0], [1, 0], [0.5, 1 / 6], [0, T3], [1, T3],
+    [0, 2 * T3], [1, 2 * T3], [0.5, 5 / 6], [0, 1], [1, 1],
+  ],
 }
 
 /**
@@ -56,22 +63,17 @@ export function Card({
   if (isJoker(face)) {
     return (
       <div className={[...base, 'pc--joker'].join(' ')} key={key} aria-label="joker">
-        <span className="ix ix--tl">
-          <b>J</b>
-          <i>★</i>
+        <Index label="J" suit="X" />
+        <span className="court">
+          <Suit s="X" />
         </span>
-        <span className="court">★</span>
-        <span className="ix ix--br">
-          <b>J</b>
-          <i>★</i>
-        </span>
+        <Index label="J" suit="X" bottom />
       </div>
     )
   }
 
   const r = rankOf(face)
   const s = suitOf(face)
-  const pip = PIP[s]!
   const label = r === 'T' ? '10' : r
   const court = r === 'J' || r === 'Q' || r === 'K'
   const spots = PIPS[r]
@@ -82,16 +84,19 @@ export function Card({
       key={key}
       aria-label={`${label} of ${SUIT_NAME[s] ?? s}`}
     >
-      <span className="ix ix--tl">
-        <b>{label}</b>
-        <i>{pip}</i>
-      </span>
+      <Index label={label} suit={s} />
 
-      {r === 'A' && <span className="ace">{pip}</span>}
+      {r === 'A' && (
+        <span className="ace" aria-hidden="true">
+          <Suit s={s} />
+        </span>
+      )}
       {court && (
-        <span className="court">
-          {r}
-          <em>{pip}</em>
+        <span className="court" aria-hidden="true">
+          <b>{r}</b>
+          <em>
+            <Suit s={s} />
+          </em>
         </span>
       )}
       {spots && (
@@ -99,20 +104,27 @@ export function Card({
           {spots.map(([col, row], i) => (
             <i
               key={i}
-              className={row > 3 ? 'flip' : ''}
-              style={{ left: `${[22, 50, 78][col]}%`, top: `${14 + row * 12}%` }}
+              className={row > 0.5 ? 'flip' : ''}
+              style={{ left: `${col * 100}%`, top: `${row * 100}%` }}
             >
-              {pip}
+              <Suit s={s} />
             </i>
           ))}
         </span>
       )}
 
-      <span className="ix ix--br">
-        <b>{label}</b>
-        <i>{pip}</i>
-      </span>
+      <Index label={label} suit={s} bottom />
     </div>
+  )
+}
+
+/** Rank over suit in the corner, and the same again upside down. */
+function Index({ label, suit, bottom }: { label: string; suit: string; bottom?: boolean }) {
+  return (
+    <span className={`ix ${bottom ? 'ix--br' : 'ix--tl'}`} aria-hidden="true">
+      <b>{label}</b>
+      <Suit s={suit} />
+    </span>
   )
 }
 

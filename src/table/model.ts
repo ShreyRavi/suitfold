@@ -52,10 +52,46 @@ export interface Slot {
   wide?: number
 }
 
+/**
+ * A marker you shove around: the dealer button, the blinds. It holds no cards
+ * and enforces no turn order — it is the little plastic disc that reminds
+ * everyone whose deal it is, and it moves because somebody drags it.
+ */
+export interface Puck {
+  id: string
+  x: number
+  y: number
+  /** Short, because it is drawn inside a disc. */
+  label: string
+  /** What it means, for the tooltip. */
+  hint: string
+}
+
+/**
+ * One line of the table's history. Everyone gets the same list in the same
+ * order, because the host writes it as it applies each change.
+ *
+ * It never names a card. That is not squeamishness — the log is projected to
+ * every player, so "Dad picked up the ace" would be a hole straight through
+ * the secrecy boundary. Counts only.
+ */
+export interface LogEntry {
+  n: number
+  seat: SeatId | null
+  kind: 'chip' | 'card' | 'seat' | 'game' | 'chat'
+  text: string
+  /** Chip lines carry their amount so the log can draw it as money. */
+  amount?: number
+}
+
 export interface TableState {
   cards: Record<CardId, Card>
   seats: Seat[]
   slots: Slot[]
+  pucks: Puck[]
+  /** Newest last. Capped, because this is a game, not an audit trail. */
+  log: LogEntry[]
+  logN: number
   /** Whatever anyone is keeping track of: tricks, points, lives. */
   scores: Record<SeatId, number>
   /**
@@ -67,6 +103,8 @@ export interface TableState {
   pot: number
   /** Whether this table is playing for chips at all. */
   chipsOn: boolean
+  /** What everyone started with, so somebody arriving late can be bought in. */
+  buyIn: number
   topZ: number
   /** What the table was last set up with, for the toolbar label. */
   deckName: string
@@ -78,10 +116,14 @@ export const emptyTable = (): TableState => ({
   cards: {},
   seats: [],
   slots: [],
+  pucks: [],
+  log: [],
+  logN: 0,
   scores: {},
   chips: {},
   pot: 0,
   chipsOn: false,
+  buyIn: 0,
   topZ: 0,
   deckName: '',
   game: '',
@@ -97,6 +139,7 @@ export type Action =
       deckName: string
       cards: { id: CardId; faceUp: boolean; x: number; y: number }[]
       slots: Slot[]
+      pucks: Puck[]
       game: string
     }
   | { t: 'score'; seat: SeatId; by: number }
@@ -114,6 +157,9 @@ export type Action =
   | { t: 'seat_name'; id: SeatId; name: string }
   | { t: 'seat_here'; id: SeatId; connected: boolean }
   | { t: 'seat_remove'; id: SeatId }
+  | { t: 'puck'; id: string; x: number; y: number }
+  /** Chat. It changes nothing on the table; the host turns it into a log line. */
+  | { t: 'say'; seat: SeatId; text: string }
 
 /** The only way the table ever changes. Pure, so it can be tested and replayed. */
 export function apply(s: TableState, a: Action): TableState {
@@ -125,7 +171,15 @@ export function apply(s: TableState, a: Action): TableState {
       a.cards.forEach((c, i) => {
         cards[c.id] = { id: c.id, x: c.x, y: c.y, z: i + 1, faceUp: c.faceUp, hand: null }
       })
-      return { ...s, cards, slots: a.slots, topZ: a.cards.length, deckName: a.deckName, game: a.game }
+      return {
+        ...s,
+        cards,
+        slots: a.slots,
+        pucks: a.pucks,
+        topZ: a.cards.length,
+        deckName: a.deckName,
+        game: a.game,
+      }
     }
 
     case 'score':
@@ -137,7 +191,7 @@ export function apply(s: TableState, a: Action): TableState {
     case 'chips_start': {
       const chips: Record<SeatId, number> = {}
       for (const seat of s.seats) chips[seat.id] = a.each
-      return { ...s, chips, pot: 0, chipsOn: a.on }
+      return { ...s, chips, pot: 0, chipsOn: a.on, buyIn: a.each }
     }
 
     case 'bet': {
@@ -218,9 +272,18 @@ export function apply(s: TableState, a: Action): TableState {
       return { ...s, cards, topZ: z }
     }
 
-    case 'seat_add':
+    case 'seat_add': {
       if (s.seats.some((x) => x.id === a.id)) return s
-      return { ...s, seats: [...s.seats, { id: a.id, name: a.name, colour: a.colour, connected: true }] }
+      // Arriving after the game was set up is normal — people turn up late.
+      // Buy them in for the same as everyone else, or they can sit at a poker
+      // table with no chips and no way to put anything in the pot.
+      const chips = s.chipsOn && s.chips[a.id] === undefined ? { ...s.chips, [a.id]: s.buyIn } : s.chips
+      return {
+        ...s,
+        chips,
+        seats: [...s.seats, { id: a.id, name: a.name, colour: a.colour, connected: true }],
+      }
+    }
 
     case 'seat_name':
       return { ...s, seats: s.seats.map((x) => (x.id === a.id ? { ...x, name: a.name } : x)) }
@@ -240,6 +303,14 @@ export function apply(s: TableState, a: Action): TableState {
       }
       return { ...s, cards, topZ: z, seats: s.seats.filter((x) => x.id !== a.id) }
     }
+
+    case 'puck':
+      return { ...s, pucks: s.pucks.map((p) => (p.id === a.id ? { ...p, x: a.x, y: a.y } : p)) }
+
+    // Saying something does not move anything. It becomes a log line where the
+    // log is written, which is the one place that knows who is speaking.
+    case 'say':
+      return s
   }
 }
 
@@ -341,6 +412,8 @@ export interface TableView {
   cards: CardView[]
   seats: Seat[]
   slots: Slot[]
+  pucks: Puck[]
+  log: LogEntry[]
   scores: Record<SeatId, number>
   chips: Record<SeatId, number>
   pot: number
@@ -381,6 +454,8 @@ export function project(s: TableState, viewer: SeatId | null): TableView {
     cards: cards.sort((a, b) => a.z - b.z),
     seats: s.seats,
     slots: s.slots,
+    pucks: s.pucks,
+    log: s.log,
     scores: s.scores,
     chips: s.chips,
     pot: s.pot,
@@ -389,4 +464,93 @@ export function project(s: TableState, viewer: SeatId | null): TableView {
     game: s.game,
     handCounts,
   }
+}
+
+// ---------------------------------------------------------------------------
+// Turning an action into a line of history
+// ---------------------------------------------------------------------------
+
+/** What a log line says, before it is stamped with a number. */
+export interface Note {
+  kind: LogEntry['kind']
+  text: string
+  amount?: number
+  /** When the action names its own subject — "Mum sat down", not "you seated Mum". */
+  seat?: SeatId
+}
+
+const many = (n: number, one: string, more: string) => (n === 1 ? one : `${more.replace('%', String(n))}`)
+
+/**
+ * One action, in words. Pure and given the table as it was, so it can say
+ * "took the pot" with the amount that was actually in it.
+ *
+ * Returns null for the plumbing — a reorder on its own means nothing, and the
+ * compound moves (deal, gather, shuffle) are described by whoever ran them.
+ */
+export function describe(a: Action, before: TableState): Note | null {
+  switch (a.t) {
+    case 'bet':
+      return { kind: 'chip', text: 'bet', amount: Math.min(a.amount, before.chips[a.seat] ?? 0), seat: a.seat }
+    case 'take_pot':
+      return before.pot > 0 ? { kind: 'chip', text: 'took the pot', amount: before.pot, seat: a.seat } : null
+    case 'chips_adjust':
+      return a.by === 0
+        ? null
+        : { kind: 'chip', text: a.by > 0 ? 'was given' : 'put back', amount: Math.abs(a.by), seat: a.seat }
+    case 'chips_start':
+      return a.on ? { kind: 'chip', text: 'chips out, each', amount: a.each } : { kind: 'chip', text: 'put the chips away' }
+
+    case 'score':
+      return { kind: 'game', text: a.by > 0 ? `scored ${a.by}` : `lost ${-a.by}`, seat: a.seat }
+    case 'scores_clear':
+      return { kind: 'game', text: 'reset the scores' }
+
+    case 'move':
+      return { kind: 'card', text: many(a.ids.length, 'moved a card', 'moved % cards') }
+    case 'flip':
+      return { kind: 'card', text: many(a.ids.length, 'turned a card over', 'turned % cards over') }
+    case 'take':
+      return { kind: 'card', text: many(a.ids.length, 'picked up a card', 'picked up % cards'), seat: a.seat }
+    case 'play': {
+      const how = a.faceUp ? 'face up' : 'face down'
+      return { kind: 'card', text: `${many(a.ids.length, 'put a card down', 'put % cards down')} ${how}` }
+    }
+
+    case 'puck': {
+      const puck = before.pucks.find((p) => p.id === a.id)
+      // The hint, not the label: "moved the dealer button", not "moved the D".
+      return puck ? { kind: 'game', text: `moved the ${puck.hint.toLowerCase()}` } : null
+    }
+
+    case 'seat_add':
+      return { kind: 'seat', text: 'sat down', seat: a.id }
+    case 'seat_here':
+      return { kind: 'seat', text: a.connected ? 'came back' : 'went quiet', seat: a.id }
+    case 'seat_remove':
+      return { kind: 'seat', text: 'left the table', seat: a.id }
+    case 'seat_name':
+      return null
+
+    // Described by whoever ran them, which knows what the whole batch was for.
+    case 'reset':
+    case 'reorder':
+    case 'say':
+      return null
+  }
+}
+
+/** Stamp a note onto the table's history. Newest last, and it is not forever. */
+export const LOG_MAX = 150
+
+export function record(s: TableState, note: Note, by: SeatId | null): TableState {
+  const n = s.logN + 1
+  const entry: LogEntry = {
+    n,
+    seat: note.seat ?? by,
+    kind: note.kind,
+    text: note.text,
+    ...(note.amount === undefined ? {} : { amount: note.amount }),
+  }
+  return { ...s, log: [...s.log, entry].slice(-LOG_MAX), logN: n }
 }

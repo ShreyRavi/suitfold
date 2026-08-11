@@ -1,5 +1,5 @@
-import type { Action, CardId, SeatId, TableState } from '../table/model.ts'
-import { TABLE_H, TABLE_W, apply, emptyTable, inHand, onTable, project, stacks } from '../table/model.ts'
+import type { Action, CardId, Note, SeatId, TableState } from '../table/model.ts'
+import { TABLE_H, TABLE_W, apply, describe, emptyTable, inHand, onTable, project, record, stacks } from '../table/model.ts'
 import { cryptoShuffle, place, presetById } from '../table/deck.ts'
 import { SEAT_COLOURS, type PeerId, type Wire } from './peers.ts'
 
@@ -74,6 +74,11 @@ export class Host {
     this.commit([{ t: 'seat_here', id: seat, connected: false }])
   }
 
+  /** Seating somebody without a live connection. Tests only. */
+  addSeatForTest(id: SeatId, name: string) {
+    this.commit([{ t: 'seat_add', id, name, colour: this.colour(this.state.seats.length) }])
+  }
+
   /** Only the host can do this — it dumps that player's hand back on the table. */
   removeSeat(seat: SeatId) {
     const peer = this.peerOf.get(seat)
@@ -88,15 +93,29 @@ export class Host {
   private fromPeer(action: Action, from: PeerId) {
     const seat = this.seatOf.get(from)
     if (!seat) return
+    if (action.t === 'say') return this.say(seat, action.text)
     if (!allowed(action, seat)) return
     if (!this.ownsCards(action, seat)) return
-    this.commit([action])
+    this.commit([action], seat)
   }
 
   /** From the host's own hands. */
   local(action: Action) {
+    if (action.t === 'say') return this.say(this.mySeat, action.text)
     if (!this.ownsCards(action, this.mySeat)) return
-    this.commit([action])
+    this.commit([action], this.mySeat)
+  }
+
+  /**
+   * Chat is a log line and nothing else. It goes through the host like every
+   * other action so that everybody's list is in the same order.
+   */
+  say(seat: SeatId, text: string) {
+    const said = text.trim().slice(0, 200)
+    if (!said) return
+    this.state = record(this.state, { kind: 'chat', text: said, seat }, seat)
+    this.broadcast()
+    this.onChange()
   }
 
   /**
@@ -112,14 +131,36 @@ export class Host {
     })
   }
 
-  private commit(actions: Action[]) {
+  /**
+   * The one place the table changes.
+   *
+   * `by` is who did it, which the log needs and nothing else does. `note` is
+   * for the compound moves — a deal is a dozen actions and one sentence, so
+   * dealing says "dealt 2 each" rather than filling the log with "picked up".
+   */
+  private commit(actions: Action[], by: SeatId | null = this.mySeat, note?: Note) {
     // Seat bookkeeping is not something anyone wants to undo.
     const worthUndoing = actions.some((a) => !a.t.startsWith('seat_'))
     if (worthUndoing) {
       this.history.push(this.state)
       if (this.history.length > 40) this.history.shift()
     }
+    const before = this.state
     for (const a of actions) this.state = apply(this.state, a)
+
+    if (note) {
+      this.state = record(this.state, note, by)
+    } else {
+      // Describe against the table as it was, so "took the pot" knows the size
+      // of the pot it took.
+      let seen = before
+      for (const a of actions) {
+        const line = describe(a, seen)
+        seen = apply(seen, a)
+        if (line) this.state = record(this.state, line, by)
+      }
+    }
+
     this.broadcast()
     this.onChange()
   }
@@ -133,7 +174,13 @@ export class Host {
     const previous = this.history.pop()
     if (!previous) return
     // Seats are live connection state, so they survive an undo of the cards.
-    this.state = { ...previous, seats: this.state.seats }
+    // So does the log: history is a record of what happened, and taking a move
+    // back is itself something that happened.
+    this.state = record(
+      { ...previous, seats: this.state.seats, log: this.state.log, logN: this.state.logN },
+      { kind: 'game', text: 'took that back' },
+      this.mySeat,
+    )
     this.broadcast()
     this.onChange()
   }
@@ -179,6 +226,7 @@ export class Host {
         deckName: preset.name,
         game: preset.id,
         slots,
+        pucks: preset.pucks?.() ?? [],
         cards: [
           ...place(preset, deck.slice(cut), slots),
           // Dealt cards need to exist before they can be taken into a hand.
@@ -190,7 +238,7 @@ export class Host {
     for (const h of hands) {
       actions.push({ t: 'take', ids: h.cards, seat: h.seat })
     }
-    this.commit(actions)
+    this.commit(actions, this.mySeat, { kind: 'game', text: `set the table for ${preset.name}` })
   }
 
   /**
@@ -238,7 +286,10 @@ export class Host {
     ]
     for (const h of hands) actions.push({ t: 'take', ids: h.cards, seat: h.seat })
     for (const b of board) actions.push({ t: 'move', ids: [b.id], x: b.x, y: b.y })
-    this.commit(actions)
+    this.commit(actions, this.mySeat, {
+      kind: 'game',
+      text: `dealt a new hand, ${spec.each} each`,
+    })
   }
 
   /** Does the game that is set up know what one hand looks like? */
@@ -249,7 +300,10 @@ export class Host {
   /** Shuffle a pile in place: same spot, new order. */
   shuffleStack(ids: CardId[]) {
     if (ids.length < 2) return
-    this.commit([{ t: 'reorder', ids: cryptoShuffle(ids) }])
+    this.commit([{ t: 'reorder', ids: cryptoShuffle(ids) }], this.mySeat, {
+      kind: 'card',
+      text: `shuffled ${ids.length} cards`,
+    })
   }
 
   /** Where the deck lives on this table, if the game marked a spot for it. */
@@ -267,10 +321,14 @@ export class Host {
     const all = Object.values(this.state.cards).map((c) => c.id)
     if (!all.length) return
     const home = this.deckHome()
-    this.commit([
-      { t: 'play', ids: all, x: home.x, y: home.y, faceUp: false },
-      { t: 'reorder', ids: cryptoShuffle(all) },
-    ])
+    this.commit(
+      [
+        { t: 'play', ids: all, x: home.x, y: home.y, faceUp: false },
+        { t: 'reorder', ids: cryptoShuffle(all) },
+      ],
+      this.mySeat,
+      { kind: 'card', text: `gathered ${all.length} cards back up` },
+    )
   }
 
   /** Every face-down pile, biggest first — the things you can deal from. */
@@ -313,15 +371,22 @@ export class Host {
       actions.push({ t: 'take', ids, seat })
       if (opts.faceUp) actions.push({ t: 'play', ids, x: source.x, y: source.y, faceUp: true })
     }
-    if (actions.length) this.commit(actions)
+    if (actions.length) {
+      const dealt = [...perSeat.values()].reduce((n, ids) => n + ids.length, 0)
+      const who = opts.seats.length === this.state.seats.length ? 'everyone' : 'one player'
+      this.commit(actions, this.mySeat, {
+        kind: 'card',
+        text: `dealt ${dealt} ${dealt === 1 ? 'card' : 'cards'} to ${who}`,
+      })
+    }
   }
 
   bet(seat: SeatId, amount: number) {
-    this.commit([{ t: 'bet', seat, amount }])
+    this.commit([{ t: 'bet', seat, amount }], seat)
   }
 
   takePot(seat: SeatId) {
-    this.commit([{ t: 'take_pot', seat }])
+    this.commit([{ t: 'take_pot', seat }], seat)
   }
 
   adjustChips(seat: SeatId, by: number) {
@@ -345,7 +410,11 @@ export class Host {
     const pile = stacks(this.state).find((p) => p[0]!.x === at.x && p[0]!.y === at.y)
     const top = pile?.[pile.length - 1]
     if (!top) return
-    this.commit([{ t: 'move', ids: [top.id], x: at.x + 124, y: at.y }, { t: 'flip', ids: [top.id], faceUp: true }])
+    this.commit(
+      [{ t: 'move', ids: [top.id], x: at.x + 124, y: at.y }, { t: 'flip', ids: [top.id], faceUp: true }],
+      this.mySeat,
+      { kind: 'card', text: 'turned one face up' },
+    )
   }
 
   handOf(seat: SeatId) {
@@ -378,5 +447,7 @@ export function allowed(action: Action, seat: SeatId): boolean {
   }
   // Betting spends your own chips, so it has to be your own seat.
   if (action.t === 'bet') return action.seat === seat
+  // Anyone can shove the dealer button around; it is a reminder, not a rule.
+  if (action.t === 'puck') return true
   return true
 }

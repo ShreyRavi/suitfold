@@ -31,6 +31,11 @@ code. Sharing the link works too — `…/suitfold/#ABC23` fills the code in.
   and **Take pot** the moment there is one to take — which asks first, since who won is the
   one thing the table cannot settle for you.
 - **Gather** puts every card back on the deck's own marked spot.
+- **The log** down the right-hand side lists everything that has happened, and
+  is where you talk. Chips moving also comes past as a toast, because that is
+  the one thing you cannot afford to miss while looking at your own hand.
+- **The dealer button and the blinds** are discs on the felt for poker. Drag
+  them a seat to the left between hands. They enforce nothing.
 - **Deal → All of them** hands the whole pile out evenly, which is how Bluff, War, Snap and
   Old Maid start. They are drawn as real stacks but they are an amount underneath,
   so calling a bet is one tap rather than dragging seven discs. Nothing is enforced — the
