@@ -52,6 +52,35 @@ export const POKER_EDGE: RuleSection = {
 }
 
 export const RULES: Record<string, Rules> = {
+  solitaire: {
+    goal: 'Get all fifty two cards onto the four piles at the top, each suit in order from ace to king.',
+    players: '1',
+    setup: [
+      'Seven columns, the first with one card and the last with seven. Only the bottom card of each column starts face up.',
+      'The rest of the deck sits on the stock, top left.',
+      'The four spaces at the top right are the foundations, one per suit.',
+    ],
+    play: [
+      'Move a face up card onto a column card one higher and of the other colour: a red six onto a black seven.',
+      'Move a run of cards together, as long as it is already in that alternating order.',
+      'Turn the top card of a face down column over when nothing is left on top of it.',
+      'An ace goes straight up to its foundation, then the two, then the three, and so on.',
+      'Only a king can go into a column you have emptied.',
+      'When you are stuck, turn cards from the stock to the waste and play off the top of that.',
+    ],
+    winning: 'All four foundations complete, ace to king. Plenty of deals cannot be won at all, which is not your fault.',
+    sections: [
+      {
+        title: 'The bits people argue about',
+        items: [
+          'Turning one card from the stock at a time is much easier than turning three. Both are the real game; pick one and stick to it for the deal.',
+          'Whether you may take a card back off a foundation to use in a column. Most people allow it, and it saves a lot of otherwise dead games.',
+          'Nobody else is playing, so the only person you can cheat is yourself. The table will let you.',
+        ],
+      },
+    ],
+  },
+
   judgement: {
     goal: 'Say exactly how many tricks you will win, then win exactly that many.',
     players: '3 to 7',

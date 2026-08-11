@@ -96,7 +96,7 @@ export function uno(): CardId[] {
 // Presets
 // ---------------------------------------------------------------------------
 
-export type Layout = 'pile' | 'starter' | 'grid'
+export type Layout = 'pile' | 'starter' | 'grid' | 'klondike'
 
 export interface Preset {
   id: string
@@ -153,22 +153,13 @@ const drawDiscard = (): Slot[] => [
   { id: 'discard', x: CX + CARD_GAP / 2 + 12, y: CY, label: 'Discard' },
 ]
 
-/** One slot per player, spread around the middle, plus a shared one. */
-const roundTable = (n: number, middle: string): Slot[] => {
-  const out: Slot[] = [{ id: 'middle', x: CX, y: CY, label: middle }]
-  const rx = 300
-  const ry = 200
-  for (let i = 0; i < Math.max(n, 2); i++) {
-    const angle = (Math.PI * 2 * i) / Math.max(n, 2) - Math.PI / 2
-    out.push({
-      id: `p${i + 1}`,
-      x: CX + rx * Math.cos(angle),
-      y: CY + ry * Math.sin(angle),
-      label: `Player ${i + 1}`,
-    })
-  }
-  return out
-}
+/**
+ * Just the middle. There used to be a slot per player as well, but every seat
+ * now has its own marked space in front of it, and the two landed on top of
+ * each other: two dashed outlines, one labelled "Player 1" and one labelled
+ * with your name, a few pixels apart.
+ */
+const roundTable = (_n: number, middle: string): Slot[] => [{ id: 'middle', x: CX, y: CY, label: middle }]
 
 export const PRESETS: Preset[] = [
   // -- card games ---------------------------------------------------------
@@ -376,6 +367,32 @@ export const PRESETS: Preset[] = [
     deal: -1,
     layout: 'pile',
     slots: () => [{ id: 'pile', x: CX, y: CY, label: 'Pile' }],
+  },
+  {
+    id: 'solitaire',
+    name: 'Solitaire',
+    players: '1',
+    hint: 'Klondike, laid out and ready',
+    group: 'just cards',
+    cards: () => standard(1),
+    deal: 0,
+    layout: 'klondike',
+    slots: () => [
+      { id: 'draw', x: CX - 3.5 * CARD_GAP, y: CY - 190, label: 'Stock' },
+      { id: 'waste', x: CX - 2.5 * CARD_GAP, y: CY - 190, label: 'Waste' },
+      ...['Spades', 'Hearts', 'Diamonds', 'Clubs'].map((suit, i) => ({
+        id: `f${i}`,
+        x: CX + (i - 0.5) * CARD_GAP,
+        y: CY - 190,
+        label: suit,
+      })),
+      ...Array.from({ length: 7 }, (_, i) => ({
+        id: `t${i}`,
+        x: CX + (i - 3) * CARD_GAP,
+        y: CY + 40,
+        label: '',
+      })),
+    ],
   },
   {
     id: 'judgement',
@@ -623,6 +640,32 @@ export function place(preset: Preset, undealt: CardId[], slots: Slot[] = []): Pl
       x: left + (i % cols) * gapX,
       y: top + Math.floor(i / cols) * gapY,
     }))
+  }
+
+  // Klondike: seven piles of one, two, three and so on, each with its top card
+  // turned up, and everything left over on the stock.
+  if (preset.layout === 'klondike') {
+    const out: Placed[] = []
+    let i = 0
+    for (let col = 0; col < 7; col++) {
+      const at = slots.find((sl) => sl.id === `t${col}`)
+      for (let row = 0; row <= col; row++) {
+        const id = undealt[i++]
+        if (!id) break
+        out.push({
+          id,
+          faceUp: row === col,
+          x: at?.x ?? mid.x,
+          // Fanned down the column, so you can read every card in the pile.
+          y: (at?.y ?? mid.y) + row * 34,
+        })
+      }
+    }
+    const stock = slots.find((sl) => sl.id === 'draw')
+    for (; i < undealt.length; i++) {
+      out.push({ id: undealt[i]!, faceUp: false, x: stock?.x ?? mid.x, y: stock?.y ?? mid.y })
+    }
+    return out
   }
 
   if (preset.layout === 'starter' && undealt.length > 1) {

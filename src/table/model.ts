@@ -59,6 +59,43 @@ export const FACES = [
 ] as const
 
 /**
+ * The rest of them, for anybody who wants one.
+ *
+ * Deliberately limited to single code point emoji from the older blocks: no
+ * skin tones, no flags, no professions, nothing joined together with a zero
+ * width joiner. Those are the ones that fall apart into two half drawings on
+ * an old Android or a Windows machine, and a face nobody else can see is worse
+ * than no face at all.
+ */
+export const MORE_FACES = [
+  '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🙂', '😉', '😊', '😇', '😍',
+  '😘', '😋', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🥳', '😏', '😒', '😔',
+  '😤', '😡', '🤯', '😱', '🥶', '🤔', '🤫', '🤭', '😴', '🤠', '👻', '👽',
+  '🤖', '💩', '🙈', '🙉', '🙊', '🐶', '🐱', '🐭', '🐹', '🐰', '🦝', '🐮',
+  '🐗', '🐝', '🐛', '🦋', '🐌', '🐞', '🐢', '🐍', '🦖', '🐳', '🐬', '🐟',
+  '🐠', '🦀', '🦑', '🦐', '🦩', '🦚', '🦜', '🐔', '🐧', '🕊', '🦇', '🐺',
+  '🌲', '🌴', '🌿', '🍀', '🌷', '🌹', '🌻', '🌼', '🍁', '🍂', '🌰', '🎃',
+  '🍎', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🍒', '🍑', '🥭', '🍍', '🥥',
+  '🥑', '🍆', '🥕', '🌽', '🌶', '🥦', '🧄', '🧅', '🍄', '🥐', '🍞', '🧀',
+  '🍕', '🍔', '🌮', '🍣', '🍜', '🍩', '🍪', '🎂', '🍫', '🍿', '☕️', '🍺',
+  '⚽️', '🏀', '🏈', '⚾️', '🎾', '🏐', '🎱', '🏓', '🏸', '🥊', '🎯', '🎲',
+  '🎰', '🎮', '🎸', '🎺', '🎻', '🥁', '🎹', '🎤', '🎬', '🎨', '♟', '🧩',
+  '🚗', '🚕', '🚌', '🏎', '🚓', '🚑', '🚒', '🚜', '🛵', '🚲', '✈️', '🚀',
+  '🛸', '⛵️', '🚁', '🗿', '🗽', '🏰', '⛰', '🌋', '🏝', '🎡', '🎢', '⛺️',
+  '⌚️', '💡', '🔦', '🔮', '🧲', '💣', '🔑', '🗝', '🔒', '🧸', '🎁', '🎈',
+  '💎', '🏆', '🥇', '🥈', '🥉', '🎖', '🔔', '🧭', '⏳', '⚓️', '🪁', '🧿',
+  '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💯', '✨', '💫',
+  '☀️', '🌤', '⛅️', '🌧', '⛈', '❄️', '🌊', '🌈', '🌝', '🌚', '🪐', '☄️',
+] as const
+
+/**
+ * Every face somebody could pick, in one list, with the short list first.
+ * Deduplicated rather than curated by hand: the wolf and the mushroom were in
+ * both lists, and the picker drew two of each.
+ */
+export const ALL_FACES: readonly string[] = [...new Set<string>([...FACES, ...MORE_FACES])]
+
+/**
  * A place on the table with a name on it: "Discard", "Player 1", "Trick".
  * Slots hold nothing and enforce nothing - they are markings on the felt that
  * tell everyone where things go, and cards snap to them when dropped nearby.

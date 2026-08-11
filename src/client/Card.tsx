@@ -1,5 +1,6 @@
 import { UNO_LABEL, isJoker, isRed, isUno, isUnoWild, rankOf, suitOf, unoColour, unoValue } from '../table/deck.ts'
 import { dominoPips, isDomino, isLetter, letterOf, letterScore } from '../table/tiles.ts'
+import { useEffect, useRef, useState } from 'react'
 import { Suit } from './Suit.tsx'
 
 const SUIT_NAME: Record<string, string> = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' }
@@ -45,10 +46,20 @@ export function Card({
   held?: boolean
   selected?: boolean
 }) {
-  const base = ['pc', small ? 'pc--sm' : '', held ? 'is-held' : '', selected ? 'is-sel' : ''].filter(Boolean)
+  // The turn animation used to be driven by re-keying this element on its
+  // face, which made React throw the card away and build a new one. That plays
+  // the animation, but so does anything else that remounts the card: moving one
+  // off a pile remounts the pile it left, and the card underneath flipped over
+  // every time somebody picked a card up. So watch the face instead.
+  const turning = useTurn(face)
+  const base = [
+    'pc',
+    small ? 'pc--sm' : '',
+    held ? 'is-held' : '',
+    selected ? 'is-sel' : '',
+    turning ? 'is-turning' : '',
+  ].filter(Boolean)
 
-  // Re-keying on the face makes the turn animation play when a card is flipped
-  // or revealed, without tracking previous state anywhere.
   const key = face ?? 'back'
 
   if (!face) {
@@ -119,6 +130,22 @@ export function Card({
       <Index label={label} suit={s} bottom />
     </div>
   )
+}
+
+/** True for as long as the turn-over animation should be playing. */
+function useTurn(face: string | null) {
+  const was = useRef(face)
+  const [turning, setTurning] = useState(false)
+
+  useEffect(() => {
+    if (was.current === face) return
+    was.current = face
+    setTurning(true)
+    const done = setTimeout(() => setTurning(false), 220)
+    return () => clearTimeout(done)
+  }, [face])
+
+  return turning
 }
 
 /** Rank over suit in the corner, and the same again upside down. */

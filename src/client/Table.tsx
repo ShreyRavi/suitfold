@@ -28,6 +28,8 @@ export interface TableProps {
   onPuck: (id: string, x: number, y: number) => void
   onDie: (id: string, x: number, y: number) => void
   onHold: (id: string, held: boolean) => void
+  /** A card dragged out of the hand drawer and dropped on the felt. */
+  onDropIn: (id: CardId, x: number, y: number) => void
 }
 
 /**
@@ -51,6 +53,7 @@ export function Table({
   onPuck,
   onDie,
   onHold,
+  onDropIn,
   onCursor,
 }: TableProps) {
   const wrap = useRef<HTMLDivElement>(null)
@@ -185,6 +188,32 @@ export function Table({
     onDrag({ ids: dragging.ids, x: at.x, y: at.y, holding: true, by: me })
   }
 
+  /**
+   * Where a card dropped here belongs: on a pile it landed on, in a slot it
+   * was aimed at, in the space in front of somebody, or exactly where it was
+   * let go. Holes are for pieces, so they are not a target for a card.
+   */
+  const snapTo = (x: number, y: number, ignore: Set<CardId>): Pos => {
+    let best: Pos | null = null
+    let bestDist = SNAP
+    for (const c of view.cards) {
+      if (c.hand !== null || ignore.has(c.id)) continue
+      const d = Math.hypot(c.x - x, c.y - y)
+      if (d < bestDist) {
+        bestDist = d
+        best = { x: c.x, y: c.y }
+      }
+    }
+    for (const slot of [...view.slots.filter((sl) => !sl.dot), ...places.map((p) => ({ ...p.drop }))]) {
+      const d = Math.hypot(slot.x - x, slot.y - y)
+      if (d < Math.max(bestDist, SNAP * 1.7)) {
+        bestDist = d
+        best = { x: slot.x, y: slot.y }
+      }
+    }
+    return best ?? { x: clamp(x, 30, TABLE_W - 30), y: clamp(y, 30, TABLE_H - 30) }
+  }
+
   const endDrag = () => {
     if (!dragging || !me) return
     const { ids, at, viaBadge, moved, puck, die } = dragging
@@ -229,31 +258,7 @@ export function Table({
       return
     }
 
-    // Snap onto a nearby pile or into a slot, otherwise stay where dropped.
-    const ignore = new Set(ids)
-    let best: Pos | null = null
-    let bestDist = SNAP
-    for (const c of view.cards) {
-      if (c.hand !== null || ignore.has(c.id)) continue
-      const d = Math.hypot(c.x - at.x, c.y - at.y)
-      if (d < bestDist) {
-        bestDist = d
-        best = { x: c.x, y: c.y }
-      }
-    }
-    // Slots pull a little harder, because they are what you were aiming at.
-    // Holes are for pieces, not cards, so they are not a target here.
-    for (const slot of [...view.slots.filter((sl) => !sl.dot), ...places.map((p) => ({ ...p.drop }))]) {
-      const d = Math.hypot(slot.x - at.x, slot.y - at.y)
-      if (d < Math.max(bestDist, SNAP * 1.7)) {
-        bestDist = d
-        best = { x: slot.x, y: slot.y }
-      }
-    }
-    const target = best ?? {
-      x: clamp(at.x, 30, TABLE_W - 30),
-      y: clamp(at.y, 30, TABLE_H - 30),
-    }
+    const target = snapTo(at.x, at.y, new Set(ids))
     onMove(ids, target.x, target.y)
   }
 
@@ -265,6 +270,19 @@ export function Table({
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
       onPointerLeave={() => me && onCursor({ by: me, x: 0, y: 0, on: false })}
+      onDragOver={(e) => {
+        // Anything dragged out of your own hand can land here.
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+      }}
+      onDrop={(e) => {
+        e.preventDefault()
+        const id = e.dataTransfer.getData('text/plain')
+        if (!id) return
+        const p = toTable(e.clientX, e.clientY)
+        const to = snapTo(p.x, p.y, new Set([id]))
+        onDropIn(id, to.x, to.y)
+      }}
     >
       <div
         className="felt-inner"
@@ -339,7 +357,9 @@ export function Table({
 
         {/* The space in front of each player, where what they play goes. It is
             a marking like any other: it holds nothing and stops nothing. */}
+        {/* Only worth marking out when there is somebody to tell apart from. */}
         {view.cards.length > 0 &&
+          view.seats.length > 1 &&
           places.map(({ seat, drop }) => (
             <div
               key={`drop-${seat.id}`}
@@ -427,7 +447,11 @@ export function Table({
 
           return (
             <div
-              key={key}
+              // Keyed by the card on top, not by where the pile is. Keying it
+              // by position meant that moving a card unmounted and remounted
+              // it, which replayed the turn-over animation every single time
+              // you put one down.
+              key={top.id}
               className={`pile ${beingDragged || remote ? 'is-live' : ''}`}
               style={{ transform: `translate(${pos.x - CARD_W / 2}px, ${pos.y - CARD_H / 2}px)`, zIndex: top.z }}
             >

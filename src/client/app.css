@@ -122,13 +122,6 @@ input {
     inset 0 4px 18px rgba(0,0,0,.22),
     0 14px 38px rgba(0,0,0,.4);
 }
-/* A faint centre mark, so an empty table still looks like a table. */
-.felt-face::after {
-  content: ''; position: absolute; left: 50%; top: 50%;
-  width: 190px; height: 190px; margin: -95px 0 0 -95px; border-radius: 50%;
-  border: 1px dashed color-mix(in srgb, #2a1d12 40%, transparent);
-  opacity: .35;
-}
 
 /* ---- who is at the table ----------------------------------------------- */
 .spot {
@@ -193,15 +186,15 @@ input {
   box-shadow: 0 1px 2px rgba(0,0,0,.18), 0 4px 10px rgba(0,0,0,.10);
   user-select: none; overflow: hidden;
   font-family: var(--font-serif);
-  /* Re-keyed on the face, so this plays whenever a card turns or is revealed. */
-  animation: turn 190ms var(--ease) both;
   transition: box-shadow var(--dur-flip) var(--ease), transform var(--dur-flip) var(--ease);
 }
+/* Only when the face actually changed. Moving a card is not turning it over. */
+.pc.is-turning { animation: turn 190ms var(--ease) both; }
 @keyframes turn {
   from { transform: perspective(420px) rotateY(-78deg); filter: brightness(1.25); }
   to   { transform: perspective(420px) rotateY(0); filter: none; }
 }
-@media (prefers-reduced-motion: reduce) { .pc { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .pc.is-turning { animation: none; } }
 
 .pc--sm { width: 60px; height: 84px; font-size: 6px; }
 /* Your own hand is drawn at real size rather than table size, and the rail has
@@ -270,7 +263,8 @@ input {
 /* ---- your hand --------------------------------------------------------- */
 .rail {
   flex: none; background: var(--rail); border-top: 1px solid var(--rule);
-  padding: var(--s-4) var(--s-7) calc(env(safe-area-inset-bottom, 0px) + var(--s-4));
+  padding: 0 var(--s-7) calc(env(safe-area-inset-bottom, 0px) + var(--s-4));
+  display: flex; flex-direction: column; min-height: 0;
   box-shadow: 0 -8px 24px rgba(0,0,0,.14);
   /* Above the toolbar that floats over the felt. The rail is a grid item, and
      a grid item with a z-index makes its own stacking context, so anything
@@ -288,7 +282,7 @@ input {
 .mini:disabled { opacity: .4; cursor: default; }
 .fan {
   position: relative; display: flex; justify-content: center; align-items: flex-end;
-  padding-top: var(--s-4); height: 116px; overflow: hidden;
+  padding-top: var(--s-4); flex: 1; min-height: 0; overflow: hidden;
 }
 .fan-card {
   flex: none; padding: 0; line-height: 0;
@@ -855,7 +849,7 @@ input {
 
 /* Beside the table when there is room for it, over the table when there is not. */
 @media (min-width: 1080px) {
-  .app.with-log { display: grid; grid-template-columns: 1fr minmax(216px, 248px); grid-template-rows: auto minmax(0, 1fr) auto; }
+  .app.with-log { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr) auto; }
   .app.with-log > .bar { grid-column: 1 / -1; }
   .app.with-log > .felt-wrap { grid-column: 1; grid-row: 2; }
   .app.with-log > .rail { grid-column: 1; grid-row: 3; }
@@ -911,7 +905,7 @@ input {
    It is drawn on the far side of the card so it never covers what you are
    pointing at. */
 .peek {
-  position: absolute; top: 0; left: 0; z-index: 70; pointer-events: none;
+  position: absolute; top: 0; left: 0; z-index: 70;
   animation: peek-in 120ms var(--ease) both;
 }
 .peek .pc {
@@ -1006,7 +1000,9 @@ input {
 /* ---- the zoom ----------------------------------------------------------- */
 /* Opened on purpose with a double-click, and closed the same way. It used to
    appear on hover, which meant it appeared constantly. */
-.peek { padding: 0; cursor: zoom-out; }
+/* Cards carry a z-index that climbs with every move, so the zoom needs to be
+   above any of them rather than above a number that seemed big at the time. */
+.peek { padding: 0; cursor: zoom-out; z-index: 2000000; }
 .peek-x {
   position: absolute; top: -10px; right: -10px;
   width: 26px; height: 26px; border-radius: 999px;
@@ -1201,3 +1197,72 @@ input.betbar-custom-val {
   font-family: var(--font-mono); font-size: var(--text-md); line-height: 1.5;
 }
 .pad .fine { font-size: 11px; }
+
+/* ---- the bottom drawer --------------------------------------------------- */
+/* The dealer's controls used to float over the felt. They live at the top of
+   the drawer now, which costs the table nothing and covers nobody. */
+.rail-top {
+  flex: none; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--s-5) 0 var(--s-4);
+}
+.rail-top .tools {
+  position: static; transform: none; box-shadow: none; backdrop-filter: none;
+  background: transparent; border: 0; padding: 0; flex-wrap: wrap; justify-content: center;
+}
+.rail-top .pop { bottom: auto; top: calc(100% + 8px); }
+
+/* Your hand beside its buttons rather than under them: the buttons were a full
+   row of their own for the sake of about forty pixels of text. */
+.rail-body {
+  flex: 1; min-height: 0; display: flex; align-items: stretch; gap: var(--s-6);
+  overflow: hidden;
+}
+.rail-side {
+  flex: none; width: 336px; min-width: 0;
+  display: flex; flex-direction: column; gap: var(--s-4);
+  justify-content: center; overflow-y: auto; overscroll-behavior: contain;
+}
+.rail-side .rail-acts { flex-wrap: wrap; }
+.rail-side .betbar {
+  padding: 0; border: 0; background: none; flex-wrap: wrap; gap: var(--s-4);
+}
+.rail-side .betbar-amounts { flex-wrap: wrap; }
+
+/* A handle you can actually grab. */
+.grip {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 64px; height: 14px; cursor: ns-resize; touch-action: none;
+  display: grid; place-items: center;
+}
+.grip::after {
+  content: ''; width: 46px; height: 4px; border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 20%, transparent);
+}
+.grip:hover::after { background: var(--accent); }
+.grip--side {
+  top: 0; bottom: 0; left: 0; right: auto; transform: none;
+  width: 12px; height: auto; cursor: ew-resize;
+}
+.grip--side::after { width: 4px; height: 46px; }
+
+.log { position: relative; flex: none; }
+
+@media (max-width: 1079px) {
+  .rail-side { width: 260px; }
+  .rail-top .tools { gap: 2px; }
+}
+@media (max-width: 720px) {
+  .rail-body { flex-direction: column; gap: var(--s-4); }
+  .rail-side { width: auto; }
+  .grip { display: none; }
+}
+
+/* ---- every face there is ------------------------------------------------- */
+.faces-wrap { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-4); }
+.faces.is-all {
+  grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+  max-height: 220px; overflow-y: auto; max-width: 34rem;
+  padding: var(--s-4); border: 1px solid var(--line); border-radius: var(--r-panel);
+  background: var(--paper-panel);
+}

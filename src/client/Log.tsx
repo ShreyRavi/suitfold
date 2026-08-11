@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { Action, LogEntry, SeatId, TableView } from '../table/model.ts'
 import { money } from './Chips.tsx'
 
+const LOG_W = 'suitfold.logw'
+
 /**
  * What has happened, down the side of the table, with somewhere to talk.
  *
@@ -30,6 +32,25 @@ export function Log({
 }) {
   const [text, setText] = useState('')
   const list = useRef<HTMLDivElement>(null)
+  // Draggable edge, remembered. A log you cannot widen is a log you stop
+  // reading once the lines start wrapping three deep.
+  const [width, setWidth] = useState(() => Number(localStorage.getItem(LOG_W)) || 264)
+  const widthRef = useRef(width)
+  widthRef.current = width
+
+  const startResize = (e: React.PointerEvent) => {
+    e.preventDefault()
+    const from = e.clientX
+    const was = width
+    const move = (ev: PointerEvent) => setWidth(Math.max(190, Math.min(560, was + (from - ev.clientX))))
+    const done = () => {
+      removeEventListener('pointermove', move)
+      removeEventListener('pointerup', done)
+      localStorage.setItem(LOG_W, String(widthRef.current))
+    }
+    addEventListener('pointermove', move)
+    addEventListener('pointerup', done)
+  }
 
   // Follow the bottom, the way any log or chat does.
   useEffect(() => {
@@ -45,7 +66,12 @@ export function Log({
   }
 
   return (
-    <aside className={`log ${open ? 'is-open' : ''}`} aria-label="What has happened">
+    <aside
+      className={`log ${open ? 'is-open' : ''}`}
+      aria-label="What has happened"
+      style={{ width, flexBasis: width }}
+    >
+      <button className="grip grip--side" aria-label="Drag to resize" title="Drag to resize" onPointerDown={startResize} />
       <div className="log-bar">
         <span className="lbl">TABLE LOG</span>
         <div className="log-acts">

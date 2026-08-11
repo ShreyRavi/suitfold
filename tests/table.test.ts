@@ -12,6 +12,8 @@ import {
   stacks,
   type Action,
   LOG_MAX,
+  ALL_FACES,
+  FACES,
   CARD_W,
   CARD_H,
   CARD_GAP,
@@ -21,7 +23,7 @@ import {
 } from '../src/table/model.ts'
 import { PRESETS, standard, uno } from '../src/table/deck.ts'
 import { holes, marbles, starSlots } from '../src/table/star.ts'
-import { bananaTiles, dominoPips, dominoTiles, letterOf, scrabbleTiles } from '../src/table/tiles.ts'
+import { bananaTiles, dominoPips, dominoTiles, letterOf, letterScore, scrabbleTiles } from '../src/table/tiles.ts'
 import { chessBoard, chessPieces, scrabbleBoard, snakesBoard, snakesLines } from '../src/table/boards.ts'
 import { hasRules, rulesFor } from '../src/table/rules.ts'
 import { Host, allowed } from '../src/net/host.ts'
@@ -400,7 +402,9 @@ describe('slots and scores', () => {
     h.setup('hearts')
     const labels = h.state.slots.map((s) => s.label)
     expect(labels).toContain('Trick')
-    expect(labels.filter((l) => l.startsWith('Player')).length).toBe(4)
+    // No slot per player any more: every seat has its own marked space in
+    // front of it, and the two used to sit on top of each other.
+    expect(labels.filter((l) => l.startsWith('Player')).length).toBe(0)
   })
 
   test('uno gets a draw pile and a discard', () => {
@@ -1372,5 +1376,103 @@ describe('tiles and boards', () => {
     expect(board.length).toBe(225)
     expect(board.filter((s) => s.note === 'TW').length).toBe(8)
     expect(board.find((s) => s.id === 'sc-7-7')!.note).toBe('★')
+  })
+})
+
+describe('tiles carry what they are worth', () => {
+  test('every scrabble tile parses to a letter and a score', () => {
+    for (const id of scrabbleTiles()) {
+      const letter = letterOf(id)
+      const score = letterScore(id)
+      expect(letter.length).toBe(1)
+      expect(Number.isFinite(score)).toBe(true)
+      expect(score).toBeGreaterThanOrEqual(0)
+    }
+  })
+
+  test('the values are the real ones', () => {
+    const of = (l: string) => letterScore(scrabbleTiles().find((t) => letterOf(t) === l)!)
+    expect(of('A')).toBe(1)
+    expect(of('Q')).toBe(10)
+    expect(of('Z')).toBe(10)
+    expect(of('J')).toBe(8)
+    expect(of('K')).toBe(5)
+    expect(of('_')).toBe(0)
+  })
+
+  test('bananagrams tiles have no score but still parse', () => {
+    for (const id of bananaTiles()) {
+      expect(letterScore(id)).toBe(0)
+      expect(letterOf(id).length).toBe(1)
+    }
+  })
+})
+
+describe('solitaire', () => {
+  test('seven columns of one to seven, and the rest on the stock', () => {
+    const h = hosted(['Just me'])
+    h.setup('solitaire')
+    const cards = h.tableCards()
+    expect(cards.length).toBe(52)
+
+    const cols = h.state.slots.filter((s) => s.id.startsWith('t'))
+    expect(cols.length).toBe(7)
+    cols.forEach((col, i) => {
+      const inCol = cards.filter((c) => c.x === col.x && c.y >= col.y && c.y <= col.y + 7 * 34)
+      expect(inCol.length).toBe(i + 1)
+    })
+  })
+
+  test('one card face up per column and nothing else', () => {
+    const h = hosted(['Just me'])
+    h.setup('solitaire')
+    const up = h.tableCards().filter((c) => c.faceUp)
+    expect(up.length).toBe(7)
+    // The bottom of each column, which is the one you can actually play.
+    for (const col of h.state.slots.filter((s) => s.id.startsWith('t'))) {
+      const mine = h.tableCards().filter((c) => c.x === col.x)
+      const lowest = Math.max(...mine.map((c) => c.y))
+      expect(mine.find((c) => c.y === lowest)!.faceUp).toBe(true)
+    }
+  })
+
+  test('the stock holds the twenty four that were not laid out', () => {
+    const h = hosted(['Just me'])
+    h.setup('solitaire')
+    const stock = h.state.slots.find((s) => s.id === 'draw')!
+    const onStock = h.tableCards().filter((c) => c.x === stock.x && c.y === stock.y)
+    expect(onStock.length).toBe(52 - 28)
+    expect(onStock.every((c) => !c.faceUp)).toBe(true)
+  })
+
+  test('it deals nothing into a hand, because there is nobody to deal to', () => {
+    const h = hosted(['Just me'])
+    h.setup('solitaire')
+    expect(h.handOf('host').length).toBe(0)
+  })
+
+  test('four foundations, one per suit', () => {
+    const h = hosted(['Just me'])
+    h.setup('solitaire')
+    const labels = h.state.slots.map((s) => s.label)
+    for (const suit of ['Spades', 'Hearts', 'Diamonds', 'Clubs']) expect(labels).toContain(suit)
+  })
+})
+
+describe('faces you can pick', () => {
+  test('there are no duplicates', () => {
+    expect(new Set(ALL_FACES).size).toBe(ALL_FACES.length)
+  })
+
+  test('none of them are joined together, which is what breaks on old devices', () => {
+    for (const f of ALL_FACES) {
+      expect(f.includes('‍')).toBe(false)
+      // No skin tone modifiers either.
+      expect(/[\u{1F3FB}-\u{1F3FF}]/u.test(f)).toBe(false)
+    }
+  })
+
+  test('the short list is the front of the long one', () => {
+    expect(ALL_FACES.slice(0, FACES.length)).toEqual([...FACES])
   })
 })

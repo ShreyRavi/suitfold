@@ -12,6 +12,8 @@ import { Toolbar } from './Toolbar.tsx'
 import { BetBar } from './BetBar.tsx'
 import { Log, Mention, Toasts } from './Log.tsx'
 import { Help, SEEN_HELP } from './Help.tsx'
+
+const RAIL_H = 'suitfold.railh'
 import { Clock, Pad } from './Pad.tsx'
 import { presetById } from '../table/deck.ts'
 
@@ -107,6 +109,29 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
   // Wide screens get the log beside the table; small ones slide it over.
   const [log, setLog] = useState(() => matchMedia('(min-width: 1080px)').matches)
   const fileRef = useRef<HTMLDivElement>(null)
+  // The drawer is draggable, and whatever you set it to is remembered.
+  const [railH, setRailH] = useState(() => Number(localStorage.getItem(RAIL_H)) || 206)
+  const [dragOut, setDragOut] = useState<CardId | null>(null)
+
+  const startResize = (e: React.PointerEvent) => {
+    e.preventDefault()
+    const from = e.clientY
+    const was = railH
+    const move = (ev: PointerEvent) => {
+      const next = Math.max(120, Math.min(innerHeight - 220, was + (from - ev.clientY)))
+      setRailH(next)
+    }
+    const done = () => {
+      removeEventListener('pointermove', move)
+      removeEventListener('pointerup', done)
+      localStorage.setItem(RAIL_H, String(railHRef.current))
+    }
+    addEventListener('pointermove', move)
+    addEventListener('pointerup', done)
+  }
+
+  const railHRef = useRef(railH)
+  railHRef.current = railH
 
   const myHand = view.cards.filter((c) => c.hand === t.me).sort((a, b) => a.z - b.z)
 
@@ -190,6 +215,11 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
           onPuck={(id, x, y) => t.act({ t: 'puck', id, x, y })}
           onDie={(id, x, y) => t.act({ t: 'die_move', id, x, y })}
           onHold={(id, held) => t.act({ t: 'die_hold', id, held })}
+          onDropIn={(id, x, y) => {
+            t.act({ t: 'play', ids: [id], x, y, faceUp: false })
+            setPicked((p) => p.filter((x2) => x2 !== id))
+            setDragOut(null)
+          }}
           cursors={t.cursors}
           onCursor={t.broadcastCursor}
         />
@@ -214,21 +244,32 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
             </div>
           )}
 
-        <Toolbar host={t.host} view={view} me={t.me} onGames={() => setSheet(true)} act={t.act} />
         <Clock endsAt={view.timer.endsAt} seconds={view.timer.seconds} />
         {/* Over the table, so it lands wherever the table is rather than
             drifting off-centre when the log takes the right-hand column. */}
         <Toasts view={view} me={t.me} logOpen={log} />
       </div>
 
-      <div className="rail" ref={fileRef}>
-        <div className="rail-head">
-          <span className="lbl">
-            YOUR HAND · {myHand.length}
-            {picked.length > 0 && <em> · {picked.length} picked</em>}
-            {/* Chips are shown once, on the bet bar just below. */}
-          </span>
-          <div className="rail-acts">
+      <div className="rail" ref={fileRef} style={{ height: railH }}>
+        {/* The dealer's controls used to float over the felt, which cost the
+            table a strip of its height and covered whoever sat at the bottom. */}
+        <div className="rail-top">
+          <button
+            className="grip"
+            aria-label="Drag to resize"
+            title="Drag to resize"
+            onPointerDown={startResize}
+          />
+          <Toolbar host={t.host} view={view} me={t.me} onGames={() => setSheet(true)} act={t.act} />
+        </div>
+
+        <div className="rail-body">
+          <div className="rail-side">
+            <span className="lbl">
+              YOUR HAND · {myHand.length}
+              {picked.length > 0 && <em> · {picked.length} picked</em>}
+            </span>
+            <div className="rail-acts">
             {/* Face down first: it is the one you can take back. */}
             <button
               className="mini"
@@ -254,17 +295,16 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
             >
               Play face up
             </button>
-            {picked.length > 0 && (
-              <button className="mini" onClick={() => setPicked([])}>
-                Clear
-              </button>
-            )}
+              {picked.length > 0 && (
+                <button className="mini" onClick={() => setPicked([])}>
+                  Clear
+                </button>
+              )}
+            </div>
+            {view.chipsOn && t.me && <BetBar view={view} me={t.me} act={t.act} />}
           </div>
-        </div>
 
-        {view.chipsOn && t.me && <BetBar view={view} me={t.me} act={t.act} />}
-
-        <div className="fan">
+          <div className="fan">
           {/* A game with no cards in it has nothing to say here. */}
           {myHand.length === 0 && view.cards.length > 0 && (
             <div className="fan-empty">
@@ -282,6 +322,15 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
                   marginLeft: i === 0 ? 0 : fan.overlap,
                   transform: `rotate(${fan.angle}deg) translateY(${fan.lift + (chosen ? -16 : 0)}px)`,
                 }}
+                draggable
+                onDragStart={(e) => {
+                  // Dragging a card out of your hand puts it down where you
+                  // drop it, face down. Showing it is a separate decision.
+                  e.dataTransfer.setData('text/plain', c.id)
+                  e.dataTransfer.effectAllowed = 'move'
+                  setDragOut(c.id)
+                }}
+                onDragEnd={() => setDragOut(null)}
                 onClick={() =>
                   setPicked((p) => (p.includes(c.id) ? p.filter((x) => x !== c.id) : [...p, c.id]))
                 }
@@ -290,6 +339,7 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
               </button>
             )
           })}
+          </div>
         </div>
       </div>
 

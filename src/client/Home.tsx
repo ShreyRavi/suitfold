@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { FACES } from '../table/model.ts'
+import { useState as useLocal } from 'react'
+import { ALL_FACES, FACES } from '../table/model.ts'
 import { GROUPS, PRESETS } from '../table/deck.ts'
 import { cleanCode } from '../net/peers.ts'
 import { Card } from './Card.tsx'
@@ -10,21 +11,29 @@ import { Card } from './Card.tsx'
  * a glance in a way a suffix never does.
  */
 export function FacePicker({ value, onPick }: { value: string; onPick: (e: string) => void }) {
+  const [all, setAll] = useLocal(false)
+  const list = all ? ALL_FACES : FACES
+
   return (
-    <div className="faces" role="radiogroup" aria-label="Pick your face">
-      {FACES.map((f) => (
-        <button
-          key={f}
-          type="button"
-          role="radio"
-          aria-checked={f === value}
-          aria-label={`face ${f}`}
-          className={`face ${f === value ? 'on' : ''}`}
-          onClick={() => onPick(f)}
-        >
-          {f}
-        </button>
-      ))}
+    <div className="faces-wrap">
+      <div className={`faces ${all ? 'is-all' : ''}`} role="radiogroup" aria-label="Pick your face">
+        {list.map((f) => (
+          <button
+            key={f}
+            type="button"
+            role="radio"
+            aria-checked={f === value}
+            aria-label={`face ${f}`}
+            className={`face ${f === value ? 'on' : ''}`}
+            onClick={() => onPick(f)}
+          >
+            {f}
+          </button>
+        ))}
+      </div>
+      <button type="button" className="linkish" onClick={() => setAll(!all)}>
+        {all ? 'Show fewer' : `All ${ALL_FACES.length} faces`}
+      </button>
     </div>
   )
 }

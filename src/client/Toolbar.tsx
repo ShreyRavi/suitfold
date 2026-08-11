@@ -22,7 +22,7 @@ export function Toolbar({
   /** Betting is something every player does, not only whoever holds the deck. */
   act: (a: Action) => void
 }) {
-  const [open, setOpen] = useState<'deal' | 'score' | 'marks' | null>(null)
+  const [open, setOpen] = useState<'deal' | 'score' | 'marks' | 'clock' | null>(null)
   const clock = presetById(view.game).clock ?? 0
   const wrap = useRef<HTMLDivElement>(null)
 
@@ -78,11 +78,8 @@ export function Toolbar({
         </button>
       )}
       {clock > 0 && (
-        <button
-          className="tool"
-          onClick={() => (view.timer.endsAt ? host.stopClock() : host.startClock(clock))}
-        >
-          <Icon d="M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z" /> {view.timer.endsAt ? 'Stop' : 'Start'} clock
+        <button className="tool" onClick={() => setOpen(open === 'clock' ? null : 'clock')} aria-expanded={open === 'clock'}>
+          <Icon d="M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z" /> {view.timer.endsAt ? 'Clock running' : 'Clock'}
         </button>
       )}
       <button className="tool" onClick={() => setOpen(open === 'marks' ? null : 'marks')} aria-expanded={open === 'marks'}>
@@ -96,6 +93,7 @@ export function Toolbar({
       </button>
 
       {open === 'deal' && <DealPanel host={host} view={view} me={me} onDone={() => setOpen(null)} />}
+      {open === 'clock' && <ClockPanel host={host} view={view} start={clock} onDone={() => setOpen(null)} />}
       {open === 'marks' && <MarkPanel host={host} view={view} />}
       {open === 'score' && <ScorePanel host={host} view={view} me={me} />}
     </div>
@@ -219,6 +217,77 @@ function DealPanel({
       >
         Deal
       </button>
+    </div>
+  )
+}
+
+/** However long you want it to be, not however long the game says. */
+function ClockPanel({
+  host,
+  view,
+  start,
+  onDone,
+}: {
+  host: Host
+  view: TableView
+  start: number
+  onDone: () => void
+}) {
+  const [secs, setSecs] = useState(view.timer.seconds || start)
+  const bump = (by: number) => setSecs((n) => Math.max(15, Math.min(3600, n + by)))
+  const mm = Math.floor(secs / 60)
+  const ss = String(secs % 60).padStart(2, '0')
+
+  return (
+    <div className="pop">
+      <div className="pop-row">
+        <span className="pop-lbl">How long</span>
+        <div className="segs wrap">
+          {[60, 120, 180, 300, 600].map((n) => (
+            <button key={n} className={`seg ${secs === n ? 'on' : ''}`} onClick={() => setSecs(n)}>
+              {n / 60} min
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="pop-row">
+        <span className="pop-lbl">Or to the second</span>
+        <div className="segs">
+          <button className="seg" onClick={() => bump(-15)} aria-label="less">
+            −
+          </button>
+          <span className="betbar-custom-val" style={{ display: 'grid', placeItems: 'center' }}>
+            {mm}:{ss}
+          </span>
+          <button className="seg" onClick={() => bump(15)} aria-label="more">
+            +
+          </button>
+        </div>
+      </div>
+
+      <div className="ask-acts">
+        {view.timer.endsAt && (
+          <button
+            className="btn"
+            onClick={() => {
+              host.stopClock()
+              onDone()
+            }}
+          >
+            Stop
+          </button>
+        )}
+        <button
+          className="btn primary"
+          onClick={() => {
+            host.startClock(secs)
+            onDone()
+          }}
+        >
+          {view.timer.endsAt ? 'Restart' : 'Start'}
+        </button>
+      </div>
     </div>
   )
 }

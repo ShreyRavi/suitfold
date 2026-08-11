@@ -33,6 +33,10 @@ code. Sharing the link works too - `…/suitfold/#ABC23` fills the code in.
   and **Take pot** the moment there is one to take - which asks first, since who won is the
   one thing the table cannot settle for you.
 - **Gather** puts every card back on the deck's own marked spot.
+- **Solitaire** is in there too, for when nobody else is about.
+- **Drag a card out of your hand** straight onto the table, or use the buttons.
+- **The drawers resize.** Grab the handle at the top of your hand, or the left
+  edge of the log, and whatever you set is remembered.
 - **Right-click** turns a card over. **Hold** on one for the pile menu, and
   **hover** it to read it at full size.
 - **Everyone sits somewhere.** Seats go round the table in the order people

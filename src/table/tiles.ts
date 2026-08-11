@@ -8,9 +8,13 @@ import type { CardId } from './model.ts'
  * get put down somewhere. So they are cards, with a different face drawn on
  * them, and every single thing the table already does works on them unchanged.
  *
- *   L-A-1   the letter A, worth one
- *   L-_-0   a blank
- *   D-3-5   the domino with three pips and five pips
+ *   L-A-1-0   the letter A, worth one, the first of its kind
+ *   L-_-0-1   a blank
+ *   D-3-5     the domino with three pips and five pips
+ *
+ * Every field is its own segment. The copy number used to be stuck on the end
+ * of the score with a colon, which made every score parse as nothing, so no
+ * tile ever showed what it was worth.
  */
 export const isLetter = (id: CardId) => id.startsWith('L-')
 export const isDomino = (id: CardId) => id.startsWith('D-')
@@ -42,7 +46,7 @@ const BANANA: [string, number][] = [
 export function scrabbleTiles(): CardId[] {
   const out: CardId[] = []
   for (const [letter, count, score] of SCRABBLE) {
-    for (let i = 0; i < count; i++) out.push(`L-${letter}-${score}:${i}`)
+    for (let i = 0; i < count; i++) out.push(`L-${letter}-${score}-${i}`)
   }
   return out
 }
@@ -50,7 +54,7 @@ export function scrabbleTiles(): CardId[] {
 export function bananaTiles(): CardId[] {
   const out: CardId[] = []
   for (const [letter, count] of BANANA) {
-    for (let i = 0; i < count; i++) out.push(`L-${letter}-0:${i}`)
+    for (let i = 0; i < count; i++) out.push(`L-${letter}-0-${i}`)
   }
   return out
 }
