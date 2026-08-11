@@ -1,5 +1,5 @@
 import type { CardId, Puck, Slot } from './model.ts'
-import { TABLE_H, TABLE_W } from './model.ts'
+import { CARD_GAP, CARD_H, CARD_W, TABLE_H, TABLE_W } from './model.ts'
 
 /**
  * Decks are lists of card ids, and presets are furniture: which cards come out,
@@ -127,8 +127,8 @@ const blinds = (): Puck[] => [
 
 /** Draw pile on the left of centre, discard on the right. */
 const drawDiscard = (): Slot[] => [
-  { id: 'draw', x: CX - 62, y: CY, label: 'Draw' },
-  { id: 'discard', x: CX + 62, y: CY, label: 'Discard' },
+  { id: 'draw', x: CX - CARD_GAP / 2 - 12, y: CY, label: 'Draw' },
+  { id: 'discard', x: CX + CARD_GAP / 2 + 12, y: CY, label: 'Discard' },
 ]
 
 /** One slot per player, spread around the middle, plus a shared one. */
@@ -432,9 +432,11 @@ export function place(preset: Preset, undealt: CardId[], slots: Slot[] = []): Pl
   const mid = home ? { x: home.x, y: home.y } : { x: TABLE_W / 2, y: TABLE_H / 2 }
 
   if (preset.layout === 'grid') {
-    const cols = 13
-    const gapX = 68
-    const gapY = 104
+    // Eleven across rather than thirteen: the cards are wider now, and a grid
+    // that runs off the edge of the table is worse than one more row.
+    const cols = 11
+    const gapX = CARD_W + 4
+    const gapY = CARD_H
     const rows = Math.ceil(undealt.length / cols)
     const left = mid.x - ((cols - 1) * gapX) / 2
     const top = mid.y - ((rows - 1) * gapY) / 2
@@ -450,7 +452,7 @@ export function place(preset: Preset, undealt: CardId[], slots: Slot[] = []): Pl
     const discard = slots.find((s) => s.id === 'discard')
     const [starter, ...rest] = undealt
     return [
-      { id: starter!, faceUp: true, x: discard?.x ?? mid.x + 62, y: discard?.y ?? mid.y },
+      { id: starter!, faceUp: true, x: discard?.x ?? mid.x + CARD_GAP, y: discard?.y ?? mid.y },
       ...rest.map((id) => ({ id, faceUp: false, x: mid.x, y: mid.y })),
     ]
   }

@@ -16,12 +16,15 @@ export function Log({
   view,
   me,
   open,
+  isHost,
   onClose,
   act,
 }: {
   view: TableView
   me: SeatId | null
   open: boolean
+  /** Only whoever holds the deck may wipe the history. */
+  isHost: boolean
   onClose: () => void
   act: (a: Action) => void
 }) {
@@ -45,9 +48,16 @@ export function Log({
     <aside className={`log ${open ? 'is-open' : ''}`} aria-label="What has happened">
       <div className="log-bar">
         <span className="lbl">TABLE LOG</span>
-        <button className="mini log-x" onClick={onClose} aria-label="Hide the log">
-          ✕
-        </button>
+        <div className="log-acts">
+          {isHost && view.log.length > 0 && (
+            <button className="mini" onClick={() => act({ t: 'log_clear' })}>
+              Clear
+            </button>
+          )}
+          <button className="mini log-x" onClick={onClose} aria-label="Hide the log">
+            ✕
+          </button>
+        </div>
       </div>
 
       <div className="log-list" ref={list}>
@@ -79,29 +89,110 @@ export function Log({
   )
 }
 
+/** Half past nine, not a date. Everyone is at the same table on the same night. */
+export const clock = (at: number) =>
+  new Date(at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+
 function Line({ e, view, me }: { e: LogEntry; view: TableView; me: SeatId | null }) {
   const seat = view.seats.find((s) => s.id === e.seat)
   const who = !e.seat ? 'The table' : e.seat === me ? 'You' : (seat?.name ?? 'Someone')
+  const atMe = !!me && !!e.to?.includes(me)
 
   if (e.kind === 'chat') {
     return (
-      <p className="log-line is-chat">
-        <span className="log-who" style={{ color: seat?.colour }}>
-          {who}
+      <p className={`log-line is-chat ${atMe ? 'is-at-me' : ''}`}>
+        <span className="log-head">
+          <span className="log-who" style={{ color: seat?.colour }}>
+            {who}
+          </span>
+          <time className="log-at">{clock(e.at)}</time>
         </span>
-        <span className="log-said">{e.text}</span>
+        <span className="log-said">{withNames(e.text)}</span>
       </p>
     )
   }
 
   return (
     <p className={`log-line is-${e.kind}`}>
+      <time className="log-at">{clock(e.at)}</time>
       <span className="log-dot" style={{ background: seat?.colour ?? 'var(--ink-faint)' }} aria-hidden="true" />
       <span className="log-what">
         <b>{who}</b> {e.text}
         {e.amount !== undefined && <em> {money(e.amount)}</em>}
       </span>
     </p>
+  )
+}
+
+/** Draw the @names in a chat line as names rather than as text. */
+function withNames(text: string) {
+  return text.split(/(@[\p{L}\p{N}]+)/u).map((bit, i) =>
+    bit.startsWith('@') ? (
+      <b className="at" key={i}>
+        {bit}
+      </b>
+    ) : (
+      <span key={i}>{bit}</span>
+    ),
+  )
+}
+
+/**
+ * Somebody said your name. A chat panel you are not looking at is the same as
+ * no chat panel at all, so this comes to the front and waits.
+ */
+export function Mention({
+  view,
+  me,
+  onOpenLog,
+}: {
+  view: TableView
+  me: SeatId | null
+  onOpenLog: () => void
+}) {
+  const [hail, setHail] = useState<LogEntry | null>(null)
+  const seen = useRef<number | null>(null)
+
+  useEffect(() => {
+    const newest = view.log.length ? view.log[view.log.length - 1]!.n : 0
+    if (seen.current === null) {
+      seen.current = newest
+      return
+    }
+    const mine = view.log.filter((e) => e.n > seen.current! && me && e.to?.includes(me))
+    seen.current = newest
+    const last = mine[mine.length - 1]
+    if (last) setHail(last)
+  }, [view.log, me])
+
+  if (!hail) return null
+  const from = view.seats.find((s) => s.id === hail.seat)
+
+  return (
+    <div className="ask" role="dialog" aria-modal="true" aria-label="Somebody said your name">
+      <div className="ask-box">
+        <span className="hail-who" style={{ color: from?.colour }}>
+          {from?.name ?? 'Someone'} said
+        </span>
+        <p className="hail-said">{withNames(hail.text)}</p>
+        <time className="fine">{clock(hail.at)}</time>
+        <div className="ask-acts">
+          <button className="btn" onClick={() => setHail(null)}>
+            Dismiss
+          </button>
+          <button
+            className="btn primary"
+            onClick={() => {
+              onOpenLog()
+              setHail(null)
+            }}
+          >
+            Open the log
+          </button>
+        </div>
+      </div>
+      <button className="ask-scrim" onClick={() => setHail(null)} aria-label="Dismiss" />
+    </div>
   )
 }
 

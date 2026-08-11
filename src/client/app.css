@@ -185,7 +185,7 @@ input {
 
 /* ---- a card ------------------------------------------------------------ */
 .pc {
-  position: relative; width: 68px; height: 96px; flex: none; font-size: 6.8px;
+  position: relative; width: 80px; height: 112px; flex: none; font-size: 8px;
   background:
     linear-gradient(158deg, #fffdf8 0%, var(--card-face) 55%, #f4eee1 100%);
   border: 1px solid var(--card-edge);
@@ -203,7 +203,7 @@ input {
 }
 @media (prefers-reduced-motion: reduce) { .pc { animation: none; } }
 
-.pc--sm { width: 52px; height: 74px; font-size: 5.2px; }
+.pc--sm { width: 60px; height: 84px; font-size: 6px; }
 .pc.is-red { color: var(--suit-red); }
 
 /* Everything on a card face is sized in em off one font-size, which is a tenth
@@ -325,7 +325,6 @@ input {
 }
 
 @media (min-width: 720px) {
-  .pc { width: 74px; height: 104px; font-size: 7.4px; }
   .sheet-body { padding-top: var(--s-9); }
 }
 
@@ -461,7 +460,7 @@ input {
 /* Borrowed from how playingcards.io makes a freeform table legible: named
    outlines that say where things go, without enforcing anything. */
 .slot {
-  position: absolute; top: 0; left: 0; height: 96px;
+  position: absolute; top: 0; left: 0; height: 112px;
   border: 2px dashed color-mix(in srgb, #2a1d12 26%, transparent);
   border-radius: 8px; pointer-events: none;
   background: color-mix(in srgb, #fff 6%, transparent);
@@ -899,3 +898,55 @@ input {
 .puck.is-live { transition: none; cursor: grabbing; }
 .puck--sb { background: #2e8b57; color: #fff; }
 .puck--bb { background: #1f4b7a; color: #fff; }
+
+/* ---- reading a card ---------------------------------------------------- */
+/* Hover it and you get it big enough to read without leaning into the screen.
+   It is drawn on the far side of the card so it never covers what you are
+   pointing at. */
+.peek {
+  position: absolute; top: 0; left: 0; z-index: 70; pointer-events: none;
+  animation: peek-in 120ms var(--ease) both;
+}
+.peek .pc {
+  width: 200px; height: 280px; font-size: 20px;
+  box-shadow: 0 18px 44px rgba(0,0,0,.42);
+}
+@keyframes peek-in { from { opacity: 0; transform: scale(.9); } }
+@media (prefers-reduced-motion: reduce) { .peek { animation: none; } }
+
+/* Your own hand lifts and grows when you point at it, for the same reason. */
+.fan-card:hover { z-index: 40; }
+.fan-card:hover .pc { transform: scale(1.28) translateY(-10px); box-shadow: 0 16px 30px rgba(0,0,0,.3); }
+
+/* ---- seats in their own places ----------------------------------------- */
+.spot.is-me {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-wash), 0 2px 8px rgba(0,0,0,.14);
+}
+.spot-name i {
+  font-style: normal; margin-left: 5px; font-size: 10px;
+  font-family: var(--font-mono); letter-spacing: .08em;
+  text-transform: uppercase; color: var(--accent);
+}
+
+/* ---- log: times, names, clearing --------------------------------------- */
+.log-acts { display: flex; align-items: center; gap: var(--s-4); }
+.log-at {
+  flex: none; font-family: var(--font-mono); font-size: 10px;
+  color: var(--ink-faint); font-variant-numeric: tabular-nums;
+}
+.log-line { align-items: baseline; }
+.log-line .log-dot { align-self: flex-start; margin-top: 6px; }
+.log-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-4); }
+.log-said .at, .hail-said .at { color: var(--accent); font-weight: 500; }
+/* Somebody said your name. */
+.log-line.is-chat.is-at-me {
+  background: var(--accent-wash);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.hail-who {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  letter-spacing: var(--track-label); text-transform: uppercase;
+}
+.hail-said { margin: var(--s-4) 0 var(--s-5); font-size: 19px; overflow-wrap: anywhere; }

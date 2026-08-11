@@ -1,5 +1,5 @@
 import type { Action, CardId, Note, SeatId, TableState } from '../table/model.ts'
-import { TABLE_H, TABLE_W, apply, describe, emptyTable, inHand, onTable, project, record, stacks } from '../table/model.ts'
+import { CARD_GAP, TABLE_H, TABLE_W, apply, describe, emptyTable, inHand, mentions, onTable, project, record, stacks } from '../table/model.ts'
 import { cryptoShuffle, place, presetById } from '../table/deck.ts'
 import { SEAT_COLOURS, type PeerId, type Wire } from './peers.ts'
 
@@ -113,9 +113,20 @@ export class Host {
   say(seat: SeatId, text: string) {
     const said = text.trim().slice(0, 200)
     if (!said) return
-    this.state = record(this.state, { kind: 'chat', text: said, seat }, seat)
+    const to = mentions(said, this.state.seats).filter((id) => id !== seat)
+    this.state = record(this.state, { kind: 'chat', text: said, seat, to }, seat, this.now())
     this.broadcast()
     this.onChange()
+  }
+
+  /** Wall clock, in one place, so tests can pin it. */
+  private now() {
+    return Date.now()
+  }
+
+  /** Wipe the history. Whoever is holding the deck only. */
+  clearLog() {
+    this.commit([{ t: 'log_clear' }])
   }
 
   /**
@@ -148,8 +159,9 @@ export class Host {
     const before = this.state
     for (const a of actions) this.state = apply(this.state, a)
 
+    const at = this.now()
     if (note) {
-      this.state = record(this.state, note, by)
+      this.state = record(this.state, note, by, at)
     } else {
       // Describe against the table as it was, so "took the pot" knows the size
       // of the pot it took.
@@ -157,7 +169,7 @@ export class Host {
       for (const a of actions) {
         const line = describe(a, seen)
         seen = apply(seen, a)
-        if (line) this.state = record(this.state, line, by)
+        if (line) this.state = record(this.state, line, by, at)
       }
     }
 
@@ -180,6 +192,7 @@ export class Host {
       { ...previous, seats: this.state.seats, log: this.state.log, logN: this.state.logN },
       { kind: 'game', text: 'took that back' },
       this.mySeat,
+      this.now(),
     )
     this.broadcast()
     this.onChange()
@@ -271,7 +284,7 @@ export class Host {
       const slot = slots.find((s) => s.id === (spec.boardSlot ?? 'board'))
       const cx = slot?.x ?? TABLE_W / 2
       const cy = slot?.y ?? TABLE_H / 2
-      const gap = 74
+      const gap = CARD_GAP
       const left = cx - ((spec.board - 1) * gap) / 2
       for (let i = 0; i < spec.board; i++) {
         const card = deck[cut++]
@@ -442,7 +455,11 @@ function unique(name: string, taken: string[]): string {
 /** Seat management belongs to the host; everything else is fair game. */
 export function allowed(action: Action, seat: SeatId): boolean {
   // Setting the table and correcting somebody's stack belong to the host.
-  if (['seat_add', 'seat_remove', 'seat_name', 'seat_here', 'reset', 'chips_start', 'chips_adjust'].includes(action.t)) {
+  if (
+    ['seat_add', 'seat_remove', 'seat_name', 'seat_here', 'reset', 'chips_start', 'chips_adjust', 'log_clear'].includes(
+      action.t,
+    )
+  ) {
     return false
   }
   // Betting spends your own chips, so it has to be your own seat.

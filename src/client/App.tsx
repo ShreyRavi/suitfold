@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CardId } from '../table/model.ts'
+import type { CardId, TableView } from '../table/model.ts'
 import { TABLE_H, TABLE_W } from '../table/model.ts'
 import { GROUPS, PRESETS } from '../table/deck.ts'
 import { cleanCode } from '../net/peers.ts'
@@ -10,7 +10,7 @@ import { Rules } from './Rules.tsx'
 import { Card } from './Card.tsx'
 import { Toolbar } from './Toolbar.tsx'
 import { BetBar } from './BetBar.tsx'
-import { Log, Toasts } from './Log.tsx'
+import { Log, Mention, Toasts } from './Log.tsx'
 
 export function App() {
   const t = useTable()
@@ -107,8 +107,10 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
   // Only worth counting while the log is shut; once it is open you can see it.
   const unread = log ? 0 : view.log.filter((e) => e.kind === 'chat').length
 
-  const play = (ids: CardId[], faceUp: boolean) =>
-    t.act({ t: 'play', ids, x: TABLE_W / 2, y: TABLE_H / 2 - 60, faceUp })
+  const play = (ids: CardId[], faceUp: boolean) => {
+    const at = freeSpot(view)
+    t.act({ t: 'play', ids, x: at.x, y: at.y, faceUp })
+  }
 
   return (
     <div className={`app ${log ? 'with-log' : ''}`}>
@@ -246,13 +248,49 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
         </div>
       </div>
 
-      <Log view={view} me={t.me} open={log} onClose={() => setLog(false)} act={t.act} />
+      <Log
+        view={view}
+        me={t.me}
+        open={log}
+        isHost={!!t.host}
+        onClose={() => setLog(false)}
+        act={t.act}
+      />
+      <Mention view={view} me={t.me} onOpenLog={() => setLog(true)} />
 
       {sheet && <Sheet t={t} onClose={() => setSheet(false)} onRules={(id) => setRules(id)} />}
       {rules && <Rules gameId={rules} onClose={() => setRules(null)} />}
       {t.note && <div className="note">{t.note}</div>}
     </div>
   )
+}
+
+/**
+ * Where a card played out of your hand should land.
+ *
+ * It used to be the middle of the table, which is where the board, the pot and
+ * the deck already are — so playing a card buried whatever the hand was about.
+ * The corners are empty on nearly every layout, so try those first.
+ */
+function freeSpot(view: TableView) {
+  const spots = [
+    { x: 150, y: TABLE_H - 130 },
+    { x: TABLE_W - 150, y: TABLE_H - 130 },
+    { x: 150, y: 130 },
+    { x: TABLE_W - 150, y: 130 },
+    { x: 150, y: TABLE_H / 2 },
+    { x: TABLE_W - 150, y: TABLE_H / 2 },
+    { x: TABLE_W / 2, y: TABLE_H - 130 },
+  ]
+  const busy = (p: { x: number; y: number }) =>
+    view.cards.some((c) => c.hand === null && Math.hypot(c.x - p.x, c.y - p.y) < 96) ||
+    view.slots.some((sl) => Math.hypot(sl.x - p.x, sl.y - p.y) < 96) ||
+    // The blinds live in a corner too, and a card dropped on top of the dealer
+    // button hides the one thing on the felt that says whose deal it is.
+    view.pucks.some((pk) => Math.hypot(pk.x - p.x, pk.y - p.y) < 80)
+  // Somewhere free, or failing that the first corner — stacking on your own
+  // previous card is better than landing on the board.
+  return spots.find((p) => !busy(p)) ?? spots[0]!
 }
 
 /**

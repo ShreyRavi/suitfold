@@ -31,9 +31,18 @@ code. Sharing the link works too — `…/suitfold/#ABC23` fills the code in.
   and **Take pot** the moment there is one to take — which asks first, since who won is the
   one thing the table cannot settle for you.
 - **Gather** puts every card back on the deck's own marked spot.
-- **The log** down the right-hand side lists everything that has happened, and
-  is where you talk. Chips moving also comes past as a toast, because that is
-  the one thing you cannot afford to miss while looking at your own hand.
+- **Right-click** turns a card over. **Hold** on one for the pile menu, and
+  **hover** it to read it at full size.
+- **Everyone sits somewhere.** Seats go round the table in the order people
+  arrived, with whoever brought the deck at the bottom — the same on every
+  screen, so "in front of Mum" means one place rather than a different place in
+  every browser.
+- **The log** down the right-hand side lists everything that has happened, with
+  the time against each line, and is where you talk. Type `@Dad` and Dad gets a
+  notice on top of whatever he is looking at; `@all` gets everyone. Whoever is
+  holding the deck can clear it. Chips moving also comes past as a toast,
+  because that is the one thing you cannot afford to miss while looking at your
+  own hand.
 - **The dealer button and the blinds** are discs on the felt for poker. Drag
   them a seat to the left between hands. They enforce nothing.
 - **Deal → All of them** hands the whole pile out evenly, which is how Bluff, War, Snap and

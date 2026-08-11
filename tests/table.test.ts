@@ -12,6 +12,7 @@ import {
   stacks,
   type Action,
   LOG_MAX,
+  mentions,
   type TableState,
 } from '../src/table/model.ts'
 import { PRESETS, standard, uno } from '../src/table/deck.ts'
@@ -782,5 +783,117 @@ describe('turning up late', () => {
     expect(h.state.chips['host']).toBe(1500)
     h.addSeatForTest('host', 'Mom')
     expect(h.state.chips['host']).toBe(1500)
+  })
+})
+
+describe('reading the log back', () => {
+  test('every line is stamped with a time', () => {
+    const h = hosted()
+    const before = Date.now()
+    h.buyIn(100)
+    h.bet('s2', 10)
+    const after = Date.now()
+    for (const line of h.state.log) {
+      expect(line.at).toBeGreaterThanOrEqual(before)
+      expect(line.at).toBeLessThanOrEqual(after)
+    }
+  })
+
+  test('times never run backwards', () => {
+    const h = hosted()
+    h.setup('poker')
+    h.say('s2', 'hello')
+    h.gather()
+    const times = h.state.log.map((l) => l.at)
+    expect(times).toEqual([...times].sort((a, b) => a - b))
+  })
+
+  test('shoving cards around is not worth a line', () => {
+    const h = hosted()
+    h.setup('poker')
+    const before = h.state.log.length
+    const card = h.tableCards()[0]!
+    h.local({ t: 'move', ids: [card.id], x: 120, y: 120 })
+    expect(h.state.log.length).toBe(before)
+  })
+
+  test('but turning one over still is', () => {
+    const h = hosted()
+    h.setup('poker')
+    const card = h.tableCards()[0]!
+    h.local({ t: 'flip', ids: [card.id] })
+    expect(h.state.log[h.state.log.length - 1]!.text).toBe('turned a card over')
+  })
+})
+
+describe('clearing the log', () => {
+  test('the dealer can wipe it, and the wipe is the first new line', () => {
+    const h = hosted()
+    h.setup('poker')
+    h.say('s2', 'hello')
+    expect(h.state.log.length).toBeGreaterThan(1)
+    h.clearLog()
+    expect(h.state.log.map((l) => l.text)).toEqual(['cleared the log'])
+  })
+
+  test('nobody else can', () => {
+    expect(allowed({ t: 'log_clear' }, 's2')).toBe(false)
+  })
+
+  test('the count keeps climbing, so cleared lines cannot come back as toasts', () => {
+    const h = hosted()
+    h.buyIn(100)
+    h.bet('s2', 10)
+    const n = h.state.logN
+    h.clearLog()
+    expect(h.state.logN).toBeGreaterThan(n)
+    expect(h.state.log[0]!.n).toBeGreaterThan(n)
+  })
+})
+
+describe('saying somebody’s name', () => {
+  const seats = [
+    { id: 'a', name: 'Dad', connected: true, colour: '#000' },
+    { id: 'b', name: 'Mum', connected: true, colour: '#111' },
+    { id: 'c', name: 'Dad 2', connected: true, colour: '#222' },
+  ]
+
+  test('an @name finds that seat', () => {
+    expect(mentions('@Mum are you in?', seats)).toEqual(['b'])
+  })
+
+  test('case does not matter', () => {
+    expect(mentions('oi @mum', seats)).toEqual(['b'])
+  })
+
+  test('a name with a space in it still matches', () => {
+    expect(mentions('@Dad 2 your go', seats)).toEqual(['a', 'c'])
+  })
+
+  test('a word that merely starts with a name does not match', () => {
+    expect(mentions('@Mummy', seats)).toEqual([])
+    expect(mentions('@Dadaist', seats)).toEqual([])
+  })
+
+  test('@all means everyone', () => {
+    expect(mentions('@all last hand', seats)).toEqual(['a', 'b', 'c'])
+  })
+
+  test('a stray @ names nobody', () => {
+    expect(mentions('email me @ home', seats)).toEqual([])
+    expect(mentions('no names here', seats)).toEqual([])
+  })
+
+  test('the log carries who was named, and never yourself', () => {
+    const h = hosted(['Mom', 'Dad', 'You'])
+    h.say('s2', 'your go @Mom, not @Dad')
+    const last = h.state.log[h.state.log.length - 1]!
+    expect(last.to).toEqual(['host'])
+  })
+
+  test('a line naming nobody carries no list at all', () => {
+    const h = hosted()
+    h.say('s2', 'just talking')
+    expect(h.state.log[h.state.log.length - 1]!.to).toBeUndefined()
   })
 })

@@ -18,6 +18,15 @@ export const TABLE_W = 1000
 export const TABLE_H = 640
 /** Drop within this distance of another card and the two snap together. */
 export const SNAP = 26
+/**
+ * How big a card is, in table units. The felt is one fixed coordinate space
+ * scaled to whatever screen shows it, so this is both the CSS size of a card
+ * and the spacing everything else has to respect.
+ */
+export const CARD_W = 80
+export const CARD_H = 112
+/** A row of board cards, and a laid-out grid, need a card's width plus air. */
+export const CARD_GAP = CARD_W + 8
 
 export interface Card {
   id: CardId
@@ -77,11 +86,15 @@ export interface Puck {
  */
 export interface LogEntry {
   n: number
+  /** Wall clock from the host's tab, so everyone's log reads the same times. */
+  at: number
   seat: SeatId | null
   kind: 'chip' | 'card' | 'seat' | 'game' | 'chat'
   text: string
   /** Chip lines carry their amount so the log can draw it as money. */
   amount?: number
+  /** Seats named with an @ in a chat line. */
+  to?: SeatId[]
 }
 
 export interface TableState {
@@ -160,6 +173,8 @@ export type Action =
   | { t: 'puck'; id: string; x: number; y: number }
   /** Chat. It changes nothing on the table; the host turns it into a log line. */
   | { t: 'say'; seat: SeatId; text: string }
+  /** Wipe the history. Whoever is holding the deck only. */
+  | { t: 'log_clear' }
 
 /** The only way the table ever changes. Pure, so it can be tested and replayed. */
 export function apply(s: TableState, a: Action): TableState {
@@ -311,6 +326,11 @@ export function apply(s: TableState, a: Action): TableState {
     // log is written, which is the one place that knows who is speaking.
     case 'say':
       return s
+
+    // The count keeps going up. Watermarks elsewhere rely on it never going
+    // backwards, or clearing the log would replay old lines as fresh toasts.
+    case 'log_clear':
+      return { ...s, log: [] }
   }
 }
 
@@ -475,6 +495,7 @@ export interface Note {
   kind: LogEntry['kind']
   text: string
   amount?: number
+  to?: SeatId[]
   /** When the action names its own subject — "Mum sat down", not "you seated Mum". */
   seat?: SeatId
 }
@@ -506,8 +527,10 @@ export function describe(a: Action, before: TableState): Note | null {
     case 'scores_clear':
       return { kind: 'game', text: 'reset the scores' }
 
+    // Moving a card is most of what anybody does. Logging it buries the lines
+    // that matter — who bet, who dealt — under a wall of "moved a card".
     case 'move':
-      return { kind: 'card', text: many(a.ids.length, 'moved a card', 'moved % cards') }
+      return null
     case 'flip':
       return { kind: 'card', text: many(a.ids.length, 'turned a card over', 'turned % cards over') }
     case 'take':
@@ -533,6 +556,9 @@ export function describe(a: Action, before: TableState): Note | null {
       return null
 
     // Described by whoever ran them, which knows what the whole batch was for.
+    case 'log_clear':
+      return { kind: 'game', text: 'cleared the log' }
+
     case 'reset':
     case 'reorder':
     case 'say':
@@ -543,14 +569,46 @@ export function describe(a: Action, before: TableState): Note | null {
 /** Stamp a note onto the table's history. Newest last, and it is not forever. */
 export const LOG_MAX = 150
 
-export function record(s: TableState, note: Note, by: SeatId | null): TableState {
+export function record(s: TableState, note: Note, by: SeatId | null, at: number): TableState {
   const n = s.logN + 1
   const entry: LogEntry = {
     n,
+    at,
     seat: note.seat ?? by,
     kind: note.kind,
     text: note.text,
     ...(note.amount === undefined ? {} : { amount: note.amount }),
+    ...(note.to?.length ? { to: note.to } : {}),
   }
   return { ...s, log: [...s.log, entry].slice(-LOG_MAX), logN: n }
+}
+
+/**
+ * Who was named with an @. Matched against the seats actually at the table, so
+ * "@Dad" finds Dad and "@dinner" finds nobody — and names with a space in them
+ * ("Dad 2") still match, which a plain word-grab would miss.
+ *
+ * "@all" and "@table" mean everyone, because somebody will type it.
+ */
+export function mentions(text: string, seats: Seat[]): SeatId[] {
+  const lower = text.toLowerCase()
+  if (/@(all|table|everyone)\b/.test(lower)) return seats.map((s) => s.id)
+  const hit: SeatId[] = []
+  for (const seat of seats) {
+    const name = seat.name.toLowerCase()
+    if (!name) continue
+    let from = 0
+    for (;;) {
+      const i = lower.indexOf(`@${name}`, from)
+      if (i === -1) break
+      // Not a match if the name is only the start of a longer word.
+      const after = lower[i + name.length + 1]
+      if (after === undefined || !/[a-z0-9]/.test(after)) {
+        hit.push(seat.id)
+        break
+      }
+      from = i + 1
+    }
+  }
+  return hit
 }

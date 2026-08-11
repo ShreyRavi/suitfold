@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CardId, SeatId, TableView } from '../table/model.ts'
-import { SNAP, TABLE_H, TABLE_W } from '../table/model.ts'
+import { CARD_GAP, CARD_H, CARD_W, SNAP, TABLE_H, TABLE_W } from '../table/model.ts'
 import type { Drag } from '../net/peers.ts'
 import { Card } from './Card.tsx'
 import { ChipStack, money } from './Chips.tsx'
@@ -45,6 +45,11 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
     puck?: string
   } | null>(null)
   const [menu, setMenu] = useState<{ ids: CardId[]; at: Pos } | null>(null)
+  /** The card under the pointer, drawn large off to one side. */
+  const [peek, setPeek] = useState<{ face: string; at: Pos } | null>(null)
+  // Holding still on a card opens its menu. Right-click is spoken for: it
+  // turns the card over, which is what a right-click on a card should do.
+  const press = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // The table is a fixed coordinate space scaled to whatever room it has, so
   // every browser agrees on where a card is regardless of screen size.
@@ -83,7 +88,15 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
     piles.set(key, list)
   }
 
-  const startDrag = (e: React.PointerEvent, ids: CardId[], from: Pos, viaBadge = false, puck?: string) => {
+  const startDrag = (
+    e: React.PointerEvent,
+    ids: CardId[],
+    from: Pos,
+    viaBadge = false,
+    puck?: string,
+    /** Hold still on this and you get the menu for these cards. */
+    menuIds?: CardId[],
+  ) => {
     if (!me) return
     e.preventDefault()
     // Capture keeps the drag alive if the pointer leaves the card. It throws
@@ -97,12 +110,30 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
     const p = toTable(e.clientX, e.clientY)
     setDragging({ ids, at: from, grab: { x: p.x - from.x, y: p.y - from.y }, viaBadge, ...(puck ? { puck } : {}) })
     onDrag({ ids, x: from.x, y: from.y, holding: true, by: me })
+
+    if (menuIds) {
+      clearPress()
+      press.current = setTimeout(() => {
+        setDragging(null)
+        setPeek(null)
+        onDrag({ ids, x: from.x, y: from.y, holding: false, by: me })
+        setMenu({ ids: menuIds, at: from })
+      }, 460)
+    }
   }
+
+  const clearPress = () => {
+    if (press.current) clearTimeout(press.current)
+    press.current = null
+  }
+  useEffect(() => clearPress, [])
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragging || !me) return
     const p = toTable(e.clientX, e.clientY)
     const at = { x: p.x - dragging.grab.x, y: p.y - dragging.grab.y }
+    // Moving means you meant to drag, not to hold still.
+    if (Math.hypot(at.x - dragging.at.x, at.y - dragging.at.y) > 4) clearPress()
     const moved =
       dragging.moved || Math.hypot(at.x - dragging.at.x, at.y - dragging.at.y) > 0.5 || !dragging.viaBadge
     setDragging({ ...dragging, at, moved })
@@ -112,6 +143,7 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
   const endDrag = () => {
     if (!dragging || !me) return
     const { ids, at, viaBadge, moved, puck } = dragging
+    clearPress()
     setDragging(null)
     onDrag({ ids, x: at.x, y: at.y, holding: false, by: me })
 
@@ -176,8 +208,8 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
             key={slot.id}
             className="slot"
             style={{
-              transform: `translate(${slot.x - (slot.wide ? (slot.wide * 74) / 2 : 34)}px, ${slot.y - 48}px)`,
-              width: slot.wide ? slot.wide * 74 : 68,
+              transform: `translate(${slot.x - (slot.wide ? (slot.wide * CARD_GAP) / 2 : CARD_W / 2)}px, ${slot.y - CARD_H / 2}px)`,
+              width: slot.wide ? slot.wide * CARD_GAP : CARD_W,
             }}
             aria-hidden="true"
           >
@@ -208,14 +240,17 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
         })}
 
         {/* Everyone else sits around the edge; you are the rail at the bottom. */}
-        {seatSpots(view, me).map(({ seat, x, y, count }) => (
+        {seatSpots(view).map(({ seat, x, y, count }) => (
           <div
             key={seat.id}
-            className={`spot ${seat.connected ? '' : 'is-away'}`}
-            style={{ transform: `translate(${x}px, ${y}px)` }}
+            className={`spot ${seat.connected ? '' : 'is-away'} ${seat.id === me ? 'is-me' : ''}`}
+            style={{ transform: `translate(${x}px, ${y}px) translate(-50%, -50%)` }}
           >
             <span className="spot-dot" style={{ background: seat.colour }} />
-            <span className="spot-name">{seat.name}</span>
+            <span className="spot-name">
+              {seat.name}
+              {seat.id === me && <i>you</i>}
+            </span>
             <span className="spot-count">{count}</span>
             {view.chipsOn && (
               <span className="spot-chips">
@@ -239,7 +274,7 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
             <div
               key={key}
               className={`pile ${beingDragged || remote ? 'is-live' : ''}`}
-              style={{ transform: `translate(${pos.x - 34}px, ${pos.y - 48}px)`, zIndex: top.z }}
+              style={{ transform: `translate(${pos.x - CARD_W / 2}px, ${pos.y - CARD_H / 2}px)`, zIndex: top.z }}
             >
               {/* The cards underneath, offset a little so a pile looks like one */}
               {cards.slice(0, -1).slice(-3).map((c, i) => (
@@ -250,12 +285,23 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
 
               <div
                 className={`pile-top ${beingDragged ? 'is-dragging' : ''}`}
-                onPointerDown={(e) => !held && startDrag(e, [top.id], { x: top.x, y: top.y })}
+                onPointerDown={(e) =>
+                  !held && startDrag(e, [top.id], { x: top.x, y: top.y }, false, undefined, cards.map((c) => c.id))
+                }
                 onDoubleClick={() => onFlip([top.id])}
                 onContextMenu={(e) => {
+                  // Right-click turns it over. Everything else is behind a
+                  // hold, or the count badge on a pile.
                   e.preventDefault()
-                  setMenu({ ids: cards.map((c) => c.id), at: { x: top.x, y: top.y } })
+                  clearPress()
+                  setDragging(null)
+                  onFlip([top.id])
                 }}
+                onPointerEnter={(e) => {
+                  if (e.pointerType !== 'mouse' || !top.face) return
+                  setPeek({ face: top.face, at: { x: top.x, y: top.y } })
+                }}
+                onPointerLeave={() => setPeek(null)}
               >
                 <Card face={top.face} held={held} />
               </div>
@@ -285,6 +331,23 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
           <div className="pot" style={{ transform: `translate(${potAt(view).x - 60}px, ${potAt(view).y - 26}px)` }}>
             <ChipStack amount={view.pot} big />
             <span className="pot-amount">{money(view.pot)}</span>
+          </div>
+        )}
+
+        {/* A card under the pointer, drawn big enough to read without leaning
+            in. It sits on the opposite side to the card so it never covers the
+            thing you are looking at. */}
+        {peek && !dragging && (
+          <div
+            className="peek"
+            aria-hidden="true"
+            style={{
+              transform: `translate(${clamp(peek.at.x, 120, TABLE_W - 120) - 100}px, ${
+                peek.at.y > TABLE_H / 2 ? peek.at.y - 300 : peek.at.y + 70
+              }px)`,
+            }}
+          >
+            <Card face={peek.face} />
           </div>
         )}
 
@@ -325,18 +388,25 @@ function potAt(view: TableView) {
   return slot ? { x: slot.x, y: slot.y } : { x: TABLE_W / 2, y: TABLE_H / 2 + 120 }
 }
 
-/** Lay the other players around the top half of the table. */
-function seatSpots(view: TableView, me: SeatId | null) {
-  const others = view.seats.filter((s) => s.id !== me)
-  const rx = TABLE_W / 2 - 90
-  const ry = TABLE_H / 2 - 30
-  return others.map((seat, i) => {
-    const t = (i + 1) / (others.length + 1)
-    const angle = Math.PI * (1 + t) // left, over the top, to the right
+/**
+ * Everyone in their own place around the table, including you.
+ *
+ * Seat order is the order people sat down, and seat zero — whoever brought the
+ * deck — sits at the bottom. That is the dealer's frame, and it is deliberately
+ * the same on every screen: if the table rotated to put each viewer at the
+ * bottom, "the card in front of Mum" would mean a different place in every
+ * browser, and the cards themselves live in one shared coordinate space.
+ */
+function seatSpots(view: TableView) {
+  const n = Math.max(view.seats.length, 1)
+  const rx = 330
+  const ry = 205
+  return view.seats.map((seat, i) => {
+    const angle = Math.PI / 2 + (Math.PI * 2 * i) / n
     return {
       seat,
-      x: TABLE_W / 2 + rx * Math.cos(angle) - 52,
-      y: TABLE_H / 2 + ry * Math.sin(angle) - 14,
+      x: TABLE_W / 2 + rx * Math.cos(angle),
+      y: TABLE_H / 2 + ry * Math.sin(angle),
       count: view.handCounts[seat.id] ?? 0,
     }
   })
