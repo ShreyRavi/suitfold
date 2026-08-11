@@ -206,7 +206,11 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
         </div>
 
         <div className="fan">
-          {myHand.length === 0 && <div className="fan-empty">Drag a card down here to pick it up</div>}
+          {myHand.length === 0 && (
+            <div className="fan-empty">
+              Drag a card down here to pick it up. Only you can see what is here.
+            </div>
+          )}
           {myHand.map((c, i) => {
             const fan = fanAt(i, myHand.length)
             const chosen = picked.includes(c.id)
@@ -243,7 +247,7 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
 function fanAt(i: number, n: number) {
   const mid = (n - 1) / 2
   const off = i - mid
-  const spread = n > 13 ? 2.4 : n > 9 ? 3 : n > 5 ? 4 : 5
+  const spread = n > 13 ? 1.9 : n > 9 ? 2.4 : n > 5 ? 3.4 : 4.5
   const width = n > 13 ? -26 : n > 9 ? -20 : n > 5 ? -12 : -4
   // Rotating about a point below the card already produces the arc, so the
   // only vertical nudge needed is a small one to keep the tops even.

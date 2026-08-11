@@ -7,6 +7,7 @@ import {
   inHand,
   onTable,
   project,
+  snapTarget,
   stacks,
   type Action,
   type TableState,
@@ -22,6 +23,7 @@ const dealt = () =>
     t: 'reset',
     deckName: 'test',
     cards: standard(1).map((id) => ({ id, faceUp: false, x: 500, y: 320 })),
+    slots: [],
   })
 
 describe('the table model', () => {
@@ -373,5 +375,55 @@ describe('dealing and undo', () => {
     expect(h.canUndo).toBe(false)
     h.undo()
     expect(h.state.seats.length).toBeGreaterThan(0)
+  })
+})
+
+describe('slots and scores', () => {
+  test('a game brings its own markings', () => {
+    const h = hosted(['A', 'B', 'C', 'D'])
+    h.setup('hearts')
+    const labels = h.state.slots.map((s) => s.label)
+    expect(labels).toContain('Trick')
+    expect(labels.filter((l) => l.startsWith('Player')).length).toBe(4)
+  })
+
+  test('uno gets a draw pile and a discard', () => {
+    const h = hosted()
+    h.setup('uno')
+    expect(h.state.slots.map((s) => s.label).sort()).toEqual(['Discard', 'Draw'])
+  })
+
+  test('a game with no markings clears the previous ones', () => {
+    const h = hosted()
+    h.setup('uno')
+    expect(h.state.slots.length).toBeGreaterThan(0)
+    h.setup('memory')
+    expect(h.state.slots.length).toBe(0)
+  })
+
+  test('a card dropped near a slot snaps into it', () => {
+    const h = hosted()
+    h.setup('uno')
+    const slot = h.state.slots.find((s) => s.label === 'Discard')!
+    const target = snapTarget(h.state, slot.x + 14, slot.y - 10, new Set())
+    expect(target).toEqual({ x: slot.x, y: slot.y })
+  })
+
+  test('scores go up, down, and back to zero', () => {
+    const h = hosted(['A', 'B'])
+    h.score('host', 3)
+    h.score('host', -1)
+    h.score('s2', 5)
+    expect(h.state.scores['host']).toBe(2)
+    expect(h.state.scores['s2']).toBe(5)
+    h.clearScores()
+    expect(h.state.scores).toEqual({})
+  })
+
+  test('scores survive a new game, because a night is more than one hand', () => {
+    const h = hosted()
+    h.score('host', 4)
+    h.setup('hearts')
+    expect(h.state.scores['host']).toBe(4)
   })
 })

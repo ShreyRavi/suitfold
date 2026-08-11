@@ -174,6 +174,7 @@ export class Host {
       {
         t: 'reset',
         deckName: preset.name,
+        slots: preset.slots?.(seats.length) ?? [],
         cards: [
           ...place(preset, deck.slice(cut)),
           // Dealt cards need to exist before they can be taken into a hand.
@@ -242,6 +243,14 @@ export class Host {
       if (opts.faceUp) actions.push({ t: 'play', ids, x: source.x, y: source.y, faceUp: true })
     }
     if (actions.length) this.commit(actions)
+  }
+
+  score(seat: SeatId, by: number) {
+    this.commit([{ t: 'score', seat, by }])
+  }
+
+  clearScores() {
+    this.commit([{ t: 'scores_clear' }])
   }
 
   /** Turn the top card of a pile face up, the way you start a discard pile. */

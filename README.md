@@ -18,6 +18,10 @@ code. Sharing the link works too — `…/suitfold/#ABC23` fills the code in.
 - **Tap the count** on a pile for flip all, shuffle, take into hand, or spread out.
 - **Drag a card to the bottom** of the screen to take it into your hand.
 - Cards in your hand are yours alone. Play them face up or face down.
+- **Slots** — the dashed outlines with names on them — are markings on the felt.
+  Cards snap into them. They hold nothing and enforce nothing; they just say where
+  things go, which is what makes a table read as Hearts rather than a pile of cards.
+- **Score** in the toolbar counts whatever this table is counting: tricks, points, lives.
 
 ## Games
 

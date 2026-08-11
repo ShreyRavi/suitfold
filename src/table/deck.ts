@@ -1,4 +1,4 @@
-import type { CardId } from './model.ts'
+import type { CardId, Slot } from './model.ts'
 import { TABLE_H, TABLE_W } from './model.ts'
 
 /**
@@ -94,6 +94,37 @@ export interface Preset {
   /** Cards to each player. -1 deals the whole deck out evenly. */
   deal: number
   layout: Layout
+  /**
+   * Markings on the felt. They hold nothing and enforce nothing — they say
+   * where things go, which is what makes a freeform table read as a game.
+   */
+  slots?: (seats: number) => Slot[]
+}
+
+const CX = TABLE_W / 2
+const CY = TABLE_H / 2
+
+/** Draw pile on the left of centre, discard on the right. */
+const drawDiscard = (): Slot[] => [
+  { id: 'draw', x: CX - 62, y: CY, label: 'Draw' },
+  { id: 'discard', x: CX + 62, y: CY, label: 'Discard' },
+]
+
+/** One slot per player, spread around the middle, plus a shared one. */
+const roundTable = (n: number, middle: string): Slot[] => {
+  const out: Slot[] = [{ id: 'middle', x: CX, y: CY, label: middle }]
+  const rx = 250
+  const ry = 168
+  for (let i = 0; i < Math.max(n, 2); i++) {
+    const angle = (Math.PI * 2 * i) / Math.max(n, 2) - Math.PI / 2
+    out.push({
+      id: `p${i + 1}`,
+      x: CX + rx * Math.cos(angle),
+      y: CY + ry * Math.sin(angle),
+      label: `Player ${i + 1}`,
+    })
+  }
+  return out
 }
 
 export const PRESETS: Preset[] = [
@@ -107,6 +138,10 @@ export const PRESETS: Preset[] = [
     cards: () => standard(1),
     deal: 2,
     layout: 'pile',
+    slots: () => [
+      { id: 'board', x: CX, y: CY - 40, label: 'Board', wide: 5 },
+      { id: 'pot', x: CX, y: CY + 90, label: 'Pot' },
+    ],
   },
   {
     id: 'indian-rummy',
@@ -117,6 +152,7 @@ export const PRESETS: Preset[] = [
     cards: () => standard(2, 2),
     deal: 13,
     layout: 'starter',
+    slots: drawDiscard,
   },
   {
     id: 'gin',
@@ -127,6 +163,7 @@ export const PRESETS: Preset[] = [
     cards: () => standard(1),
     deal: 10,
     layout: 'starter',
+    slots: drawDiscard,
   },
   {
     id: 'blackjack',
@@ -137,6 +174,7 @@ export const PRESETS: Preset[] = [
     cards: () => standard(2),
     deal: 2,
     layout: 'pile',
+    slots: (n: number) => roundTable(n, 'Dealer'),
   },
   {
     id: 'hearts',
@@ -147,6 +185,7 @@ export const PRESETS: Preset[] = [
     cards: () => standard(1),
     deal: 13,
     layout: 'pile',
+    slots: (n: number) => roundTable(n, 'Trick'),
   },
   {
     id: 'spades',
@@ -157,6 +196,7 @@ export const PRESETS: Preset[] = [
     cards: () => standard(1),
     deal: 13,
     layout: 'pile',
+    slots: (n: number) => roundTable(n, 'Trick'),
   },
   {
     id: 'euchre',
@@ -167,6 +207,7 @@ export const PRESETS: Preset[] = [
     cards: euchre,
     deal: 5,
     layout: 'starter',
+    slots: (n: number) => roundTable(n, 'Trick'),
   },
   {
     id: 'cribbage',
@@ -177,6 +218,11 @@ export const PRESETS: Preset[] = [
     cards: () => standard(1),
     deal: 6,
     layout: 'starter',
+    slots: () => [
+      { id: 'crib', x: CX + 130, y: CY, label: 'Crib' },
+      { id: 'cut', x: CX - 62, y: CY, label: 'Cut' },
+      { id: 'play', x: CX, y: CY + 96, label: 'Play', wide: 4 },
+    ],
   },
   {
     id: 'big-two',
@@ -187,6 +233,7 @@ export const PRESETS: Preset[] = [
     cards: () => standard(1),
     deal: -1,
     layout: 'pile',
+    slots: () => [{ id: 'play', x: CX, y: CY, label: 'Play' }],
   },
 
   // -- family -------------------------------------------------------------
@@ -199,6 +246,7 @@ export const PRESETS: Preset[] = [
     cards: uno,
     deal: 7,
     layout: 'starter',
+    slots: drawDiscard,
   },
   {
     id: 'crazy-eights',
@@ -209,6 +257,7 @@ export const PRESETS: Preset[] = [
     cards: () => standard(1),
     deal: 7,
     layout: 'starter',
+    slots: drawDiscard,
   },
   {
     id: 'bluff',
@@ -219,6 +268,7 @@ export const PRESETS: Preset[] = [
     cards: () => standard(1),
     deal: -1,
     layout: 'pile',
+    slots: () => [{ id: 'pile', x: CX, y: CY, label: 'Pile' }],
   },
   {
     id: 'go-fish',
@@ -229,6 +279,7 @@ export const PRESETS: Preset[] = [
     cards: () => standard(1),
     deal: 7,
     layout: 'pile',
+    slots: () => [{ id: 'pond', x: CX, y: CY, label: 'Pond' }],
   },
   {
     id: 'old-maid',
@@ -239,6 +290,7 @@ export const PRESETS: Preset[] = [
     cards: oldMaid,
     deal: -1,
     layout: 'pile',
+    slots: () => [{ id: 'pairs', x: CX, y: CY, label: 'Pairs', wide: 4 }],
   },
   {
     id: 'war',
@@ -249,6 +301,10 @@ export const PRESETS: Preset[] = [
     cards: () => standard(1),
     deal: -1,
     layout: 'pile',
+    slots: () => [
+      { id: 'l', x: CX - 62, y: CY, label: 'Yours' },
+      { id: 'r', x: CX + 62, y: CY, label: 'Theirs' },
+    ],
   },
   {
     id: 'snap',
@@ -259,6 +315,7 @@ export const PRESETS: Preset[] = [
     cards: () => standard(1),
     deal: -1,
     layout: 'pile',
+    slots: () => [{ id: 'pile', x: CX, y: CY, label: 'Pile' }],
   },
   {
     id: 'memory',

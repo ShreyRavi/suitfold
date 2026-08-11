@@ -17,7 +17,7 @@ export function Toolbar({
   me: SeatId | null
   onGames: () => void
 }) {
-  const [open, setOpen] = useState<'deal' | null>(null)
+  const [open, setOpen] = useState<'deal' | 'score' | null>(null)
   const wrap = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -59,11 +59,15 @@ export function Toolbar({
       <button className="tool" onClick={() => host.undo()} disabled={!host.canUndo}>
         <Icon d="M4 9h11a5 5 0 010 10H9M4 9l4-4M4 9l4 4" /> Undo
       </button>
+      <button className="tool" onClick={() => setOpen(open === 'score' ? null : 'score')} aria-expanded={open === 'score'}>
+        <Icon d="M5 20V9M12 20V4M19 20v-7" /> Score
+      </button>
       <button className="tool" onClick={onGames}>
         <Icon d="M5 4h9l5 5v11H5zM14 4v5h5" /> Game
       </button>
 
       {open === 'deal' && <DealPanel host={host} view={view} me={me} onDone={() => setOpen(null)} />}
+      {open === 'score' && <ScorePanel host={host} view={view} me={me} />}
     </div>
   )
 }
@@ -179,6 +183,38 @@ function DealPanel({
         }}
       >
         Deal
+      </button>
+    </div>
+  )
+}
+
+/** Tricks, points, lives — whatever this table is counting. */
+function ScorePanel({ host, view, me }: { host: Host; view: TableView; me: SeatId | null }) {
+  return (
+    <div className="pop">
+      <div className="pop-row">
+        <span className="pop-lbl">Keeping score</span>
+        <div className="scores">
+          {view.seats.map((s) => (
+            <div className="score-row" key={s.id}>
+              <span className="score-dot" style={{ background: s.colour }} />
+              <span className="score-name">
+                {s.name}
+                {s.id === me && ' (you)'}
+              </span>
+              <button className="seg" onClick={() => host.score(s.id, -1)} aria-label={`minus one for ${s.name}`}>
+                −
+              </button>
+              <b className="score-val">{view.scores[s.id] ?? 0}</b>
+              <button className="seg" onClick={() => host.score(s.id, 1)} aria-label={`plus one for ${s.name}`}>
+                +
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+      <button className="btn" onClick={() => host.clearScores()}>
+        Reset to zero
       </button>
     </div>
   )

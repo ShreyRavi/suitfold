@@ -107,7 +107,7 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
       return
     }
 
-    // Snap onto a nearby pile, otherwise stay where it was dropped.
+    // Snap onto a nearby pile or into a slot, otherwise stay where dropped.
     const ignore = new Set(ids)
     let best: Pos | null = null
     let bestDist = SNAP
@@ -117,6 +117,14 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
       if (d < bestDist) {
         bestDist = d
         best = { x: c.x, y: c.y }
+      }
+    }
+    // Slots pull a little harder, because they are what you were aiming at.
+    for (const slot of view.slots) {
+      const d = Math.hypot(slot.x - at.x, slot.y - at.y)
+      if (d < Math.max(bestDist, SNAP * 1.7)) {
+        bestDist = d
+        best = { x: slot.x, y: slot.y }
       }
     }
     const target = best ?? {
@@ -135,6 +143,21 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
       >
         <div className="felt-face" aria-hidden="true" />
 
+        {/* Markings on the felt: where things go, not what you may do. */}
+        {view.slots.map((slot) => (
+          <div
+            key={slot.id}
+            className="slot"
+            style={{
+              transform: `translate(${slot.x - (slot.wide ? (slot.wide * 74) / 2 : 34)}px, ${slot.y - 48}px)`,
+              width: slot.wide ? slot.wide * 74 : 68,
+            }}
+            aria-hidden="true"
+          >
+            <span className="slot-label">{slot.label}</span>
+          </div>
+        ))}
+
         {/* Everyone else sits around the edge; you are the rail at the bottom. */}
         {seatSpots(view, me).map(({ seat, x, y, count }) => (
           <div
@@ -145,6 +168,9 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
             <span className="spot-dot" style={{ background: seat.colour }} />
             <span className="spot-name">{seat.name}</span>
             <span className="spot-count">{count}</span>
+            {(view.scores[seat.id] ?? 0) !== 0 && (
+              <span className="spot-score">{view.scores[seat.id]}</span>
+            )}
           </div>
         ))}
         {[...piles.entries()].map(([key, cards]) => {

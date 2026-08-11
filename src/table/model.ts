@@ -37,22 +37,54 @@ export interface Seat {
   colour: string
 }
 
+/**
+ * A place on the table with a name on it: "Discard", "Player 1", "Trick".
+ * Slots hold nothing and enforce nothing — they are markings on the felt that
+ * tell everyone where things go, and cards snap to them when dropped nearby.
+ * This is what makes a freeform table read as a particular game.
+ */
+export interface Slot {
+  id: string
+  x: number
+  y: number
+  label: string
+  /** Wider than a card, for a row of community cards. */
+  wide?: number
+}
+
 export interface TableState {
   cards: Record<CardId, Card>
   seats: Seat[]
+  slots: Slot[]
+  /** Whatever anyone is keeping track of: tricks, points, lives. */
+  scores: Record<SeatId, number>
   topZ: number
   /** What the table was last set up with, for the toolbar label. */
   deckName: string
 }
 
-export const emptyTable = (): TableState => ({ cards: {}, seats: [], topZ: 0, deckName: '' })
+export const emptyTable = (): TableState => ({
+  cards: {},
+  seats: [],
+  slots: [],
+  scores: {},
+  topZ: 0,
+  deckName: '',
+})
 
 // ---------------------------------------------------------------------------
 // Actions. Every change to the table is one of these.
 // ---------------------------------------------------------------------------
 
 export type Action =
-  | { t: 'reset'; deckName: string; cards: { id: CardId; faceUp: boolean; x: number; y: number }[] }
+  | {
+      t: 'reset'
+      deckName: string
+      cards: { id: CardId; faceUp: boolean; x: number; y: number }[]
+      slots: Slot[]
+    }
+  | { t: 'score'; seat: SeatId; by: number }
+  | { t: 'scores_clear' }
   | { t: 'move'; ids: CardId[]; x: number; y: number }
   | { t: 'flip'; ids: CardId[]; faceUp?: boolean }
   | { t: 'take'; ids: CardId[]; seat: SeatId }
@@ -73,8 +105,14 @@ export function apply(s: TableState, a: Action): TableState {
       a.cards.forEach((c, i) => {
         cards[c.id] = { id: c.id, x: c.x, y: c.y, z: i + 1, faceUp: c.faceUp, hand: null }
       })
-      return { ...s, cards, topZ: a.cards.length, deckName: a.deckName }
+      return { ...s, cards, slots: a.slots, topZ: a.cards.length, deckName: a.deckName }
     }
+
+    case 'score':
+      return { ...s, scores: { ...s.scores, [a.seat]: (s.scores[a.seat] ?? 0) + a.by } }
+
+    case 'scores_clear':
+      return { ...s, scores: {} }
 
     case 'move': {
       const cards = { ...s.cards }
@@ -190,19 +228,27 @@ export function stacks(s: TableState): Card[][] {
   return [...by.values()]
 }
 
-/** Where a card dropped here should land: snapped to a nearby pile, or free. */
+/** Where a card dropped here should land: onto a pile, into a slot, or free. */
 export function snapTarget(s: TableState, x: number, y: number, ignore: Set<CardId>): { x: number; y: number } {
-  let best: Card | null = null
+  let best: { x: number; y: number } | null = null
   let bestDist = SNAP
   for (const c of onTable(s)) {
     if (ignore.has(c.id)) continue
     const d = Math.hypot(c.x - x, c.y - y)
     if (d < bestDist) {
       bestDist = d
-      best = c
+      best = { x: c.x, y: c.y }
     }
   }
-  return best ? { x: best.x, y: best.y } : { x, y }
+  // Slots pull a little harder than cards, because they are aimed at.
+  for (const slot of s.slots) {
+    const d = Math.hypot(slot.x - x, slot.y - y)
+    if (d < Math.max(bestDist, SNAP * 1.6)) {
+      bestDist = d
+      best = { x: slot.x, y: slot.y }
+    }
+  }
+  return best ?? { x, y }
 }
 
 // ---------------------------------------------------------------------------
@@ -223,6 +269,8 @@ export interface CardView {
 export interface TableView {
   cards: CardView[]
   seats: Seat[]
+  slots: Slot[]
+  scores: Record<SeatId, number>
   deckName: string
   handCounts: Record<SeatId, number>
 }
@@ -254,5 +302,12 @@ export function project(s: TableState, viewer: SeatId | null): TableView {
     })
   }
 
-  return { cards: cards.sort((a, b) => a.z - b.z), seats: s.seats, deckName: s.deckName, handCounts }
+  return {
+    cards: cards.sort((a, b) => a.z - b.z),
+    seats: s.seats,
+    slots: s.slots,
+    scores: s.scores,
+    deckName: s.deckName,
+    handCounts,
+  }
 }

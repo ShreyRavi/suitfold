@@ -272,11 +272,11 @@ input {
 .mini:disabled { opacity: .4; cursor: default; }
 .fan {
   position: relative; display: flex; justify-content: center; align-items: flex-end;
-  padding-top: var(--s-7); height: 132px; overflow: hidden;
+  padding-top: var(--s-6); height: 150px; overflow: hidden;
 }
 .fan-card {
   flex: none; padding: 0; line-height: 0;
-  transform-origin: 50% 165%;
+  transform-origin: 50% 190%;
   transition: transform 160ms var(--ease), filter 160ms var(--ease);
 }
 .fan-card:hover, .fan-card:focus-visible { z-index: 5; }
@@ -447,3 +447,35 @@ input {
   .tool { padding: 0 11px; font-size: 0; gap: 0; }
   .tool svg { width: 17px; height: 17px; }
 }
+
+/* ---- slots: markings on the felt --------------------------------------- */
+/* Borrowed from how playingcards.io makes a freeform table legible: named
+   outlines that say where things go, without enforcing anything. */
+.slot {
+  position: absolute; top: 0; left: 0; height: 96px;
+  border: 2px dashed color-mix(in srgb, #2a1d12 26%, transparent);
+  border-radius: 8px; pointer-events: none;
+  background: color-mix(in srgb, #fff 6%, transparent);
+}
+.slot-label {
+  position: absolute; top: -19px; left: 0; right: 0; text-align: center;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: color-mix(in srgb, #2a1d12 52%, transparent);
+}
+
+.spot-score {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+  color: var(--accent-on); background: var(--accent);
+  border-radius: 999px; padding: 1px 7px;
+}
+
+/* ---- score panel ------------------------------------------------------- */
+.scores { display: flex; flex-direction: column; gap: var(--s-3); }
+.score-row { display: flex; align-items: center; gap: var(--s-4); }
+.score-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.score-name { flex: 1; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.score-val {
+  min-width: 30px; text-align: center; font-family: var(--font-mono);
+  font-size: 16px; font-weight: 500;
+}
+.score-row .seg { min-width: 34px; padding: 0; font-size: 17px; }
