@@ -569,3 +569,43 @@ describe('dealing a whole hand in one press', () => {
     expect(Object.keys(h.state.cards).length).toBe(108)
   })
 })
+
+describe('gathering and moving whole piles', () => {
+  test('gather puts the deck back on its own marked spot', () => {
+    const h = hosted(['A', 'B'])
+    h.setup('holdem')
+    const deckSlot = h.state.slots.find((s) => s.id === 'deck')!
+    // Scatter some cards away from home first.
+    const some = h.tableCards().slice(0, 5).map((c) => c.id)
+    h['commit']([{ t: 'move', ids: some, x: 120, y: 90 }])
+
+    h.gather()
+    const piles = stacks(h.state)
+    expect(piles.length).toBe(1)
+    expect(piles[0]![0]!.x).toBe(deckSlot.x)
+    expect(piles[0]![0]!.y).toBe(deckSlot.y)
+    expect(piles[0]!.length).toBe(52)
+  })
+
+  test('a game with no deck spot still gathers to the middle', () => {
+    const h = hosted()
+    h.setup('memory')
+    h.gather()
+    const piles = stacks(h.state)
+    expect(piles.length).toBe(1)
+    expect(piles[0]![0]!.x).toBe(500)
+  })
+
+  test('moving a whole pile keeps it together and in order', () => {
+    const h = hosted()
+    h.setup('deck')
+    const pile = h.tableCards()
+    const ids = pile.map((c) => c.id)
+    h['commit']([{ t: 'move', ids, x: 200, y: 150 }])
+
+    const moved = stacks(h.state)
+    expect(moved.length).toBe(1)
+    expect(moved[0]!.length).toBe(52)
+    expect(moved[0]!.map((c) => c.id)).toEqual(ids) // order survives the move
+  })
+})

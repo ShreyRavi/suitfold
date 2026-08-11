@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Action, SeatId, TableView } from '../table/model.ts'
 import type { Host } from '../net/host.ts'
-import { ChipStack, money } from './Chips.tsx'
+import { money } from './Chips.tsx'
 
 /**
  * The things you reach for constantly live on the table, not behind a menu.
@@ -21,7 +21,7 @@ export function Toolbar({
   /** Betting is something every player does, not only whoever holds the deck. */
   act: (a: Action) => void
 }) {
-  const [open, setOpen] = useState<'deal' | 'score' | 'bet' | null>(null)
+  const [open, setOpen] = useState<'deal' | 'score' | null>(null)
   const wrap = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -33,27 +33,12 @@ export function Toolbar({
     return () => document.removeEventListener('pointerdown', away)
   }, [open])
 
-  const betting = view.chipsOn && me !== null
-
+  // Guests get no toolbar actions — the table belongs to whoever holds the
+  // deck. Their betting lives with their hand, at the bottom.
   if (!host) {
     return (
       <div className="tools" ref={wrap}>
-        {betting ? (
-          <>
-            <button className="tool" onClick={() => setOpen(open === 'bet' ? null : 'bet')} aria-expanded={open === 'bet'}>
-              <Icon d="M4 8h16v9H4zM4 8a8 3 0 0116 0M4 12a8 3 0 0016 0" /> Bet
-            </button>
-            {view.pot > 0 && me && (
-              <button className="tool tool--pot" onClick={() => act({ t: 'take_pot', seat: me })}>
-                Take pot <b>{money(view.pot)}</b>
-              </button>
-            )}
-            <span className="tools-note">{money(view.chips[me] ?? 0)}</span>
-          </>
-        ) : (
-          <span className="tools-note">{view.deckName || 'Waiting for the host'}</span>
-        )}
-        {open === 'bet' && <BetPanel view={view} me={me} act={act} onDone={() => setOpen(null)} />}
+        <span className="tools-note">{view.deckName || 'Waiting for the host'}</span>
       </div>
     )
   }
@@ -85,16 +70,6 @@ export function Toolbar({
       <button className="tool" onClick={() => host.undo()} disabled={!host.canUndo}>
         <Icon d="M4 9h11a5 5 0 010 10H9M4 9l4-4M4 9l4 4" /> Undo
       </button>
-      {betting && (
-        <button className="tool" onClick={() => setOpen(open === 'bet' ? null : 'bet')} aria-expanded={open === 'bet'}>
-          <Icon d="M4 8h16v9H4zM4 8a8 3 0 0116 0M4 12a8 3 0 0016 0" /> Bet
-        </button>
-      )}
-      {betting && view.pot > 0 && me && (
-        <button className="tool tool--pot" onClick={() => act({ t: 'take_pot', seat: me })}>
-          Take pot <b>{money(view.pot)}</b>
-        </button>
-      )}
       <button className="tool" onClick={() => setOpen(open === 'score' ? null : 'score')} aria-expanded={open === 'score'}>
         <Icon d="M5 20V9M12 20V4M19 20v-7" /> Score
       </button>
@@ -104,7 +79,6 @@ export function Toolbar({
 
       {open === 'deal' && <DealPanel host={host} view={view} me={me} onDone={() => setOpen(null)} />}
       {open === 'score' && <ScorePanel host={host} view={view} me={me} />}
-      {open === 'bet' && <BetPanel view={view} me={me} act={act} onDone={() => setOpen(null)} />}
     </div>
   )
 }
@@ -229,72 +203,6 @@ function DealPanel({
  * Betting moves an amount from your stack to the pot. The table never decides
  * whether the bet is legal — only that you have the chips.
  */
-function BetPanel({
-  view,
-  me,
-  act,
-  onDone,
-}: {
-  view: TableView
-  me: SeatId | null
-  act: (a: Action) => void
-  onDone: () => void
-}) {
-  const mine = me ? (view.chips[me] ?? 0) : 0
-  const [custom, setCustom] = useState(0)
-
-  if (!me) return null
-
-  const bet = (amount: number) => {
-    if (amount <= 0) return
-    act({ t: 'bet', seat: me, amount: Math.min(amount, mine) })
-    onDone()
-  }
-
-  // Amounts worth offering depend on what you are actually holding: the same
-  // four buttons are useless whether your stack is 80 or 8,000.
-  const unit = mine >= 4000 ? 100 : mine >= 1000 ? 25 : mine >= 300 ? 10 : 5
-  const quick = [unit, unit * 2, unit * 4, unit * 10].filter((n) => n < mine)
-  const step = unit
-
-  return (
-    <div className="pop pop--bet">
-      <div className="bet-mine">
-        <span className="pop-lbl">YOUR CHIPS</span>
-        <b>
-          <ChipStack amount={mine} /> {money(mine)}
-        </b>
-      </div>
-
-      {/* One tap is the whole bet. No select-then-confirm. */}
-      <div className="bet-grid">
-        {quick.map((n) => (
-          <button key={n} className="bet-chip" onClick={() => bet(n)}>
-            {money(n)}
-          </button>
-        ))}
-        <button className="bet-chip bet-chip--all" onClick={() => bet(mine)} disabled={mine === 0}>
-          All in
-          <i>{money(mine)}</i>
-        </button>
-      </div>
-
-      <div className="bet-custom">
-        <button className="seg" onClick={() => setCustom(Math.max(0, custom - step))} aria-label="less">
-          −
-        </button>
-        <span className="bet-custom-val">{money(custom)}</span>
-        <button className="seg" onClick={() => setCustom(Math.min(mine, custom + step))} aria-label="more">
-          +
-        </button>
-        <button className="btn primary" disabled={custom <= 0} onClick={() => bet(custom)}>
-          Bet
-        </button>
-      </div>
-    </div>
-  )
-}
-
 /** Tricks, points, lives — whatever this table is counting. */
 function ScorePanel({ host, view, me }: { host: Host; view: TableView; me: SeatId | null }) {
   return (

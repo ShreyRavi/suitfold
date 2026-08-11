@@ -252,12 +252,23 @@ export class Host {
     this.commit([{ t: 'reorder', ids: cryptoShuffle(ids) }])
   }
 
-  /** Everything on the table and in every hand, back into one face-down pile. */
+  /** Where the deck lives on this table, if the game marked a spot for it. */
+  private deckHome() {
+    const home = this.state.slots.find((s) => s.id === 'draw' || s.id === 'deck')
+    return { x: home?.x ?? TABLE_W / 2, y: home?.y ?? TABLE_H / 2 }
+  }
+
+  /**
+   * Everything on the table and in every hand, back into one face-down pile —
+   * on the deck's own spot when the game marked one, which is where you would
+   * put a gathered deck on a real table.
+   */
   gather() {
     const all = Object.values(this.state.cards).map((c) => c.id)
     if (!all.length) return
+    const home = this.deckHome()
     this.commit([
-      { t: 'play', ids: all, x: TABLE_W / 2, y: TABLE_H / 2, faceUp: false },
+      { t: 'play', ids: all, x: home.x, y: home.y, faceUp: false },
       { t: 'reorder', ids: cryptoShuffle(all) },
     ])
   }

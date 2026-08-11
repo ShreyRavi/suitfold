@@ -16,6 +16,8 @@ code. Sharing the link works too — `…/suitfold/#ABC23` fills the code in.
 - **Drop one card on another** and they snap into a pile.
 - **Double-click** a card to flip it.
 - **Tap the count** on a pile for flip all, shuffle, take into hand, or spread out.
+- **Drag the count** to move the whole pile. Dragging a card takes that card; dragging the
+  number on it takes the stack.
 - **Drag a card to the bottom** of the screen to take it into your hand.
 - Cards in your hand are yours alone. Play them face up or face down.
 - **Slots** — the dashed outlines with names on them — are markings on the felt.
@@ -25,8 +27,9 @@ code. Sharing the link works too — `…/suitfold/#ABC23` fills the code in.
 - **New hand** deals the whole table in one press: everything gathered and shuffled, cards to
   each player, and for poker the five middle cards laid face down so you turn the flop, the
   turn and the river as you go.
-- **Chips**, on games that use them. Everyone buys in, one tap on an amount puts it in the pot,
-  and **Take pot** appears the moment there is one to take. They are drawn as real stacks but they are an amount underneath,
+- **Chips**, on games that use them, live down with your hand: your stack, one-tap amounts,
+  and **Take pot** the moment there is one to take.
+- **Gather** puts every card back on the deck's own marked spot. They are drawn as real stacks but they are an amount underneath,
   so calling a bet is one tap rather than dragging seven discs. Nothing is enforced — the
   table only checks you have the chips, never whether the bet was legal.
 

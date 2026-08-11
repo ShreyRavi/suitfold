@@ -32,7 +32,14 @@ export interface TableProps {
 export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack }: TableProps) {
   const wrap = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
-  const [dragging, setDragging] = useState<{ ids: CardId[]; at: Pos; grab: Pos } | null>(null)
+  const [dragging, setDragging] = useState<{
+    ids: CardId[]
+    at: Pos
+    grab: Pos
+    /** Started on the count badge, which grabs the whole pile. */
+    viaBadge?: boolean
+    moved?: boolean
+  } | null>(null)
   const [menu, setMenu] = useState<{ ids: CardId[]; at: Pos } | null>(null)
 
   // The table is a fixed coordinate space scaled to whatever room it has, so
@@ -72,7 +79,7 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
     piles.set(key, list)
   }
 
-  const startDrag = (e: React.PointerEvent, ids: CardId[], from: Pos) => {
+  const startDrag = (e: React.PointerEvent, ids: CardId[], from: Pos, viaBadge = false) => {
     if (!me) return
     e.preventDefault()
     // Capture keeps the drag alive if the pointer leaves the card. It throws
@@ -84,7 +91,7 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
       /* not a live pointer */
     }
     const p = toTable(e.clientX, e.clientY)
-    setDragging({ ids, at: from, grab: { x: p.x - from.x, y: p.y - from.y } })
+    setDragging({ ids, at: from, grab: { x: p.x - from.x, y: p.y - from.y }, viaBadge })
     onDrag({ ids, x: from.x, y: from.y, holding: true, by: me })
   }
 
@@ -92,15 +99,23 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
     if (!dragging || !me) return
     const p = toTable(e.clientX, e.clientY)
     const at = { x: p.x - dragging.grab.x, y: p.y - dragging.grab.y }
-    setDragging({ ...dragging, at })
+    const moved =
+      dragging.moved || Math.hypot(at.x - dragging.at.x, at.y - dragging.at.y) > 0.5 || !dragging.viaBadge
+    setDragging({ ...dragging, at, moved })
     onDrag({ ids: dragging.ids, x: at.x, y: at.y, holding: true, by: me })
   }
 
   const endDrag = () => {
     if (!dragging || !me) return
-    const { ids, at } = dragging
+    const { ids, at, viaBadge, moved } = dragging
     setDragging(null)
     onDrag({ ids, x: at.x, y: at.y, holding: false, by: me })
+
+    // Pressing the badge without moving is a tap, and a tap opens the menu.
+    if (viaBadge && !moved) {
+      setMenu({ ids, at: { x: at.x, y: at.y } })
+      return
+    }
 
     // Dropped low enough over the rail? That means "into my hand".
     if (at.y > TABLE_H - 40) {
@@ -213,10 +228,16 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
               </div>
 
               {cards.length > 1 && (
+                /* Dragging a card takes that card. Dragging the count takes the
+                   whole pile — you pick a stack up by the label on it. Press
+                   without moving and it is a tap, which opens the menu. */
                 <button
                   className="pile-count"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={() => setMenu({ ids: cards.map((c) => c.id), at: { x: top.x, y: top.y } })}
+                  title="Drag to move the whole pile"
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    if (!held) startDrag(e, cards.map((c) => c.id), { x: top.x, y: top.y }, true)
+                  }}
                 >
                   {cards.length}
                 </button>

@@ -7,7 +7,7 @@ import { rememberedName, useTable } from './useTable.ts'
 import { Table } from './Table.tsx'
 import { Card } from './Card.tsx'
 import { Toolbar } from './Toolbar.tsx'
-import { ChipStack, money } from './Chips.tsx'
+import { BetBar } from './BetBar.tsx'
 
 export function App() {
   const t = useTable()
@@ -176,12 +176,7 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
           <span className="lbl">
             YOUR HAND · {myHand.length}
             {picked.length > 0 && <em> · {picked.length} picked</em>}
-            {view.chipsOn && t.me && (
-              <span className="rail-chips">
-                <ChipStack amount={view.chips[t.me] ?? 0} />
-                {money(view.chips[t.me] ?? 0)}
-              </span>
-            )}
+            {/* Chips are shown once, on the bet bar just below. */}
           </span>
           <div className="rail-acts">
             <button
@@ -211,6 +206,8 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
             )}
           </div>
         </div>
+
+        {view.chipsOn && t.me && <BetBar view={view} me={t.me} act={t.act} />}
 
         <div className="fan">
           {myHand.length === 0 && (

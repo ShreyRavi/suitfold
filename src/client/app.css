@@ -556,3 +556,48 @@ input {
   flex: 1; text-align: center; font-family: var(--font-mono); font-size: 20px;
 }
 .bet-custom .btn { min-height: 48px; padding: 0 var(--s-7); }
+
+/* ---- betting, down with your hand -------------------------------------- */
+.betbar {
+  display: flex; align-items: center; gap: var(--s-5); flex-wrap: wrap;
+  padding: var(--s-5) 0 0;
+}
+.betbar-mine {
+  display: inline-flex; align-items: flex-end; gap: 6px; flex: none;
+  font-family: var(--font-mono); font-size: 15px; color: var(--ink);
+}
+.betbar-amounts {
+  display: flex; gap: var(--s-3); flex: 1; min-width: 0;
+  overflow-x: auto; scrollbar-width: none;
+}
+.betbar-amounts::-webkit-scrollbar { display: none; }
+.betbar-chip {
+  flex: none; min-height: 44px; min-width: 60px; padding: 0 var(--s-6);
+  border: 1px solid var(--line); border-radius: 10px; background: var(--paper-panel);
+  font-family: var(--font-mono); font-size: 15px; color: var(--ink);
+}
+.betbar-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-wash); }
+.betbar-chip:active { transform: translateY(1px); }
+.betbar-chip.is-all { background: var(--accent); border-color: var(--accent); color: var(--accent-on); }
+.betbar-chip.is-all:hover { background: var(--accent-deep); color: var(--accent-on); }
+.betbar-chip.is-more { min-width: 46px; font-size: 18px; }
+.betbar-chip.is-more.on { border-color: var(--accent); color: var(--accent); }
+.betbar-chip:disabled { opacity: .4; }
+
+.betbar-pot {
+  flex: none; min-height: 44px; padding: 0 var(--s-7); border-radius: 10px;
+  background: color-mix(in srgb, #2e8b57 90%, black); color: #fff;
+  display: inline-flex; align-items: center; gap: 7px; font-size: 15px;
+}
+.betbar-pot:hover { background: #2e8b57; }
+.betbar-pot b { font-family: var(--font-mono); font-weight: 600; }
+
+.betbar-custom {
+  flex-basis: 100%; display: flex; align-items: center; gap: var(--s-4);
+  padding-top: var(--s-4);
+}
+.betbar-custom .seg { min-width: 46px; min-height: 44px; font-size: 19px; }
+.betbar-custom-val {
+  min-width: 74px; text-align: center; font-family: var(--font-mono); font-size: 18px;
+}
+.betbar-custom .btn { min-height: 44px; padding: 0 var(--s-7); }
