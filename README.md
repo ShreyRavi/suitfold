@@ -1,5 +1,7 @@
 # suitfold
 
+Live URL: [https://shreyravi.github.io/suitfold/](https://shreyravi.github.io/suitfold/)
+
 A live card table you share with a link. A deck, a table, your hand, and whoever you
 invite. Drag the cards around like you would at a kitchen table.
 
