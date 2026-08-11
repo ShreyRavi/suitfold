@@ -28,7 +28,8 @@ code. Sharing the link works too — `…/suitfold/#ABC23` fills the code in.
   each player, and for poker the five middle cards laid face down so you turn the flop, the
   turn and the river as you go.
 - **Chips**, on games that use them, live down with your hand: your stack, one-tap amounts,
-  and **Take pot** the moment there is one to take.
+  and **Take pot** the moment there is one to take — which asks first, since who won is the
+  one thing the table cannot settle for you.
 - **Gather** puts every card back on the deck's own marked spot. They are drawn as real stacks but they are an amount underneath,
   so calling a bet is one tap rather than dragging seven discs. Nothing is enforced — the
   table only checks you have the chips, never whether the bet was legal.
