@@ -800,8 +800,10 @@ describe('turning up late', () => {
 
 describe('reading the log back', () => {
   test('every line is stamped with a time', () => {
-    const h = hosted()
+    // Before the host exists: seating itself writes a line, and on a slow
+    // machine the clock ticks between the two.
     const before = Date.now()
+    const h = hosted()
     h.buyIn(100)
     h.bet('s2', 10)
     const after = Date.now()
