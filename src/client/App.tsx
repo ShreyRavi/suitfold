@@ -6,6 +6,7 @@ import { cleanCode } from '../net/peers.ts'
 import { rememberedName, useTable } from './useTable.ts'
 import { Table } from './Table.tsx'
 import { Card } from './Card.tsx'
+import { Toolbar } from './Toolbar.tsx'
 
 export function App() {
   const t = useTable()
@@ -124,15 +125,13 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
           <i className="mark">♠</i>
           <b>suitfold</b>
         </div>
-        <div className="seats">
-          {view.seats.map((s) => (
-            <span key={s.id} className={`chip ${s.connected ? '' : 'off'}`} style={{ borderColor: s.colour }}>
-              <i style={{ background: s.colour }} />
-              {s.name}
-              <b>{view.handCounts[s.id] ?? 0}</b>
-            </span>
-          ))}
+        <div className="bar-mid">
+          {view.deckName && <span className="bar-game">{view.deckName}</span>}
         </div>
+        <button className="bar-code" onClick={() => setSheet(true)} title="Share this table">
+          {t.code}
+          <b>{t.peers + 1}</b>
+        </button>
         <button className="menu" onClick={() => setSheet(true)} aria-label="Table menu">
           <i />
           <i />
@@ -156,7 +155,7 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
             <div>
               {t.host ? (
                 <>
-                  <p>Nothing on the table yet.</p>
+                  <p>An empty table.</p>
                   <button className="btn primary" onClick={() => setSheet(true)}>
                     Pick a game
                   </button>
@@ -167,11 +166,16 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
             </div>
           </div>
         )}
+
+        <Toolbar host={t.host} view={view} me={t.me} onGames={() => setSheet(true)} />
       </div>
 
       <div className="rail" ref={fileRef}>
         <div className="rail-head">
-          <span className="lbl">YOUR HAND · {myHand.length}</span>
+          <span className="lbl">
+            YOUR HAND · {myHand.length}
+            {picked.length > 0 && <em> · {picked.length} picked</em>}
+          </span>
           <div className="rail-acts">
             <button
               className="mini"
@@ -193,23 +197,35 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
             >
               Play face down
             </button>
+            {picked.length > 0 && (
+              <button className="mini" onClick={() => setPicked([])}>
+                Clear
+              </button>
+            )}
           </div>
         </div>
 
         <div className="fan">
           {myHand.length === 0 && <div className="fan-empty">Drag a card down here to pick it up</div>}
-          {myHand.map((c, i) => (
-            <button
-              key={c.id}
-              className={`fan-card ${picked.includes(c.id) ? 'is-sel' : ''}`}
-              style={{ marginLeft: i === 0 ? 0 : handOverlap(myHand.length) }}
-              onClick={() =>
-                setPicked((p) => (p.includes(c.id) ? p.filter((x) => x !== c.id) : [...p, c.id]))
-              }
-            >
-              <Card face={c.face} selected={picked.includes(c.id)} />
-            </button>
-          ))}
+          {myHand.map((c, i) => {
+            const fan = fanAt(i, myHand.length)
+            const chosen = picked.includes(c.id)
+            return (
+              <button
+                key={c.id}
+                className={`fan-card ${chosen ? 'is-sel' : ''}`}
+                style={{
+                  marginLeft: i === 0 ? 0 : fan.overlap,
+                  transform: `rotate(${fan.angle}deg) translateY(${fan.lift + (chosen ? -16 : 0)}px)`,
+                }}
+                onClick={() =>
+                  setPicked((p) => (p.includes(c.id) ? p.filter((x) => x !== c.id) : [...p, c.id]))
+                }
+              >
+                <Card face={c.face} small={myHand.length > 9} selected={chosen} />
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -219,7 +235,24 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
   )
 }
 
-const handOverlap = (n: number) => (n > 13 ? -30 : n > 9 ? -24 : n > 6 ? -16 : -8)
+/**
+ * A held hand is an arc, not a row. Cards tilt away from the middle and dip at
+ * the edges, and they overlap only as much as the count demands — enough that
+ * thirteen cards still show their corner index.
+ */
+function fanAt(i: number, n: number) {
+  const mid = (n - 1) / 2
+  const off = i - mid
+  const spread = n > 13 ? 2.4 : n > 9 ? 3 : n > 5 ? 4 : 5
+  const width = n > 13 ? -26 : n > 9 ? -20 : n > 5 ? -12 : -4
+  // Rotating about a point below the card already produces the arc, so the
+  // only vertical nudge needed is a small one to keep the tops even.
+  return {
+    angle: off * spread,
+    lift: -Math.abs(off) * 0.6,
+    overlap: width,
+  }
+}
 
 // ---------------------------------------------------------------------------
 
@@ -290,23 +323,6 @@ function Sheet({ t, onClose }: { t: ReturnType<typeof useTable>; onClose: () => 
               </p>
             </div>
 
-            <div className="fld">
-              <span>Deal from the biggest face-down pile</span>
-              <div className="row">
-                {[1, 2, 5, 7, 13].map((n) => (
-                  <button key={n} className="btn" onClick={() => t.host!.deal(n)}>
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="fld">
-              <span>Everything</span>
-              <button className="btn" onClick={() => t.host!.gather()}>
-                Gather and shuffle
-              </button>
-            </div>
           </>
         ) : (
           <p className="fine">

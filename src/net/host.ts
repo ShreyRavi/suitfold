@@ -14,6 +14,8 @@ export class Host {
   state: TableState = emptyTable()
   private seatOf = new Map<PeerId, SeatId>()
   private peerOf = new Map<SeatId, PeerId>()
+  /** Recent tables, so a mis-drag or a wrong deal can be taken back. */
+  private history: TableState[] = []
 
   constructor(
     private wire: Wire,
@@ -111,7 +113,27 @@ export class Host {
   }
 
   private commit(actions: Action[]) {
+    // Seat bookkeeping is not something anyone wants to undo.
+    const worthUndoing = actions.some((a) => !a.t.startsWith('seat_'))
+    if (worthUndoing) {
+      this.history.push(this.state)
+      if (this.history.length > 40) this.history.shift()
+    }
     for (const a of actions) this.state = apply(this.state, a)
+    this.broadcast()
+    this.onChange()
+  }
+
+  get canUndo() {
+    return this.history.length > 0
+  }
+
+  /** Put the table back the way it was. Host only. */
+  undo() {
+    const previous = this.history.pop()
+    if (!previous) return
+    // Seats are live connection state, so they survive an undo of the cards.
+    this.state = { ...previous, seats: this.state.seats }
     this.broadcast()
     this.onChange()
   }
@@ -182,23 +204,52 @@ export class Host {
     ])
   }
 
-  /** Deal `count` from the biggest face-down pile to every seated player. */
-  deal(count: number) {
-    const piles = stacks(this.state)
-      .filter((p) => p.length > 1 && p.every((c) => !c.faceUp))
-      .sort((a, b) => b.length - a.length)
-    const pile = piles[0]
-    if (!pile || this.state.seats.length === 0) return
+  /** Every face-down pile, biggest first — the things you can deal from. */
+  sources(): { x: number; y: number; count: number }[] {
+    return stacks(this.state)
+      .filter((p) => p.length > 0 && p.every((c) => !c.faceUp))
+      .map((p) => ({ x: p[0]!.x, y: p[0]!.y, count: p.length }))
+      .sort((a, b) => b.count - a.count)
+  }
 
-    const top = [...pile].reverse().map((c) => c.id) // deal from the top down
+  /**
+   * Deal from a named pile to named seats. Everything is explicit so the panel
+   * can say exactly what will happen before you press it.
+   */
+  deal(opts: { count: number; seats: SeatId[]; from?: { x: number; y: number }; faceUp?: boolean }) {
+    const source = opts.from ?? this.sources()[0]
+    if (!source || opts.seats.length === 0 || opts.count < 1) return
+
+    const pile = stacks(this.state).find((p) => p[0]!.x === source.x && p[0]!.y === source.y)
+    if (!pile) return
+
+    const top = [...pile].reverse().map((c) => c.id) // off the top, like a real deal
     const actions: Action[] = []
     let i = 0
-    for (const seat of this.state.seats) {
-      const hand = top.slice(i, i + count)
-      i += count
-      if (hand.length) actions.push({ t: 'take', ids: hand, seat: seat.id })
+    // Round by round, so a short pile spreads fairly instead of loading the
+    // first player up and leaving the last with nothing.
+    const perSeat = new Map<SeatId, CardId[]>()
+    for (let round = 0; round < opts.count; round++) {
+      for (const seat of opts.seats) {
+        const card = top[i++]
+        if (!card) break
+        perSeat.set(seat, [...(perSeat.get(seat) ?? []), card])
+      }
+    }
+    for (const [seat, ids] of perSeat) {
+      if (!ids.length) continue
+      actions.push({ t: 'take', ids, seat })
+      if (opts.faceUp) actions.push({ t: 'play', ids, x: source.x, y: source.y, faceUp: true })
     }
     if (actions.length) this.commit(actions)
+  }
+
+  /** Turn the top card of a pile face up, the way you start a discard pile. */
+  turnUp(at: { x: number; y: number }) {
+    const pile = stacks(this.state).find((p) => p[0]!.x === at.x && p[0]!.y === at.y)
+    const top = pile?.[pile.length - 1]
+    if (!top) return
+    this.commit([{ t: 'move', ids: [top.id], x: at.x + 124, y: at.y }, { t: 'flip', ids: [top.id], faceUp: true }])
   }
 
   handOf(seat: SeatId) {

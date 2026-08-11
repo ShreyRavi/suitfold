@@ -67,8 +67,19 @@ input {
   color: var(--accent-on); display: grid; place-items: center; font-style: normal; font-size: 13px;
 }
 .brand b { font-size: var(--text-xl); font-weight: 500; }
-.seats { flex: 1; display: flex; gap: var(--s-4); overflow-x: auto; scrollbar-width: none; }
-.seats::-webkit-scrollbar { display: none; }
+.bar-mid { flex: 1; display: flex; align-items: center; }
+.bar-game {
+  font-family: var(--font-mono); font-size: var(--text-sm); letter-spacing: .06em;
+  color: var(--ink-faint);
+}
+.bar-code {
+  display: inline-flex; align-items: center; gap: var(--s-4);
+  padding: 6px 11px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--paper-panel);
+  font-family: var(--font-mono); font-size: var(--text-md); letter-spacing: .14em;
+  color: var(--accent);
+}
+.bar-code b { font-weight: 400; font-size: 11px; color: var(--ink-faint); letter-spacing: 0; }
 .chip {
   flex: none; display: inline-flex; align-items: center; gap: var(--s-3);
   padding: 4px 9px; border: 1px solid var(--line); border-radius: 999px;
@@ -81,19 +92,75 @@ input {
 .menu i { display: block; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-faint); }
 
 /* ---- the table --------------------------------------------------------- */
+/* It has to read as a table, not a beige background: a wooden surround, an
+   inset playing surface with a rim, and a soft shadow where they meet. */
 .felt {
   flex: 1; position: relative; overflow: hidden;
   display: grid; place-items: center;
+  /* The surround is deliberately much darker than the playing surface, or the
+     two read as one flat wash and the table has no presence. */
   background:
-    radial-gradient(ellipse at 50% 42%, var(--table) 0%, var(--table-rim) 74%, var(--table-edge) 100%);
+    linear-gradient(165deg,
+      color-mix(in srgb, var(--table-edge) 52%, #241a10),
+      color-mix(in srgb, var(--table-edge) 34%, #140e08));
   touch-action: none; /* the whole surface is a drag target */
 }
 .felt-inner { position: relative; transform-origin: center; }
+.felt-face {
+  position: absolute; inset: 30px 44px; border-radius: 210px / 150px;
+  background:
+    radial-gradient(112% 92% at 50% 30%,
+      color-mix(in srgb, var(--table) 88%, #8a6f4a) 0%,
+      color-mix(in srgb, var(--table-rim) 88%, #6d5433) 62%,
+      color-mix(in srgb, var(--table-rim) 62%, #3f2f1b) 100%);
+  box-shadow:
+    inset 0 0 0 3px color-mix(in srgb, var(--table-edge) 60%, #1a1109),
+    inset 0 4px 18px rgba(0,0,0,.22),
+    0 14px 38px rgba(0,0,0,.4);
+}
+/* A faint centre mark, so an empty table still looks like a table. */
+.felt-face::after {
+  content: ''; position: absolute; left: 50%; top: 50%;
+  width: 190px; height: 190px; margin: -95px 0 0 -95px; border-radius: 50%;
+  border: 1px dashed color-mix(in srgb, #2a1d12 40%, transparent);
+  opacity: .35;
+}
 
-.pile { position: absolute; top: 0; left: 0; will-change: transform; }
+/* ---- who is at the table ----------------------------------------------- */
+.spot {
+  position: absolute; top: 0; left: 0; z-index: 1;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 11px; border-radius: 999px;
+  background: color-mix(in srgb, var(--paper-panel) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--table-edge) 60%, transparent);
+  box-shadow: 0 2px 8px rgba(0,0,0,.14);
+  font-size: 14px; white-space: nowrap; pointer-events: none;
+}
+.spot.is-away { opacity: .45; }
+.spot-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.spot-name { color: var(--ink); }
+.spot-count {
+  font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  border-radius: 999px; padding: 1px 6px;
+}
+
+/* Cards slide to their new spot, so a deal looks like dealing and a remote
+   drop looks like somebody putting a card down. The card being dragged right
+   now opts out, or it would lag behind the pointer. */
+.pile {
+  position: absolute; top: 0; left: 0; will-change: transform;
+  transition: transform 260ms cubic-bezier(.2,.8,.25,1);
+}
+.pile.is-live { transition: none; }
+@media (prefers-reduced-motion: reduce) { .pile { transition: none; } }
 .pile-under { position: absolute; inset: 0; opacity: .9; }
 .pile-top { position: relative; cursor: grab; }
 .pile-top.is-dragging { cursor: grabbing; }
+/* A card in the air sits above the table and casts a bigger shadow. */
+.pile-top.is-dragging .pc {
+  box-shadow: 0 14px 26px rgba(0,0,0,.32); transform: scale(1.04) rotate(-1.2deg);
+}
 .pile-count {
   position: absolute; top: -8px; right: -8px;
   min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px;
@@ -114,33 +181,85 @@ input {
 
 /* ---- a card ------------------------------------------------------------ */
 .pc {
-  position: relative; width: 62px; height: 88px; flex: none;
-  background: var(--card-face); border: 1px solid var(--card-edge);
-  border-radius: var(--r-card); color: var(--suit-black);
-  box-shadow: var(--shadow-card); user-select: none;
+  position: relative; width: 68px; height: 96px; flex: none;
+  background:
+    linear-gradient(158deg, #fffdf8 0%, var(--card-face) 55%, #f4eee1 100%);
+  border: 1px solid var(--card-edge);
+  border-radius: 7px; color: var(--suit-black);
+  box-shadow: 0 1px 2px rgba(0,0,0,.18), 0 4px 10px rgba(0,0,0,.10);
+  user-select: none; overflow: hidden;
+  font-family: var(--font-serif);
+  /* Re-keyed on the face, so this plays whenever a card turns or is revealed. */
+  animation: turn 190ms var(--ease) both;
   transition: box-shadow var(--dur-flip) var(--ease), transform var(--dur-flip) var(--ease);
 }
-.pc--sm { width: 48px; height: 68px; }
-.pc.is-red { color: var(--suit-red); }
-.pc--back {
-  background:
-    repeating-linear-gradient(45deg, var(--card-back) 0 6px, var(--card-back-edge) 6px 12px);
-  border-color: var(--card-back-edge);
-  box-shadow: var(--shadow-card), inset 0 0 0 4px var(--card-back), inset 0 0 0 5px rgba(255,255,255,.3);
+@keyframes turn {
+  from { transform: perspective(420px) rotateY(-78deg); filter: brightness(1.25); }
+  to   { transform: perspective(420px) rotateY(0); filter: none; }
 }
-.pc--joker { color: var(--accent); }
-.pc-rank { position: absolute; top: 5px; left: 6px; font-size: var(--text-lg); line-height: 1; font-weight: 500; }
-.pc-pip { position: absolute; top: 27px; left: 6px; font-size: var(--text-base); line-height: 1; }
-.pc-big { position: absolute; right: 7px; bottom: 6px; font-size: 24px; line-height: 1; opacity: .9; }
-.pc--sm .pc-rank { font-size: var(--text-base); }
-.pc--sm .pc-big { font-size: 18px; }
-.pc.is-held { box-shadow: 0 0 0 2px var(--accent), var(--shadow-lift); }
-.pc.is-sel { box-shadow: 0 0 0 2px var(--accent), var(--shadow-lift); transform: translateY(-10px); }
+@media (prefers-reduced-motion: reduce) { .pc { animation: none; } }
+
+.pc--sm { width: 52px; height: 74px; }
+.pc.is-red { color: var(--suit-red); }
+
+/* The corner index: rank over its suit, and the same again upside down. */
+.ix { position: absolute; display: flex; flex-direction: column; align-items: center; line-height: .95; }
+.ix b { font-size: 15px; font-weight: 500; }
+.ix i { font-style: normal; font-size: 11px; margin-top: 1px; }
+.ix--tl { top: 5px; left: 5px; }
+.ix--br { bottom: 5px; right: 5px; transform: rotate(180deg); }
+.pc--sm .ix b { font-size: 12px; }
+.pc--sm .ix i { font-size: 9px; }
+
+/* Pip field for the number cards. The lower half is inverted, as on a real deck. */
+.field { position: absolute; inset: 0; }
+.field i {
+  position: absolute; transform: translate(-50%, -50%);
+  font-style: normal; font-size: 15px; line-height: 1;
+}
+.field i.flip { transform: translate(-50%, -50%) rotate(180deg); }
+.pc--sm .field i { font-size: 11px; }
+
+.ace {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: 34px; line-height: 1;
+}
+.pc--sm .ace { font-size: 25px; }
+
+/* Courts stay typographic rather than pretending to be illustrations. */
+.court {
+  position: absolute; inset: 12% 14%; display: grid; place-items: center;
+  border: 1px solid color-mix(in srgb, currentColor 26%, transparent);
+  border-radius: 4px; font-size: 27px; font-weight: 500; line-height: 1;
+}
+.court em { position: absolute; right: 5px; bottom: 3px; font-style: normal; font-size: 13px; }
+.pc--sm .court { font-size: 20px; }
+.pc--sm .court em { font-size: 10px; }
+.pc--joker .court { font-size: 22px; }
+
+/* The back gets a real pattern instead of flat stripes. */
+.pc--back {
+  background: var(--card-back);
+  border-color: color-mix(in srgb, var(--card-back-edge) 80%, black);
+}
+.back-art {
+  position: absolute; inset: 4px; border-radius: 4px;
+  border: 1px solid rgba(255,255,255,.34);
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,.13) 0 3px, transparent 3px 7px),
+    repeating-linear-gradient(-45deg, rgba(0,0,0,.14) 0 3px, transparent 3px 7px),
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.16), transparent 62%);
+}
+
+.pc.is-held { box-shadow: 0 0 0 2px var(--accent), 0 10px 22px rgba(0,0,0,.3); }
+.pc.is-sel { box-shadow: 0 0 0 2px var(--accent), 0 12px 22px rgba(0,0,0,.28); }
 
 /* ---- your hand --------------------------------------------------------- */
 .rail {
   flex: none; background: var(--rail); border-top: 1px solid var(--rule);
-  padding: var(--s-5) var(--s-7) calc(env(safe-area-inset-bottom, 0px) + var(--s-6));
+  padding: var(--s-5) var(--s-7) calc(env(safe-area-inset-bottom, 0px) + var(--s-7));
+  box-shadow: 0 -8px 24px rgba(0,0,0,.14);
+  z-index: 2;
 }
 .rail-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-5); }
 .lbl { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--track-label); color: var(--ink-faint); }
@@ -152,12 +271,20 @@ input {
 }
 .mini:disabled { opacity: .4; cursor: default; }
 .fan {
-  display: flex; align-items: flex-end; padding-top: var(--s-5);
-  min-height: 96px; overflow-x: auto; scrollbar-width: none;
+  position: relative; display: flex; justify-content: center; align-items: flex-end;
+  padding-top: var(--s-7); height: 132px; overflow: hidden;
 }
-.fan::-webkit-scrollbar { display: none; }
-.fan-card { flex: none; padding: 0; line-height: 0; }
-.fan-empty { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--ink-faint); padding: var(--s-7) 0; }
+.fan-card {
+  flex: none; padding: 0; line-height: 0;
+  transform-origin: 50% 165%;
+  transition: transform 160ms var(--ease), filter 160ms var(--ease);
+}
+.fan-card:hover, .fan-card:focus-visible { z-index: 5; }
+.fan-card.is-sel { z-index: 4; }
+.fan-empty {
+  font-family: var(--font-mono); font-size: var(--text-sm);
+  color: var(--ink-faint); align-self: center;
+}
 
 /* ---- sheet ------------------------------------------------------------- */
 .sheet {
@@ -264,3 +391,59 @@ input {
 
 .felt-wrap { flex: 1; position: relative; display: flex; min-height: 0; }
 .felt-wrap .felt { flex: 1; }
+
+/* ---- the toolbar on the table ------------------------------------------ */
+.tools {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+  z-index: 20; display: flex; gap: 4px; padding: 5px;
+  background: color-mix(in srgb, var(--paper-raised) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--table-edge) 55%, transparent);
+  border-radius: 999px; box-shadow: 0 6px 22px rgba(0,0,0,.24);
+  backdrop-filter: blur(6px);
+}
+.tools-note {
+  padding: 8px 14px; font-family: var(--font-mono); font-size: var(--text-sm);
+  color: var(--ink-faint);
+}
+.tool {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 38px; padding: 0 13px; border-radius: 999px;
+  font-size: 14px; color: var(--ink-soft); white-space: nowrap;
+}
+.tool:hover:not(:disabled) { background: var(--accent-wash); color: var(--accent); }
+.tool[aria-expanded='true'] { background: var(--accent); color: var(--accent-on); }
+.tool:disabled { opacity: .35; cursor: default; }
+.tool svg { flex: none; }
+
+.pop {
+  position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translateX(-50%);
+  width: min(21rem, 88vw); padding: var(--s-7);
+  background: var(--paper-raised); border: 1px solid var(--line);
+  border-radius: var(--r-panel); box-shadow: var(--shadow-app);
+  display: flex; flex-direction: column; gap: var(--s-6);
+}
+.pop-row { display: flex; flex-direction: column; gap: var(--s-3); }
+.pop-lbl {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  letter-spacing: var(--track-label); color: var(--ink-faint);
+}
+.segs { display: flex; gap: 4px; }
+.segs.wrap { flex-wrap: wrap; }
+.seg {
+  min-height: 34px; padding: 0 12px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--paper-panel);
+  font-size: 14px; color: var(--ink-soft);
+}
+.seg.on { background: var(--accent); border-color: var(--accent); color: var(--accent-on); }
+.pop-say { margin: 0; font-size: var(--text-md); color: var(--ink-soft); }
+.pop-say b { font-weight: 500; color: var(--ink); }
+.pop-warn { color: var(--suit-red); }
+.pop-empty { margin: 0; font-size: 15px; color: var(--ink-soft); }
+
+.rail-head em { font-style: normal; color: var(--accent); }
+
+@media (max-width: 560px) {
+  .tool span { display: none; }
+  .tool { padding: 0 11px; font-size: 0; gap: 0; }
+  .tool svg { width: 17px; height: 17px; }
+}

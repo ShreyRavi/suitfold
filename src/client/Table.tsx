@@ -133,6 +133,20 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
         style={{ width: TABLE_W, height: TABLE_H, transform: `scale(${scale})` }}
         onPointerDown={() => setMenu(null)}
       >
+        <div className="felt-face" aria-hidden="true" />
+
+        {/* Everyone else sits around the edge; you are the rail at the bottom. */}
+        {seatSpots(view, me).map(({ seat, x, y, count }) => (
+          <div
+            key={seat.id}
+            className={`spot ${seat.connected ? '' : 'is-away'}`}
+            style={{ transform: `translate(${x}px, ${y}px)` }}
+          >
+            <span className="spot-dot" style={{ background: seat.colour }} />
+            <span className="spot-name">{seat.name}</span>
+            <span className="spot-count">{count}</span>
+          </div>
+        ))}
         {[...piles.entries()].map(([key, cards]) => {
           const top = cards[cards.length - 1]!
           const beingDragged = dragging?.ids.includes(top.id)
@@ -143,8 +157,8 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
           return (
             <div
               key={key}
-              className="pile"
-              style={{ transform: `translate(${pos.x - 31}px, ${pos.y - 44}px)`, zIndex: top.z }}
+              className={`pile ${beingDragged || remote ? 'is-live' : ''}`}
+              style={{ transform: `translate(${pos.x - 34}px, ${pos.y - 48}px)`, zIndex: top.z }}
             >
               {/* The cards underneath, offset a little so a pile looks like one */}
               {cards.slice(0, -1).slice(-3).map((c, i) => (
@@ -208,3 +222,20 @@ export function Table({ view, me, drags, onMove, onFlip, onTake, onDrag, onStack
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+
+/** Lay the other players around the top half of the table. */
+function seatSpots(view: TableView, me: SeatId | null) {
+  const others = view.seats.filter((s) => s.id !== me)
+  const rx = TABLE_W / 2 - 90
+  const ry = TABLE_H / 2 - 30
+  return others.map((seat, i) => {
+    const t = (i + 1) / (others.length + 1)
+    const angle = Math.PI * (1 + t) // left, over the top, to the right
+    return {
+      seat,
+      x: TABLE_W / 2 + rx * Math.cos(angle) - 52,
+      y: TABLE_H / 2 + ry * Math.sin(angle) - 14,
+      count: view.handCounts[seat.id] ?? 0,
+    }
+  })
+}

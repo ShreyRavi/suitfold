@@ -250,7 +250,7 @@ describe('the host', () => {
   test('dealing takes from the biggest face-down pile', () => {
     const h = hosted()
     h.setup('deck')
-    h.deal(5)
+    h.deal({ count: 5, seats: h.state.seats.map((s) => s.id) })
     for (const seat of h.state.seats) expect(h.handOf(seat.id).length).toBe(5)
     expect(h.tableCards().length).toBe(52 - 15)
   })
@@ -315,5 +315,63 @@ describe('seating is not a way to take somebody else’s cards', () => {
     expect(h.state.seats.length).toBe(2)
     expect(h.state.seats.find((s) => s.id === 's2')!.connected).toBe(true)
     expect(h.handOf('s2').map((c) => c.id)).toEqual(before) // cards waited for them
+  })
+})
+
+describe('dealing and undo', () => {
+  test('a short pile spreads round by round instead of loading the first player', () => {
+    const h = hosted(['A', 'B', 'C'])
+    h.setup('deck')
+    // Leave only 4 cards face down to deal from.
+    const pile = h.tableCards()
+    h['commit']([{ t: 'play', ids: pile.slice(4).map((c) => c.id), x: 100, y: 100, faceUp: true }])
+    h.deal({ count: 5, seats: h.state.seats.map((s) => s.id), from: { x: 500, y: 320 } })
+    const sizes = h.state.seats.map((s) => h.handOf(s.id).length).sort()
+    expect(sizes).toEqual([1, 1, 2]) // nobody gets five while somebody gets none
+  })
+
+  test('you can deal to one person', () => {
+    const h = hosted(['A', 'B'])
+    h.setup('deck')
+    h.deal({ count: 3, seats: ['s2'] })
+    expect(h.handOf('s2').length).toBe(3)
+    expect(h.handOf('host').length).toBe(0)
+  })
+
+  test('sources lists face-down piles, biggest first', () => {
+    const h = hosted()
+    h.setup('deck')
+    const before = h.sources()
+    expect(before.length).toBe(1)
+    expect(before[0]!.count).toBe(52)
+    h.turnUp({ x: 500, y: 320 })
+    const after = h.sources()
+    expect(after[0]!.count).toBe(51) // the turned card is face up, so not a source
+  })
+
+  test('undo puts the cards back', () => {
+    const h = hosted()
+    h.setup('poker')
+    const before = h.tableCards().length
+    h.deal({ count: 5, seats: h.state.seats.map((s) => s.id) })
+    expect(h.tableCards().length).toBeLessThan(before)
+    h.undo()
+    expect(h.tableCards().length).toBe(before)
+  })
+
+  test('undo keeps whoever is currently at the table', () => {
+    const h = hosted(['A', 'B'])
+    h.setup('poker')
+    h['seat']('peer9', 'Late')
+    expect(h.state.seats.length).toBe(3)
+    h.undo()
+    expect(h.state.seats.length).toBe(3) // seats are live state, not card state
+  })
+
+  test('undo stops at the beginning rather than breaking', () => {
+    const h = hosted()
+    expect(h.canUndo).toBe(false)
+    h.undo()
+    expect(h.state.seats.length).toBeGreaterThan(0)
   })
 })
