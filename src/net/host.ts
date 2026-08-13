@@ -126,6 +126,18 @@ export class Host {
     this.commit([{ t: 'seat_here', id: seat, connected: false }])
   }
 
+  /**
+   * An action exactly as if it had arrived on that seat's channel, permission
+   * checks and all. Tests only, and deliberately the same path a real peer
+   * takes rather than a shortcut around it.
+   */
+  execAs(action: Action, seat: SeatId) {
+    if (action.t === 'say') return this.say(seat, action.text)
+    if (!allowed(action, seat)) return
+    if (!this.ownsCards(action, seat)) return
+    this.commit([action], seat)
+  }
+
   /** Seating over the wire, without a wire. Tests only. */
   helloForTest(peerId: PeerId, name: string, emoji?: string) {
     this.seat(peerId, name, emoji)
@@ -296,12 +308,33 @@ export class Host {
     // Deal first, so only what is left over goes onto the table.
     const hands: { seat: SeatId; cards: CardId[] }[] = []
     let cut = 0
-    if (preset.deal !== 0 && seats.length > 0) {
-      const each = preset.deal === -1 ? Math.floor(deck.length / seats.length) : preset.deal
-      for (const seat of seats) {
-        const hand = deck.slice(cut, cut + each)
-        cut += hand.length
-        if (hand.length) hands.push({ seat: seat.id, cards: hand })
+    const asked = typeof preset.deal === 'function' ? preset.deal(seats.length) : preset.deal
+    // Nothing stops a table of seven picking a game meant for two, and when
+    // they do, five people getting a hand and two getting nothing is the worst
+    // possible answer. Deal what there is, evenly.
+    const room = seats.length ? Math.floor(deck.length / seats.length) : 0
+    const each = asked === -1 ? -1 : Math.min(asked, room)
+    if (each !== 0 && seats.length > 0) {
+      if (each === -1) {
+        // The whole deck, round by round, exactly as a person deals it. It used
+        // to divide and round down, which left the remainder sitting on the
+        // table: at three players Bluff started with a card nobody held, and
+        // Old Maid lost the odd queen that is the entire point of the game.
+        const perSeat = new Map<SeatId, CardId[]>(seats.map((s) => [s.id, []]))
+        while (cut < deck.length) {
+          for (const seat of seats) {
+            const card = deck[cut++]
+            if (!card) break
+            perSeat.get(seat.id)!.push(card)
+          }
+        }
+        for (const [seat, cards] of perSeat) if (cards.length) hands.push({ seat, cards })
+      } else {
+        for (const seat of seats) {
+          const hand = deck.slice(cut, cut + each)
+          cut += hand.length
+          if (hand.length) hands.push({ seat: seat.id, cards: hand })
+        }
       }
     }
 
@@ -348,9 +381,11 @@ export class Host {
     const rest = { x: home?.x ?? TABLE_W / 2, y: home?.y ?? TABLE_H / 2 }
 
     let cut = 0
+    const wanted = typeof spec.each === 'function' ? spec.each(seats.length) : spec.each
+    const perHand = Math.min(wanted, Math.floor(deck.length / Math.max(seats.length, 1)))
     const hands: { seat: SeatId; cards: CardId[] }[] = []
     for (const seat of seats) {
-      const hand = deck.slice(cut, cut + spec.each)
+      const hand = deck.slice(cut, cut + perHand)
       cut += hand.length
       if (hand.length) hands.push({ seat: seat.id, cards: hand })
     }
@@ -378,7 +413,7 @@ export class Host {
     for (const b of board) actions.push({ t: 'move', ids: [b.id], x: b.x, y: b.y })
     this.commit(actions, this.mySeat, {
       kind: 'game',
-      text: `dealt a new hand, ${spec.each} each`,
+      text: `dealt a new hand, ${perHand} each`,
     })
   }
 

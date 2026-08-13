@@ -105,8 +105,12 @@ export interface Preset {
   hint: string
   group: 'card games' | 'family' | 'just cards'
   cards: () => CardId[]
-  /** Cards to each player. -1 deals the whole deck out evenly. */
-  deal: number
+  /**
+   * Cards to each player. -1 deals the whole deck out evenly. A function when
+   * the real rule depends on how many are playing, which is how the games with
+   * a fixed supply of tiles avoid running out.
+   */
+  deal: number | ((seats: number) => number)
   layout: Layout
   /**
    * Markings on the felt. They hold nothing and enforce nothing - they say
@@ -120,7 +124,7 @@ export interface Preset {
    * each player, and how many go face down in the middle to be turned over as
    * the hand goes.
    */
-  hand?: { each: number; board?: number; boardSlot?: string }
+  hand?: { each: number | ((seats: number) => number); board?: number; boardSlot?: string }
   /** Draggable markers: the dealer button and the blinds. */
   pucks?: () => Puck[]
   /** Dice on the table when it is set. */
@@ -160,6 +164,11 @@ const drawDiscard = (): Slot[] => [
  * with your name, a few pixels apart.
  */
 const roundTable = (_n: number, middle: string): Slot[] => [{ id: 'middle', x: CX, y: CY, label: middle }]
+
+/** Twenty one each up to four, fifteen up to six, eleven beyond that. */
+const dealBanana = (seats: number) => (seats <= 4 ? 21 : seats <= 6 ? 15 : 11)
+/** Seven each head to head, five each in a bigger game. */
+const dealDominoes = (seats: number) => (seats <= 2 ? 7 : 5)
 
 export const PRESETS: Preset[] = [
   // -- card games ---------------------------------------------------------
@@ -491,9 +500,12 @@ export const PRESETS: Preset[] = [
     hint: 'A hundred and forty four letters, no board, no turns',
     group: 'family',
     cards: bananaTiles,
-    deal: 21,
+    // The real rule, and the reason there is one: twenty one each at eight
+    // players would be a hundred and sixty eight tiles out of a bag of a
+    // hundred and forty four.
+    deal: dealBanana,
     layout: 'pile',
-    hand: { each: 21 },
+    hand: { each: dealBanana },
   },
   {
     id: 'dominoes',
@@ -502,10 +514,12 @@ export const PRESETS: Preset[] = [
     hint: 'Double six, seven bones each',
     group: 'family',
     cards: dominoTiles,
-    deal: 7,
+    // Seven each head to head, five each with three or four, which is what
+    // leaves a boneyard to draw from rather than dealing the whole set out.
+    deal: dealDominoes,
     layout: 'pile',
     slots: drawDiscard,
-    hand: { each: 7 },
+    hand: { each: dealDominoes },
   },
   {
     id: 'boggle',

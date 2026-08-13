@@ -255,7 +255,10 @@ describe('the host', () => {
     const h = hosted()
     h.setup('bluff')
     const dealtOut = h.state.seats.reduce((a, s) => a + h.handOf(s.id).length, 0)
-    expect(dealtOut).toBe(51) // 17 each, one left over on the table
+    // The whole deck goes out, round by round. It used to divide and round
+    // down, which left the remainder sitting in the middle.
+    expect(dealtOut).toBe(52)
+    expect(h.tableCards().length).toBe(0)
   })
 
   test('gather brings every card back into one pile', () => {
