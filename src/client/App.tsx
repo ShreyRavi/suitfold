@@ -4,7 +4,7 @@ import { TABLE_H, TABLE_W, seatPlaces } from '../table/model.ts'
 import { GROUPS, PRESETS } from '../table/deck.ts'
 import { cleanCode } from '../net/peers.ts'
 import { rememberedFace, rememberedName, suggestFace, suggestName, useTable } from './useTable.ts'
-import { Table } from './Table.tsx'
+import { Table, toTableCoords } from './Table.tsx'
 import { Home, Invite } from './Home.tsx'
 import { Rules } from './Rules.tsx'
 import { Card } from './Card.tsx'
@@ -113,6 +113,37 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
   const [railH, setRailH] = useState(() => Number(localStorage.getItem(RAIL_H)) || 206)
   const [dragOut, setDragOut] = useState<CardId | null>(null)
 
+  /**
+   * Drag a card out of your hand and onto the table. Pointer events rather
+   * than the browser's own drag and drop, which does not fire at all on a
+   * touch screen - so on a phone this did nothing whatsoever.
+   */
+  const carryOut = (e: React.PointerEvent, id: CardId) => {
+    const from = { x: e.clientX, y: e.clientY }
+    let moved = false
+    const move = (ev: PointerEvent) => {
+      if (Math.hypot(ev.clientX - from.x, ev.clientY - from.y) > 10) moved = true
+    }
+    const up = (ev: PointerEvent) => {
+      removeEventListener('pointermove', move)
+      removeEventListener('pointerup', up)
+      if (!moved) return
+      const felt = document.querySelector('.felt')
+      if (!felt) return
+      const r = felt.getBoundingClientRect()
+      const onFelt = ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom
+      if (!onFelt) return
+      const p = toTableCoords(r, ev.clientX, ev.clientY)
+      // Face down: putting a card down and showing it are separate decisions.
+      t.act({ t: 'play', ids: [id], x: Math.round(p.x), y: Math.round(p.y), faceUp: false })
+      setPicked((keep) => keep.filter((x) => x !== id))
+      setDragOut(id)
+      setTimeout(() => setDragOut(null), 0)
+    }
+    addEventListener('pointermove', move)
+    addEventListener('pointerup', up)
+  }
+
   const startResize = (e: React.PointerEvent) => {
     e.preventDefault()
     const from = e.clientY
@@ -215,11 +246,6 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
           onPuck={(id, x, y) => t.act({ t: 'puck', id, x, y })}
           onDie={(id, x, y) => t.act({ t: 'die_move', id, x, y })}
           onHold={(id, held) => t.act({ t: 'die_hold', id, held })}
-          onDropIn={(id, x, y) => {
-            t.act({ t: 'play', ids: [id], x, y, faceUp: false })
-            setPicked((p) => p.filter((x2) => x2 !== id))
-            setDragOut(null)
-          }}
           cursors={t.cursors}
           onCursor={t.broadcastCursor}
         />
@@ -322,18 +348,12 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
                   marginLeft: i === 0 ? 0 : fan.overlap,
                   transform: `rotate(${fan.angle}deg) translateY(${fan.lift + (chosen ? -16 : 0)}px)`,
                 }}
-                draggable
-                onDragStart={(e) => {
-                  // Dragging a card out of your hand puts it down where you
-                  // drop it, face down. Showing it is a separate decision.
-                  e.dataTransfer.setData('text/plain', c.id)
-                  e.dataTransfer.effectAllowed = 'move'
-                  setDragOut(c.id)
-                }}
-                onDragEnd={() => setDragOut(null)}
-                onClick={() =>
+                onPointerDown={(e) => carryOut(e, c.id)}
+                onClick={() => {
+                  // A drag that ended on the table has already played the card.
+                  if (dragOut === c.id) return
                   setPicked((p) => (p.includes(c.id) ? p.filter((x) => x !== c.id) : [...p, c.id]))
-                }
+                }}
               >
                 <Card face={c.face} small={myHand.length > 9} selected={chosen} />
               </button>

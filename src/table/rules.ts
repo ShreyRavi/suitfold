@@ -85,7 +85,7 @@ export const RULES: Record<string, Rules> = {
     goal: 'Say exactly how many tricks you will win, then win exactly that many.',
     players: '3 to 7',
     setup: [
-      'Deal one card each for the first round, two each for the next, and so on up, then back down again.',
+      'Deal one card each for the first round, two each for the next, and so on up, then back down again. This table deals the first round for you; use Deal for the rounds after it.',
       'Turn the next card over. Its suit is trump for that round.',
       'Going round from the dealer, everybody says how many tricks they think they will take.',
     ],
@@ -266,7 +266,7 @@ export const RULES: Record<string, Rules> = {
     goal: 'Use every tile you have in your own crossword, first.',
     players: '2 to 8',
     setup: [
-      'Everybody takes twenty one tiles. The rest stay face down as the bunch.',
+      'Everybody takes twenty one tiles, or fifteen with five or six playing, or eleven with more than that. The rest stay face down as the bunch.',
       'There are no turns and no board. Everybody plays at once, in front of themselves.',
     ],
     play: [
@@ -292,7 +292,7 @@ export const RULES: Record<string, Rules> = {
     players: '2 to 4',
     setup: [
       'Turn all twenty eight face down and shuffle them about.',
-      'Everybody draws seven. The rest are the boneyard.',
+      'Head to head, everybody draws seven. With three or four, five each, so that there is still a boneyard left to draw from.',
       'Whoever holds the double six starts with it. If nobody does, the highest double.',
     ],
     play: [

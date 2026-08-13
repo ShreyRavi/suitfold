@@ -28,8 +28,6 @@ export interface TableProps {
   onPuck: (id: string, x: number, y: number) => void
   onDie: (id: string, x: number, y: number) => void
   onHold: (id: string, held: boolean) => void
-  /** A card dragged out of the hand drawer and dropped on the felt. */
-  onDropIn: (id: CardId, x: number, y: number) => void
 }
 
 /**
@@ -53,7 +51,6 @@ export function Table({
   onPuck,
   onDie,
   onHold,
-  onDropIn,
   onCursor,
 }: TableProps) {
   const wrap = useRef<HTMLDivElement>(null)
@@ -91,17 +88,11 @@ export function Table({
     return () => ro.disconnect()
   }, [])
 
-  const toTable = useCallback(
-    (clientX: number, clientY: number): Pos => {
-      const el = wrap.current
-      if (!el) return { x: 0, y: 0 }
-      const r = el.getBoundingClientRect()
-      const offX = (r.width - TABLE_W * scale) / 2
-      const offY = (r.height - TABLE_H * scale) / 2
-      return { x: (clientX - r.left - offX) / scale, y: (clientY - r.top - offY) / scale }
-    },
-    [scale],
-  )
+  const toTable = useCallback((clientX: number, clientY: number): Pos => {
+    const el = wrap.current
+    if (!el) return { x: 0, y: 0 }
+    return toTableCoords(el.getBoundingClientRect(), clientX, clientY)
+  }, [])
 
   const places = seatPlaces(view.seats)
 
@@ -270,19 +261,6 @@ export function Table({
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
       onPointerLeave={() => me && onCursor({ by: me, x: 0, y: 0, on: false })}
-      onDragOver={(e) => {
-        // Anything dragged out of your own hand can land here.
-        e.preventDefault()
-        e.dataTransfer.dropEffect = 'move'
-      }}
-      onDrop={(e) => {
-        e.preventDefault()
-        const id = e.dataTransfer.getData('text/plain')
-        if (!id) return
-        const p = toTable(e.clientX, e.clientY)
-        const to = snapTo(p.x, p.y, new Set([id]))
-        onDropIn(id, to.x, to.y)
-      }}
     >
       <div
         className="felt-inner"
@@ -607,6 +585,18 @@ export function Table({
       </div>
     </div>
   )
+}
+
+/**
+ * Screen to table. The felt is one fixed coordinate space scaled to fit and
+ * centred, so anywhere that needs to know where a pointer is on the table does
+ * the same sum - the rail included, when you drag a card out of your hand.
+ */
+export function toTableCoords(r: DOMRect, clientX: number, clientY: number) {
+  const scale = Math.min(r.width / TABLE_W, r.height / TABLE_H)
+  const offX = (r.width - TABLE_W * scale) / 2
+  const offY = (r.height - TABLE_H * scale) / 2
+  return { x: (clientX - r.left - offX) / scale, y: (clientY - r.top - offY) / scale }
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))

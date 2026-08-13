@@ -410,10 +410,12 @@ export const PRESETS: Preset[] = [
     hint: 'Bid your tricks exactly, or score nothing',
     group: 'card games',
     cards: () => standard(1),
-    deal: 7,
+    // One each for the first round, which is how the game starts. Every round
+    // after that is one more, and the dealer sets that with Deal.
+    deal: 1,
     layout: 'starter',
     slots: (n: number) => roundTable(n, 'Trick'),
-    hand: { each: 7 },
+    hand: { each: 1 },
   },
   {
     id: 'kot-pees',
