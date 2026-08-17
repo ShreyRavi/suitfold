@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CardId, SeatId, TableView } from '../table/model.ts'
-import { TABLE_H, TABLE_W, seatPlaces } from '../table/model.ts'
+import { SNAP, TABLE_H, TABLE_W, seatPlaces } from '../table/model.ts'
 import { GROUPS, PRESETS } from '../table/deck.ts'
 import { cleanCode } from '../net/peers.ts'
 import { inviteLink } from '../net/socket.ts'
@@ -113,6 +113,7 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
   // The drawer is draggable, and whatever you set it to is remembered.
   const [railH, setRailH] = useState(() => Number(localStorage.getItem(RAIL_H)) || 206)
   const [dragOut, setDragOut] = useState<CardId | null>(null)
+  const [copiedCode, setCopiedCode] = useState(false)
 
   /**
    * Drag a card out of your hand and onto the table. Pointer events rather
@@ -135,8 +136,11 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
       const onFelt = ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom
       if (!onFelt) return
       const p = toTableCoords(r, ev.clientX, ev.clientY)
+      // Let go anywhere near the pile and it joins the pile, the same as
+      // dragging a card that is already on the table.
+      const at = snapNear(view, p.x, p.y, id)
       // Face down: putting a card down and showing it are separate decisions.
-      t.act({ t: 'play', ids: [id], x: Math.round(p.x), y: Math.round(p.y), faceUp: false })
+      t.act({ t: 'play', ids: [id], x: Math.round(at.x), y: Math.round(at.y), faceUp: false })
       setPicked((keep) => keep.filter((x) => x !== id))
       setDragOut(id)
       setTimeout(() => setDragOut(null), 0)
@@ -177,7 +181,7 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
     (ids: CardId[]) => {
       // Shuffling is the host's job: it is the one thing that has to be
       // unguessable, and only the host sees every face.
-      if (t.host) t.host.shuffleStack(ids)
+      if (t.dealer) t.dealer.shuffleStack(ids)
       else t.act({ t: 'reorder', ids: [...ids].reverse() })
     },
     [t],
@@ -187,6 +191,14 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
   const unread = log ? 0 : view.log.filter((e) => e.kind === 'chat').length
   const deck = drawPile(view)
   const trick = faceUpOnTable(view)
+  // The heap in the middle, and anything that has wandered off it.
+  const middle = view.slots.find((sl) => sl.play)
+  const pile = middle
+    ? view.cards.filter((c) => c.hand === null && c.x === middle.x && c.y === middle.y).map((c) => c.id)
+    : []
+  const loose = middle
+    ? view.cards.filter((c) => c.hand === null && !(c.x === middle.x && c.y === middle.y)).map((c) => c.id)
+    : []
 
   const play = (ids: CardId[], faceUp: boolean) => {
     // Sevens is built in four rows, one per suit, running out from the seven.
@@ -236,8 +248,16 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
           Log
           {unread > 0 && <b>{unread}</b>}
         </button>
-        <button className="bar-code" onClick={() => setSheet(true)} title="Share this table">
-          {t.code}
+        <button
+          className={`bar-code ${copiedCode ? 'is-copied' : ''}`}
+          onClick={async () => {
+            await copyLink(inviteLink(t.code))
+            setCopiedCode(true)
+            setTimeout(() => setCopiedCode(false), 1600)
+          }}
+          title="Copy the link to this table"
+        >
+          {copiedCode ? 'Copied' : t.code}
           <b>{t.peers + 1}</b>
         </button>
         <button className="menu" onClick={() => setSheet(true)} aria-label="Table menu">
@@ -270,7 +290,7 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
           view.slots.length === 0 && (
             <div className="empty-table">
               <div>
-                {t.host ? (
+                {t.dealer ? (
                   <>
                     <p>An empty table.</p>
                     <button className="btn primary" onClick={() => setSheet(true)}>
@@ -300,7 +320,7 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
             title="Drag to resize"
             onPointerDown={startResize}
           />
-          <Toolbar host={t.host} view={view} me={t.me} onGames={() => setSheet(true)} act={t.act} />
+          <Toolbar host={t.dealer} view={view} me={t.me} onGames={() => setSheet(true)} act={t.act} />
         </div>
 
         <div className="rail-body">
@@ -362,7 +382,7 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
                 className="mini is-go"
                 onClick={() => t.me && t.act({ t: 'take', ids: trick, seat: t.me })}
               >
-                Take the trick · {trick.length}
+                Take the pile · {trick.length}
               </button>
             )}
             {myHand.length > 1 && (
@@ -398,6 +418,54 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Calling a liar, and clearing up afterwards. Every one of these was
+              a hold, a menu and a guess about which cards were the ones in
+              question. */}
+          {presetById(view.game).claim === 'rank' && (
+            <div className="rail-acts">
+              {pile.length > 0 && (
+                <button
+                  className="mini"
+                  onClick={() => t.me && t.act({ t: 'take', ids: pile, seat: t.me })}
+                >
+                  Take the pile · {pile.length}
+                </button>
+              )}
+              {(view.lastPlay?.length ?? 0) > 0 && (
+                <button
+                  className="mini is-go"
+                  onClick={() => {
+                    // Lay the set out in a row where everybody can count it,
+                    // rather than turning over a heap and arguing.
+                    const shown = view.lastPlay ?? []
+                    const middle = view.slots.find((sl) => sl.play)
+                    const y = (middle?.y ?? TABLE_H / 2) - 170
+                    const left = (middle?.x ?? TABLE_W / 2) - ((shown.length - 1) * 104) / 2
+                    shown.forEach((id, i) => {
+                      t.act({ t: 'move', ids: [id], x: Math.round(left + i * 104), y: Math.round(y) })
+                    })
+                    t.act({ t: 'flip', ids: shown, faceUp: true })
+                  }}
+                >
+                  Check the bluff · {view.lastPlay?.length ?? 0}
+                </button>
+              )}
+              {loose.length > 0 && (
+                <button
+                  className="mini"
+                  onClick={() => {
+                    const middle = view.slots.find((sl) => sl.play)
+                    if (!middle) return
+                    t.act({ t: 'flip', ids: loose, faceUp: false })
+                    t.act({ t: 'play', ids: loose, x: middle.x, y: middle.y, faceUp: false })
+                  }}
+                >
+                  Back on the pile · {loose.length}
+                </button>
+              )}
             </div>
           )}
 
@@ -464,7 +532,7 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
         view={view}
         me={t.me}
         open={log}
-        isHost={!!t.host}
+        isHost={!!t.dealer}
         onClose={() => setLog(false)}
         act={t.act}
       />
@@ -617,6 +685,59 @@ function suitRow(view: TableView, face: string) {
 /** What you can claim to be putting down, which need not be true. */
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K']
 
+/**
+ * Where a card let go here belongs: on a pile it landed on, or in a marked
+ * spot it was aimed at. The same pull the table itself uses, so dragging out
+ * of your hand behaves like dragging anything else.
+ */
+function snapNear(view: TableView, x: number, y: number, ignore: CardId) {
+  let best: { x: number; y: number } | null = null
+  let near = SNAP
+  for (const c of view.cards) {
+    if (c.hand !== null || c.id === ignore) continue
+    const d = Math.hypot(c.x - x, c.y - y)
+    if (d < near) {
+      near = d
+      best = { x: c.x, y: c.y }
+    }
+  }
+  for (const slot of view.slots) {
+    if (slot.dot) continue
+    const d = Math.hypot(slot.x - x, slot.y - y)
+    if (d < Math.max(near, SNAP * 1.7)) {
+      near = d
+      best = { x: slot.x, y: slot.y }
+    }
+  }
+  return best ?? { x, y }
+}
+
+/**
+ * Put the link on the clipboard. The modern way needs a secure context and
+ * permission; the old way needs neither and has never once failed, so it is
+ * the fallback rather than the other way round.
+ */
+async function copyLink(link: string) {
+  try {
+    await navigator.clipboard.writeText(link)
+    return
+  } catch {
+    /* not allowed here */
+  }
+  const box = document.createElement('textarea')
+  box.value = link
+  box.style.position = 'fixed'
+  box.style.opacity = '0'
+  document.body.appendChild(box)
+  box.select()
+  try {
+    document.execCommand('copy')
+  } catch {
+    /* nothing left to try */
+  }
+  box.remove()
+}
+
 /** Nobody is sitting anywhere, so anywhere clear will do. */
 function freeSpot(view: TableView) {
   const spots = [
@@ -672,15 +793,12 @@ function Sheet({
   const [copied, setCopied] = useState(false)
   const link = inviteLink(t.code)
 
+  // Copy it, always. The share sheet was a second decision on top of the one
+  // you had already made, and half the time it offered to post it somewhere.
   const share = async () => {
-    try {
-      if (navigator.share) await navigator.share({ title: 'suitfold', url: link })
-      else await navigator.clipboard.writeText(link)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
-    } catch {
-      /* dismissed */
-    }
+    await copyLink(link)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1800)
   }
 
   return (
@@ -697,12 +815,12 @@ function Sheet({
           <span>Code</span>
           <div className="code-big">{t.code}</div>
           <button className="btn" onClick={share}>
-            {copied ? 'Link copied' : 'Share the link'}
+            {copied ? 'Link copied' : 'Copy the link'}
           </button>
           <p className="fine">{t.peers + 1} here.</p>
         </div>
 
-        {t.host ? (
+        {t.dealer ? (
           <>
             <div className="fld">
               <span>Pick a game</span>
@@ -716,7 +834,7 @@ function Sheet({
                           <button
                             className="pick"
                             onClick={() => {
-                              t.host!.setup(p.id)
+                              t.dealer!.setup(p.id)
                               onClose()
                             }}
                           >

@@ -1,5 +1,6 @@
 import { joinRoom, selfId } from 'trystero/nostr'
 import type { Action, CardId, SeatId, TableView } from '../table/model.ts'
+import type { Command } from './dealer.ts'
 
 /**
  * There is no server. Browsers meet through public relays and then talk
@@ -34,6 +35,8 @@ export interface Snapshot {
   seat: SeatId | null
   /** Which revision of the table this is. Snapshots are whole, not deltas. */
   rev: number
+  /** Who is allowed to deal, when the table is not being held in a tab. */
+  dealer?: SeatId | null
 }
 
 /** Where somebody's pointer is, in table coordinates. Never stored. */
@@ -73,6 +76,12 @@ export interface Wire {
    * that went missing. The problem was never the loss, it was that nothing
    * ever told a client it had fallen behind.
    */
+  /**
+   * What the dealer wants done. Separate from actions because these are not
+   * changes to the table, they are instructions to whoever is holding it -
+   * shuffle, deal, take that back - and only one person may give them.
+   */
+  command: { send: Send<Command>; on: On<Command> }
   ping: { send: Send<number>; on: On<number> }
   resync: { send: Send<number>; on: On<number> }
   chat: { send: Send<string>; on: On<string> }
@@ -103,6 +112,7 @@ export function connect(roomCode: string): Wire {
     snapshot: channel<Snapshot>('snap'),
     drag: channel<Drag>('drag'),
     cursor: channel<Cursor>('cur'),
+    command: channel<Command>('cmd'),
     ping: channel<number>('ping'),
     resync: channel<number>('resyn'),
     chat: channel<string>('chat'),

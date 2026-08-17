@@ -28,10 +28,12 @@ export function BetBar({
   // settle one without the table doing arithmetic it has no business doing.
   const [want, setWant] = useState('')
 
-  // The useful amounts depend on the stack you are holding: the same four
-  // buttons are no good whether you have 80 or 8,000.
-  const unit = mine >= 4000 ? 100 : mine >= 1000 ? 25 : mine >= 300 ? 10 : 5
-  const quick = [unit, unit * 2, unit * 4, unit * 10].filter((n) => n < mine)
+  // Always the same four, in the same places, whether you are holding eighty
+  // or eight thousand. They used to rescale with your stack and drop out when
+  // you were low, so the button under your thumb was a different bet every
+  // time you looked down.
+  const unit = 25
+  const quick = [25, 50, 100, 250]
   const bet = (amount: number) => {
     if (amount <= 0) return
     act({ t: 'bet', seat: me, amount: Math.min(amount, mine) })
@@ -48,7 +50,7 @@ export function BetBar({
 
       <div className="betbar-amounts">
         {quick.map((n) => (
-          <button key={n} className="betbar-chip" onClick={() => bet(n)}>
+          <button key={n} className="betbar-chip" disabled={n > mine} onClick={() => bet(n)}>
             {money(n)}
           </button>
         ))}

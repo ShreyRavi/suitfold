@@ -1343,3 +1343,5 @@ input.betbar-custom-val {
 /* The moves you make over and over get a button of their own. */
 .mini.is-go { border-color: var(--accent); color: var(--accent); background: var(--accent-wash); }
 .mini.is-go:hover { background: var(--accent); color: var(--accent-on); }
+.betbar-chip:disabled { opacity: .35; cursor: default; border-color: var(--line); color: inherit; }
+.bar-code.is-copied { border-color: #1f6f3f; color: #1f6f3f; }

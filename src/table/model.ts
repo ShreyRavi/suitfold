@@ -237,6 +237,12 @@ export interface TableState {
   /** What everyone started with, so somebody arriving late can be bought in. */
   buyIn: number
   topZ: number
+  /**
+   * The cards put down by the last person to play. Bluff turns on being able
+   * to challenge exactly that set and no other, and without remembering it
+   * everybody has to agree from memory which cards were the ones in question.
+   */
+  lastPlay: CardId[]
   /** What the table was last set up with, for the toolbar label. */
   deckName: string
   /** Which preset, so the toolbar can offer that game's full deal. */
@@ -259,6 +265,7 @@ export const emptyTable = (): TableState => ({
   chipsOn: false,
   buyIn: 0,
   topZ: 0,
+  lastPlay: [],
   deckName: '',
   game: '',
 })
@@ -408,7 +415,7 @@ export function apply(s: TableState, a: Action): TableState {
         if (!c) continue
         cards[id] = { ...c, hand: null, x: a.x, y: a.y, faceUp: a.faceUp, z: ++z }
       }
-      return { ...s, cards, topZ: z }
+      return { ...s, cards, topZ: z, lastPlay: a.ids }
     }
 
     case 'reorder': {
@@ -670,6 +677,7 @@ export interface TableView {
   chipsOn: boolean
   deckName: string
   game: string
+  lastPlay: CardId[]
   handCounts: Record<SeatId, number>
 }
 
@@ -715,6 +723,7 @@ export function project(s: TableState, viewer: SeatId | null): TableView {
     chipsOn: s.chipsOn,
     deckName: s.deckName,
     game: s.game,
+    lastPlay: s.lastPlay,
     handCounts,
   }
 }

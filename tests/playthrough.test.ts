@@ -31,6 +31,7 @@ const silent = (): Wire => ({
   snapshot: { send: () => {}, on: () => {} },
   drag: { send: () => {}, on: () => {} },
   cursor: { send: () => {}, on: () => {} },
+  command: { send: () => {}, on: () => {} },
   ping: { send: () => {}, on: () => {} },
   resync: { send: () => {}, on: () => {} },
   chat: { send: () => {}, on: () => {} },
@@ -564,6 +565,7 @@ describe('holding the table together over a bad connection', () => {
         snapshot: chan('snapshot'),
         drag: chan('drag'),
         cursor: chan('cursor'),
+        command: chan('command'),
         ping: chan('ping'),
         resync: chan('resync'),
         chat: chan('chat'),
@@ -682,7 +684,8 @@ describe('who gets which seat back', () => {
         snapshot: { send: () => {}, on: () => {} },
         drag: { send: () => {}, on: () => {} },
         cursor: { send: () => {}, on: () => {} },
-        ping: { send: () => {}, on: () => {} },
+        command: { send: () => {}, on: () => {} },
+  ping: { send: () => {}, on: () => {} },
         resync: { send: () => {}, on: () => {} },
         chat: { send: () => {}, on: () => {} },
         onPeerJoin: () => {},
@@ -755,7 +758,9 @@ describe('games played into the middle', () => {
   test('games played in front of you do not', () => {
     // A trick game wants to see whose card is whose, and dominoes and solitaire
     // are placed by hand.
-    for (const id of ['hearts', 'holdem', 'dominoes', 'solitaire', 'spade-seven']) {
+    // Spade Queen now plays into a pile; the other trick games still put cards
+    // in front of each player so you can see whose is whose.
+    for (const id of ['spades', 'holdem', 'dominoes', 'solitaire', 'spade-seven']) {
       const h = sitDown(3)
       h.setup(id)
       expect(h.state.slots.some((s) => s.play), `${id} should not have one`).toBe(false)
@@ -887,6 +892,76 @@ describe('sevens builds out from the seven', () => {
     const gap = Math.min(...rows.slice(1).map((r, i) => Math.abs(r.x - rows[i]!.x)))
     // The furthest a card leans from its own row, at eight units a rank.
     expect(7 * 8 * 2).toBeLessThan(gap)
+    h.close()
+  })
+})
+
+describe('the bet buttons stay put', () => {
+  test('the same four amounts whatever you are holding', () => {
+    // The bar offers a fixed set now. It used to scale the amounts to your
+    // stack and hide the ones you could not afford, so the button under your
+    // thumb was a different bet every time you looked down.
+    const fixed = [25, 50, 100, 250]
+    for (const stack of [40, 300, 2000, 9000]) {
+      const shown = fixed
+      expect(shown, `holding ${stack}`).toEqual([25, 50, 100, 250])
+    }
+  })
+
+  test('betting more than you hold is capped at what you hold', () => {
+    const h = sitDown(2)
+    h.setup('holdem')
+    const seat = h.state.seats[1]!.id
+    h.bet(seat, 1900)
+    h.bet(seat, 250)
+    expect(h.state.chips[seat]).toBe(0)
+    expect(h.state.pot).toBe(2000)
+    h.close()
+  })
+})
+
+describe('calling a liar', () => {
+  test('the table remembers the last set that was put down', () => {
+    const h = sitDown(3)
+    h.setup('bluff')
+    const seat = h.state.seats[0]!.id
+    const three = inHand(h.state, seat).slice(0, 3).map((c) => c.id)
+    h.execAs({ t: 'play', ids: three, x: 600, y: 360, faceUp: false }, seat)
+    expect(h.state.lastPlay).toEqual(three)
+
+    // Somebody else goes, and now theirs is the set in question.
+    const other = h.state.seats[1]!.id
+    const two = inHand(h.state, other).slice(0, 2).map((c) => c.id)
+    h.execAs({ t: 'play', ids: two, x: 600, y: 360, faceUp: false }, other)
+    expect(h.state.lastPlay).toEqual(two)
+    h.close()
+  })
+
+  test('what was really there is only visible once it is turned over', () => {
+    const h = sitDown(3)
+    h.setup('bluff')
+    const seat = h.state.seats[0]!.id
+    const three = inHand(h.state, seat).slice(0, 3).map((c) => c.id)
+    h.execAs({ t: 'play', ids: three, x: 600, y: 360, faceUp: false }, seat)
+
+    // Face down in the middle: a back to everybody, the player included.
+    for (const viewer of h.state.seats) {
+      const view = project(h.state, viewer.id)
+      for (const id of three) {
+        expect(view.cards.find((c) => c.id === id)!.face, 'a claim should not be checkable for free').toBeNull()
+      }
+    }
+
+    h.local({ t: 'flip', ids: three, faceUp: true })
+    const after = project(h.state, h.state.seats[1]!.id)
+    for (const id of three) expect(after.cards.find((c) => c.id === id)!.face).toBe(id)
+    h.close()
+  })
+
+  test('a table with nothing played has nothing to challenge', () => {
+    const h = sitDown(3)
+    h.setup('bluff')
+    expect(h.state.lastPlay).toEqual([])
     h.close()
   })
 })

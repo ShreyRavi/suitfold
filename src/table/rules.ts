@@ -102,7 +102,7 @@ export const RULES: Record<string, Rules> = {
         items: [
           'Tap a number under your hand to announce your bid. Everybody sees it in the log.',
           'Play a card and it lands in the space in front of you, so you can see whose is whose.',
-          'Whoever wins the trick taps Take the trick, which sweeps up all of them at once.',
+          'Whoever wins the round taps Take the pile, which sweeps up all of them at once.',
           'Use Deal for the next round: one more card each, then one more, and so on.',
         ],
       },

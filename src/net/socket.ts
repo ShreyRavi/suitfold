@@ -1,5 +1,6 @@
 import type { Action, SeatId } from '../table/model.ts'
 import type { Cursor, Drag, Hello, PeerId, Snapshot, Wire } from './peers.ts'
+import type { Command } from './dealer.ts'
 
 /**
  * The same table, over one socket to a box you own.
@@ -103,6 +104,7 @@ export function connectTo(url: string, roomCode: string): Wire {
     snapshot: channel<Snapshot>('snapshot'),
     drag: channel<Drag>('drag'),
     cursor: channel<Cursor>('cursor'),
+    command: channel<Command>('command'),
     ping: channel<number>('ping'),
     resync: channel<number>('resync'),
     chat: channel<string>('chat'),
@@ -146,13 +148,36 @@ export function tableServer(): string {
 }
 
 /**
+ * A table being held somewhere that is not a browser - the Mac app, usually.
+ *
+ * Different from a relay: with a relay the deck still lives in whoever started
+ * the game, and this browser runs the Host. With this, nobody's tab holds
+ * anything. Close every window and the game is exactly where you left it.
+ */
+export function heldElsewhere(): string {
+  const asked = new URLSearchParams(location.search).get('table')
+  if (asked) {
+    localStorage.setItem('suitfold.table', asked)
+    return asked
+  }
+  return localStorage.getItem('suitfold.table') ?? ''
+}
+
+export const forgetTable = () => localStorage.removeItem('suitfold.table')
+
+/**
  * The link you send people. It has to carry the server, or whoever opens it
  * quietly talks peer to peer instead and never finds the table.
  */
 export function inviteLink(code: string): string {
+  const held = heldElsewhere()
   const server = tableServer()
   const base = `${location.origin}${location.pathname}`
-  const q = server ? `?server=${encodeURIComponent(server)}` : ''
+  const q = held
+    ? `?table=${encodeURIComponent(held)}`
+    : server
+      ? `?server=${encodeURIComponent(server)}`
+      : ''
   return `${base}${q}#${code}`
 }
 

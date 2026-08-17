@@ -3,7 +3,8 @@ import type { Action, CardId, SeatId, TableView } from '../table/model.ts'
 import { FACES, project } from '../table/model.ts'
 import { Host } from '../net/host.ts'
 import { cleanCode, connect, newCode, type Cursor, type Drag, type Wire } from '../net/peers.ts'
-import { connectTo, tableServer } from '../net/socket.ts'
+import { connectTo, heldElsewhere, tableServer } from '../net/socket.ts'
+import { remoteDealer, type Command, type Dealer } from '../net/dealer.ts'
 import { forget, kept, reopen, type Kept } from '../net/keep.ts'
 
 export type Stage = 'lobby' | 'joining' | 'table'
@@ -30,6 +31,12 @@ export interface Live {
   /** Tell everyone where your pointer is. Same deal: nothing is kept. */
   broadcastCursor: (c: Cursor) => void
   host: Host | null
+  /**
+   * The table's own controls. Backed by a Host in this tab when this tab is
+   * holding the table, and by messages when it is somewhere else - a little
+   * app on a Mac, say. Null when you are not the one dealing.
+   */
+  dealer: Dealer | null
   /** A table this tab was holding when it went away, if there is one. */
   unfinished: Kept | null
   resume: (name: string, emoji: string) => void
@@ -42,6 +49,8 @@ export interface Live {
  * arrive in order, and a reconnection that takes a second.
  */
 const link = (code: string): Wire => {
+  const held = heldElsewhere()
+  if (held) return connectTo(held, code)
   const server = tableServer()
   return server ? connectTo(server, code) : connect(code)
 }
@@ -77,6 +86,9 @@ export function useTable(): Live {
 
   const wire = useRef<Wire | null>(null)
   const host = useRef<Host | null>(null)
+  /** Set when the table is held elsewhere and this browser is the dealer. */
+  const [remote, setRemote] = useState(false)
+  const viewRef = useRef<TableView | null>(null)
   /** The revision of the table this browser has actually drawn. */
   const rev = useRef(0)
   /** When each live drag was last heard about, so a stuck one can be dropped. */
@@ -93,7 +105,11 @@ export function useTable(): Live {
       // arriving late must not undo a newer one that got here first.
       if (snap.rev < rev.current) return
       rev.current = snap.rev
+      viewRef.current = snap.view
       setView(snap.view)
+      // The table told us who deals. If that is us, we get the controls even
+      // though the deck is somewhere else entirely.
+      if (snap.dealer !== undefined) setRemote(snap.dealer === snap.seat)
       setMe(snap.seat)
       setStage('table')
     })
@@ -159,6 +175,12 @@ export function useTable(): Live {
   /** Open a table. `carryOn` puts back the one this tab was holding before. */
   const start = useCallback(
     (name: string, emoji: string, carryOn?: Kept) => {
+      // When the table is held elsewhere, starting one is just walking into an
+      // empty room: this browser holds nothing and deals because it is first.
+      if (heldElsewhere()) {
+        joinRoom(carryOn?.code ?? newCode(), name, emoji, true)
+        return
+      }
       const c = carryOn?.code ?? newCode()
       localStorage.setItem(NAME, name)
       localStorage.setItem(FACE, emoji)
@@ -176,7 +198,8 @@ export function useTable(): Live {
         'host',
         () => {
           rev.current++
-          setView(project(h.state, 'host'))
+          viewRef.current = project(h.state, 'host')
+          setView(viewRef.current)
           setMe('host')
           setStage('table')
         },
@@ -202,26 +225,35 @@ export function useTable(): Live {
     setUnfinished(null)
   }, [])
 
-  const join = useCallback(
-    (raw: string, name: string, emoji = rememberedFace()) => {
-      const c = cleanCode(raw)
-      if (c.length < 4) return
+  /** Walk into a room somebody else is holding, or a Mac app is. */
+  const joinRoom = useCallback(
+    (c: string, name: string, emoji: string, opened = false) => {
       localStorage.setItem(NAME, name)
       localStorage.setItem(FACE, emoji)
       setCode(c)
-      setIsHost(false)
+      setIsHost(opened)
       setStage('joining')
+      setUnfinished(null)
 
       const w = link(c)
       wire.current = w
       wireUp(w, name, false)
       const token = whoAmI()
       w.hello.send({ name, emoji, token })
-      // The host may not have heard the first hello, so say it a few times.
+      // Whoever is holding it may not have heard the first hello.
       const again = setInterval(() => w.hello.send({ name, emoji, token }), 2000)
       setTimeout(() => clearInterval(again), 20000)
     },
     [wireUp],
+  )
+
+  const join = useCallback(
+    (raw: string, name: string, emoji = rememberedFace()) => {
+      const c = cleanCode(raw)
+      if (c.length < 4) return
+      joinRoom(c, name, emoji)
+    },
+    [joinRoom],
   )
 
   const act = useCallback((a: Action) => {
@@ -297,6 +329,14 @@ export function useTable(): Live {
     broadcastDrag,
     broadcastCursor,
     host: host.current,
+    dealer:
+      host.current ??
+      (remote && wire.current
+        ? remoteDealer(
+            () => viewRef.current!,
+            (cmd: Command) => wire.current?.command.send(cmd),
+          )
+        : null),
     unfinished,
     resume,
     discard,

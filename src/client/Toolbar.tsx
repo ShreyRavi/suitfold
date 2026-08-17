@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Action, SeatId, TableView } from '../table/model.ts'
-import type { Host } from '../net/host.ts'
+import type { Dealer } from '../net/dealer.ts'
 import { money } from './Chips.tsx'
 import { presetById } from '../table/deck.ts'
 
@@ -15,7 +15,7 @@ export function Toolbar({
   onGames,
   act,
 }: {
-  host: Host | null
+  host: Dealer | null
   view: TableView
   me: SeatId | null
   onGames: () => void
@@ -106,7 +106,7 @@ function DealPanel({
   me,
   onDone,
 }: {
-  host: Host
+  host: Dealer
   view: TableView
   me: SeatId | null
   onDone: () => void
@@ -228,7 +228,7 @@ function ClockPanel({
   start,
   onDone,
 }: {
-  host: Host
+  host: Dealer
   view: TableView
   start: number
   onDone: () => void
@@ -306,7 +306,7 @@ const READY_MADE = [
   { label: 'OUT', hint: 'Out this round' },
 ]
 
-function MarkPanel({ host, view }: { host: Host; view: TableView }) {
+function MarkPanel({ host, view }: { host: Dealer; view: TableView }) {
   const [own, setOwn] = useState('')
 
   return (
@@ -374,7 +374,7 @@ function MarkPanel({ host, view }: { host: Host; view: TableView }) {
  * whether the bet is legal - only that you have the chips.
  */
 /** Tricks, points, lives - whatever this table is counting. */
-function ScorePanel({ host, view, me }: { host: Host; view: TableView; me: SeatId | null }) {
+function ScorePanel({ host, view, me }: { host: Dealer; view: TableView; me: SeatId | null }) {
   return (
     <div className="pop">
       <div className="pop-row">

@@ -164,6 +164,7 @@ const silent = (): Wire => ({
   snapshot: { send: () => {}, on: () => {} },
   drag: { send: () => {}, on: () => {} },
   cursor: { send: () => {}, on: () => {} },
+  command: { send: () => {}, on: () => {} },
   ping: { send: () => {}, on: () => {} },
   resync: { send: () => {}, on: () => {} },
   chat: { send: () => {}, on: () => {} },
@@ -406,7 +407,9 @@ describe('slots and scores', () => {
     const h = hosted(['A', 'B', 'C', 'D'])
     h.setup('hearts')
     const labels = h.state.slots.map((s) => s.label)
-    expect(labels).toContain('Trick')
+    // Spade Queen plays into one pile in the middle rather than in front of
+    // each player, so its marking says Pile.
+    expect(labels).toContain('Pile')
     // No slot per player any more: every seat has its own marked space in
     // front of it, and the two used to sit on top of each other.
     expect(labels.filter((l) => l.startsWith('Player')).length).toBe(0)

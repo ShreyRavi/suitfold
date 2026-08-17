@@ -16,6 +16,7 @@ import {
 } from '../table/model.ts'
 import { cryptoShuffle, place, presetById } from '../table/deck.ts'
 import { SEAT_COLOURS, type PeerId, type Wire } from './peers.ts'
+import type { Command, Dealer } from './dealer.ts'
 import { keep } from './keep.ts'
 
 /**
@@ -50,6 +51,10 @@ export class Host {
     this.wire.hello.on((hello, from) => this.seat(from, hello.name, hello.emoji, hello.token))
     this.wire.action.on((action, from) => this.fromPeer(action, from))
     this.wire.resync.on((_, from) => this.catchUp(from))
+    this.wire.command.on((cmd, from) => {
+      const seat = this.seatOf.get(from)
+      if (seat) this.command(cmd, seat)
+    })
     this.wire.onPeerLeave((id) => this.dropped(id))
 
     // Say where we are, often. It is four bytes and it is the only thing that
@@ -64,6 +69,7 @@ export class Host {
   }
 
   seatSelf(name: string, emoji?: string) {
+    this.dealer = this.mySeat
     this.commit([
       {
         t: 'seat_add',
@@ -83,6 +89,53 @@ export class Host {
     const taken = new Set(this.state.seats.filter((s) => s.id !== except).map((s) => s.emoji))
     if (wanted && !taken.has(wanted)) return wanted
     return FACES.find((f) => !taken.has(f)) ?? FACES[this.state.seats.length % FACES.length]!
+  }
+
+  /**
+   * Whoever is allowed to deal. Normally the person holding the deck, which is
+   * the same tab. When the table is held somewhere with nobody sitting at it -
+   * a little app on a Mac - it is the first person who sat down.
+   */
+  dealer: SeatId | null = null
+
+  /**
+   * Carry out an instruction from the dealer. Anybody else asking is ignored:
+   * these are the moves that would let one player quietly rearrange the game.
+   */
+  command(cmd: Command, from: SeatId) {
+    if (this.dealer !== null && from !== this.dealer) return
+    switch (cmd.c) {
+      case 'setup':
+        return this.setup(cmd.preset)
+      case 'dealHand':
+        return this.dealHand()
+      case 'deal':
+        return this.deal({ count: cmd.count, seats: cmd.seats, from: cmd.from, faceUp: cmd.faceUp })
+      case 'gather':
+        return this.gather()
+      case 'shuffle':
+        return this.shuffleStack(cmd.ids)
+      case 'undo':
+        return this.undo()
+      case 'roll':
+        return this.roll()
+      case 'clock':
+        return cmd.seconds === null ? this.stopClock() : this.startClock(cmd.seconds)
+      case 'puckAdd':
+        return this.addPuck(cmd.label, cmd.hint)
+      case 'puckRemove':
+        return this.removePuck(cmd.id)
+      case 'score':
+        return this.score(cmd.seat, cmd.by)
+      case 'scoresClear':
+        return this.clearScores()
+      case 'logClear':
+        return this.clearLog()
+      case 'buyIn':
+        return this.buyIn(cmd.each)
+      case 'removeSeat':
+        return this.removeSeat(cmd.seat)
+    }
   }
 
   /** Stop the heartbeat. The table is over. */
@@ -129,6 +182,9 @@ export class Host {
         )
     const returning = known ?? byName
     const id = returning?.id ?? `s${this.state.seats.length + 1}`
+    // Nobody is sitting in the deck's own seat when the table is held
+    // elsewhere, so the first person through the door deals.
+    if (this.dealer === null) this.dealer = id
     this.seatOf.set(peerId, id)
     this.peerOf.set(id, peerId)
     if (token) this.tokenOf.set(token, id)
@@ -324,7 +380,7 @@ export class Host {
   broadcast() {
     this.rev++
     for (const [peerId, seat] of this.seatOf) {
-      this.wire.snapshot.send({ view: project(this.state, seat), seat, rev: this.rev }, peerId)
+      this.wire.snapshot.send({ view: project(this.state, seat), seat, rev: this.rev, dealer: this.dealer }, peerId)
     }
     this.wire.ping.send(this.rev)
   }
@@ -332,7 +388,7 @@ export class Host {
   catchUp(peerId: PeerId) {
     const seat = this.seatOf.get(peerId)
     if (!seat) return
-    this.wire.snapshot.send({ view: project(this.state, seat), seat, rev: this.rev }, peerId)
+    this.wire.snapshot.send({ view: project(this.state, seat), seat, rev: this.rev, dealer: this.dealer }, peerId)
   }
 
   // -- setting the table ---------------------------------------------------
