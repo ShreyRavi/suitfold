@@ -852,9 +852,11 @@ describe('the moves you make over and over', () => {
     const names = PRESETS.map((p) => p.name)
     expect(new Set(names).size, 'two entries share a name').toBe(names.length)
     // Spade Queen was Hearts with a different label on it.
-    expect(names).toContain('Hearts')
+    expect(names).toContain('Spade Queen')
     expect(names).toContain('Sevens')
-    expect(names).not.toContain('Spade Queen')
+    // One entry, not the same game listed twice under two names.
+    expect(names.filter((n) => n === 'Spade Queen').length).toBe(1)
+    expect(names).not.toContain('Hearts')
     expect(names).not.toContain('Spade Seven')
   })
 })

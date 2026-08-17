@@ -263,9 +263,9 @@ export const PRESETS: Preset[] = [
   },
   {
     id: 'hearts',
-    name: 'Hearts',
+    name: 'Spade Queen',
     players: '4',
-    hint: 'Also called Spade Queen or Black Maria. Duck the hearts and the black lady',
+    hint: 'Also called Hearts or Black Maria. Duck the hearts and the black lady',
     group: 'card games',
     cards: () => standard(1),
     deal: 13,
