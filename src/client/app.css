@@ -1324,3 +1324,18 @@ input.betbar-custom-val {
 
 .how-server { max-width: 34rem; margin-top: var(--s-7); }
 .how-server .row { gap: var(--s-4); }
+
+/* ---- announcing what you put down ---------------------------------------- */
+/* Bluff is played by saying what you are putting down and being allowed to lie
+   about it. Typing that out cost more than the move it described. */
+.claim { display: flex; flex-direction: column; gap: 4px; margin-top: var(--s-4); }
+.claim-lbl { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--ink-faint); }
+.claim.is-ready .claim-lbl { color: var(--accent); }
+.claim-ranks { display: flex; gap: 3px; flex-wrap: wrap; }
+.claim-rank {
+  min-width: 30px; padding: 5px 4px; border-radius: 7px;
+  border: 1px solid var(--line); background: var(--paper-panel);
+  font-family: var(--font-mono); font-size: var(--text-md);
+}
+.claim-rank:disabled { opacity: .38; }
+.claim-rank:not(:disabled):hover { border-color: var(--accent); color: var(--accent); background: var(--accent-wash); }

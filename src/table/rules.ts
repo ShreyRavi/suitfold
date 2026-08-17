@@ -619,7 +619,7 @@ export const RULES: Record<string, Rules> = {
   bluff: {
     goal: 'Get rid of your cards. Lying is the whole point.',
     players: '3 to 8',
-    setup: ['Deal the whole deck out. Use "All of them" in the Deal menu.'],
+    setup: ['The whole deck is dealt out when you pick the game. Everybody starts holding a lot.'],
     play: [
       'The first player puts down some cards FACE DOWN and says what they are, starting with aces. "Two aces."',
       'The next player does the same with twos, then threes, and so on up the ranks.',
@@ -629,11 +629,12 @@ export const RULES: Record<string, Rules> = {
     winning: 'First to empty their hand, and survive the last challenge.',
     sections: [
       {
-        title: 'How to set it up here',
+        title: 'How it works here',
         items: [
-          'Open Deal, choose "All of them", and deal to everyone.',
-          'Play your cards face down into the middle with the Play face down button.',
-          'When somebody calls a bluff, turn the pile over with Flip all in the pile menu.',
+          'Tap the cards you want, then tap the rank you are claiming. That plays them face down into the pile and announces it, in one go.',
+          'To call somebody a liar, hold the pile and choose Flip all. Everybody sees what was really there.',
+          'Whoever lost the challenge holds the pile again and chooses Take into hand.',
+          'Everything is on the honour system, including the counting. The table will happily let you claim four aces twice.',
         ],
       },
     ],

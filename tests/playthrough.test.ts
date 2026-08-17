@@ -739,3 +739,34 @@ describe('who gets which seat back', () => {
     h.close()
   })
 })
+
+describe('games played into the middle', () => {
+  test('the games with a shared heap say so', () => {
+    const shared = ['bluff', 'snap', 'big-two', 'old-maid', 'uno', 'crazy-eights']
+    for (const id of shared) {
+      const h = sitDown(3)
+      h.setup(id)
+      const target = h.state.slots.find((s) => s.play)
+      expect(target, `${id} has nowhere shared to play`).toBeDefined()
+    }
+  })
+
+  test('games played in front of you do not', () => {
+    // A trick game wants to see whose card is whose, and dominoes and solitaire
+    // are placed by hand.
+    for (const id of ['hearts', 'holdem', 'dominoes', 'solitaire', 'spade-seven']) {
+      const h = sitDown(3)
+      h.setup(id)
+      expect(h.state.slots.some((s) => s.play), `${id} should not have one`).toBe(false)
+    }
+  })
+
+  test('there is never more than one place to play', () => {
+    for (const preset of PRESETS) {
+      const h = sitDown(3)
+      h.setup(preset.id)
+      const targets = h.state.slots.filter((s) => s.play)
+      expect(targets.length, `${preset.id} has ${targets.length} places to play`).toBeLessThanOrEqual(1)
+    }
+  })
+})

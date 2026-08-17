@@ -322,12 +322,48 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
             >
               Play face up
             </button>
-              {picked.length > 0 && (
-                <button className="mini" onClick={() => setPicked([])}>
-                  Clear
-                </button>
-              )}
+            {picked.length > 0 && (
+              <button className="mini" onClick={() => setPicked([])}>
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* In a game where you announce what you are putting down - and are
+              allowed to be lying about it - the announcement should not cost
+              more than the move. One tap plays the cards and says what they
+              are, truthfully or otherwise. */}
+          {presetById(view.game).claim && (
+            <div className={`claim ${picked.length ? 'is-ready' : ''}`}>
+              <span className="claim-lbl">
+                {picked.length ? `Put ${picked.length} down as` : 'Pick your cards, then say what they are'}
+              </span>
+              <div className="claim-ranks">
+                {RANKS.map((r) => (
+                  <button
+                    key={r}
+                    className="claim-rank"
+                    disabled={!picked.length}
+                    onClick={() => {
+                      const n = picked.length
+                      play(picked, false)
+                      if (t.me) {
+                        t.act({
+                          t: 'say',
+                          seat: t.me,
+                          text: `${n} × ${r === 'T' ? '10' : r}`,
+                        })
+                      }
+                      setPicked([])
+                    }}
+                  >
+                    {r === 'T' ? '10' : r}
+                  </button>
+                ))}
+              </div>
             </div>
+          )}
+
             {view.chipsOn && t.me && <BetBar view={view} me={t.me} act={t.act} />}
           </div>
 
@@ -438,9 +474,19 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
  * everybody else's ended up in one heap nobody could read.
  */
 function myPlace(view: TableView, me: SeatId | null) {
+  // Some games are played into a shared heap in the middle: the pile in Bluff
+  // and Snap, the discard in Uno, the pairs in Old Maid. In those, the space in
+  // front of you is exactly the wrong place, and putting cards there meant
+  // dragging them to the middle afterwards on every single turn.
+  const shared = view.slots.find((s) => s.play)
+  if (shared) return { x: shared.x, y: shared.y }
+
   const mine = seatPlaces(view.seats).find((p) => p.seat.id === me)
   return mine ? mine.drop : freeSpot(view)
 }
+
+/** What you can claim to be putting down, which need not be true. */
+const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K']
 
 /** Nobody is sitting anywhere, so anywhere clear will do. */
 function freeSpot(view: TableView) {

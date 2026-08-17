@@ -135,6 +135,12 @@ export interface Preset {
   clock?: number
   /** Somewhere private to write. Boggle needs one, Yahtzee needs one. */
   pad?: string
+  /**
+   * You announce what you are putting down, and you are allowed to be lying.
+   * Without this the announcement has to be typed out, which costs more than
+   * the move it is describing.
+   */
+  claim?: boolean
 }
 
 const CX = TABLE_W / 2
@@ -145,16 +151,25 @@ const CY = TABLE_H / 2
  * sit on the felt and somebody drags them one seat to the left between hands,
  * which is exactly what the plastic discs on a real table are for.
  */
+// Tucked under the deck rather than floating in the middle of nothing.
 const blinds = (): Puck[] => [
-  { id: 'pk-d', x: CX - 470, y: CY + 60, label: 'D', hint: 'Dealer button' },
-  { id: 'pk-sb', x: CX - 414, y: CY + 60, label: 'SB', hint: 'Small blind' },
-  { id: 'pk-bb', x: CX - 358, y: CY + 60, label: 'BB', hint: 'Big blind' },
+  { id: 'pk-d', x: CX - 476, y: CY + 110, label: 'D', hint: 'Dealer button' },
+  { id: 'pk-sb', x: CX - 420, y: CY + 110, label: 'SB', hint: 'Small blind' },
+  { id: 'pk-bb', x: CX - 364, y: CY + 110, label: 'BB', hint: 'Big blind' },
 ]
+
+/**
+ * Dominoes builds a line across the table, so there is nowhere sensible to send
+ * a bone automatically - stacking them all on one spot would be worse than
+ * making you place them. Just the boneyard, then.
+ */
+const boneyard = (): Slot[] => [{ id: 'draw', x: CX - 380, y: CY, label: 'Boneyard' }]
 
 /** Draw pile on the left of centre, discard on the right. */
 const drawDiscard = (): Slot[] => [
   { id: 'draw', x: CX - CARD_GAP / 2 - 12, y: CY, label: 'Draw' },
-  { id: 'discard', x: CX + CARD_GAP / 2 + 12, y: CY, label: 'Discard' },
+  // What you play goes on the discard, which is the whole shape of these games.
+  { id: 'discard', x: CX + CARD_GAP / 2 + 12, y: CY, label: 'Discard', play: true },
 ]
 
 /**
@@ -182,11 +197,14 @@ export const PRESETS: Preset[] = [
     deal: 2,
     layout: 'pile',
     // The middle of the table is the board, and the spaces in front of each
-    // player are theirs, so the deck and the pot go out to the side.
+    // player are theirs, so the deck and the pot go out to the sides - but in
+    // line with the board, not off in a corner. The pot had been stranded up in
+    // the top right, which is nowhere near the cards it belongs to or the
+    // people pushing chips into it.
     slots: () => [
-      { id: 'deck', x: CX - 430, y: CY - 110, label: 'Deck' },
+      { id: 'deck', x: CX - 420, y: CY, label: 'Deck' },
       { id: 'board', x: CX, y: CY, label: 'Board', wide: 5 },
-      { id: 'pot', x: CX + 430, y: CY - 110, label: 'Pot' },
+      { id: 'pot', x: CX + 420, y: CY, label: 'Pot', small: true },
     ],
     chips: 2000,
     hand: { each: 2, board: 5, boardSlot: 'board' },
@@ -290,7 +308,7 @@ export const PRESETS: Preset[] = [
     cards: () => standard(1),
     deal: -1,
     layout: 'pile',
-    slots: () => [{ id: 'play', x: CX, y: CY, label: 'Play' }],
+    slots: () => [{ id: 'play', x: CX, y: CY, label: 'Play', play: true }],
   },
 
   // -- family -------------------------------------------------------------
@@ -327,7 +345,8 @@ export const PRESETS: Preset[] = [
     cards: () => standard(1),
     deal: -1,
     layout: 'pile',
-    slots: () => [{ id: 'pile', x: CX, y: CY, label: 'Pile' }],
+    slots: () => [{ id: 'pile', x: CX, y: CY, label: 'Pile', play: true }],
+    claim: true,
   },
   {
     id: 'go-fish',
@@ -350,7 +369,7 @@ export const PRESETS: Preset[] = [
     cards: oldMaid,
     deal: -1,
     layout: 'pile',
-    slots: () => [{ id: 'pairs', x: CX, y: CY, label: 'Pairs', wide: 4 }],
+    slots: () => [{ id: 'pairs', x: CX, y: CY, label: 'Pairs', wide: 4, play: true }],
   },
   {
     id: 'war',
@@ -375,7 +394,7 @@ export const PRESETS: Preset[] = [
     cards: () => standard(1),
     deal: -1,
     layout: 'pile',
-    slots: () => [{ id: 'pile', x: CX, y: CY, label: 'Pile' }],
+    slots: () => [{ id: 'pile', x: CX, y: CY, label: 'Pile', play: true }],
   },
   {
     id: 'solitaire',
@@ -520,7 +539,7 @@ export const PRESETS: Preset[] = [
     // leaves a boneyard to draw from rather than dealing the whole set out.
     deal: dealDominoes,
     layout: 'pile',
-    slots: drawDiscard,
+    slots: boneyard,
     hand: { each: dealDominoes },
   },
   {

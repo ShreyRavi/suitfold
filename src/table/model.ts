@@ -122,6 +122,17 @@ export interface Slot {
   shade?: string
   /** Small print in the corner of a cell: a square number, a word score. */
   note?: string
+  /** Drawn as a compact box: for a spot that holds chips, not cards. */
+  small?: boolean
+  /**
+   * Cards you play go here rather than into the space in front of you.
+   *
+   * Some games are played into a shared heap in the middle - Bluff, Snap, the
+   * discard pile in Uno - and in those the space in front of each player is
+   * exactly the wrong place. Without this, every turn of Bluff was: choose the
+   * cards, play them, then drag them to the middle. Thirty times a game.
+   */
+  play?: boolean
 }
 
 /**

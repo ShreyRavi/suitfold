@@ -321,11 +321,15 @@ export function Table({
           ) : (
             <div
               key={slot.id}
-              className="slot"
-              style={{
-                transform: `translate(${slot.x - (slot.wide ? (slot.wide * CARD_GAP) / 2 : CARD_W / 2)}px, ${slot.y - CARD_H / 2}px)`,
-                width: slot.wide ? slot.wide * CARD_GAP : CARD_W,
-              }}
+              className={`slot ${slot.small ? 'slot--small' : ''}`}
+              style={
+                slot.small
+                  ? { transform: `translate(${slot.x - 46}px, ${slot.y - 34}px)`, width: 92, height: 68 }
+                  : {
+                      transform: `translate(${slot.x - (slot.wide ? (slot.wide * CARD_GAP) / 2 : CARD_W / 2)}px, ${slot.y - CARD_H / 2}px)`,
+                      width: slot.wide ? slot.wide * CARD_GAP : CARD_W,
+                    }
+              }
               aria-hidden="true"
             >
               <span className="slot-label">{slot.label}</span>
