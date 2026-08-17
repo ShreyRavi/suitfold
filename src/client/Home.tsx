@@ -3,6 +3,7 @@ import { useState as useLocal } from 'react'
 import { ALL_FACES, FACES } from '../table/model.ts'
 import { GROUPS, PRESETS } from '../table/deck.ts'
 import { cleanCode } from '../net/peers.ts'
+import { rememberServer, tableServer } from '../net/socket.ts'
 import { Card } from './Card.tsx'
 
 /**
@@ -203,6 +204,17 @@ export function Home({
             <b>Pick a game and deal.</b> One press lays the whole table out.
           </li>
         </ol>
+        <div className="fld how-server">
+          <span>Your own table server (optional)</span>
+          <ServerBox />
+          <p className="fine">
+            Leave this empty and browsers talk to each other directly, which needs nothing and
+            works. Point it at a box you run and everything goes over one socket instead: messages
+            arrive in order, reconnecting takes a second, and no public relay is involved. The
+            server forwards sealed messages and never sees a card.
+          </p>
+        </div>
+
         <p className="how-note">
           There is no server. The browsers talk to each other directly, so nothing you do here is
           stored anywhere - close the tab and the game is over. Whoever starts the table is holding
@@ -214,6 +226,36 @@ export function Home({
         <span>suitfold</span>
         <span>free, and always will be - there is nothing to charge for</span>
       </footer>
+    </div>
+  )
+}
+
+/** Where the table server is, if you run one. Kept in this browser. */
+function ServerBox() {
+  const [url, setUrl] = useState(tableServer())
+  const [saved, setSaved] = useState(false)
+  return (
+    <div className="row">
+      <input
+        className="code-in"
+        style={{ textTransform: 'none', letterSpacing: 0 }}
+        value={url}
+        onChange={(e) => {
+          setUrl(e.target.value)
+          setSaved(false)
+        }}
+        placeholder="wss://table.example.com"
+        aria-label="Table server address"
+      />
+      <button
+        className="btn"
+        onClick={() => {
+          rememberServer(url.trim())
+          setSaved(true)
+        }}
+      >
+        {saved ? 'Saved' : 'Use this'}
+      </button>
     </div>
   )
 }

@@ -3,6 +3,7 @@ import type { CardId, SeatId, TableView } from '../table/model.ts'
 import { TABLE_H, TABLE_W, seatPlaces } from '../table/model.ts'
 import { GROUPS, PRESETS } from '../table/deck.ts'
 import { cleanCode } from '../net/peers.ts'
+import { inviteLink } from '../net/socket.ts'
 import { rememberedFace, rememberedName, suggestFace, suggestName, useTable } from './useTable.ts'
 import { Table, toTableCoords } from './Table.tsx'
 import { Home, Invite } from './Home.tsx'
@@ -494,7 +495,7 @@ function Sheet({
   onRules: (id: string) => void
 }) {
   const [copied, setCopied] = useState(false)
-  const link = `${location.origin}${location.pathname}#${t.code}`
+  const link = inviteLink(t.code)
 
   const share = async () => {
     try {

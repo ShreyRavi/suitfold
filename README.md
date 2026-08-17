@@ -75,6 +75,15 @@ code. Sharing the link works too - `…/suitfold/#ABC23` fills the code in.
   so calling a bet is one tap rather than dragging seven discs. Nothing is enforced - the
   table only checks you have the chips, never whether the bet was legal.
 
+## Running your own table server
+
+Optional, and off by default. Browsers talk to each other directly and that
+needs nothing. If you would rather everything went through a box you own - so
+messages arrive in order, reconnecting takes a second, and no public relay is
+involved - there is a small server in [`server/`](server/README.md) with a
+Dockerfile that Coolify can deploy as it stands. It forwards sealed messages and
+never sees a card.
+
 ## Games
 
 Thirty three of them now, and not all of them are card games. The table grew a

@@ -3,6 +3,7 @@ import type { Action, CardId, SeatId, TableView } from '../table/model.ts'
 import { FACES, project } from '../table/model.ts'
 import { Host } from '../net/host.ts'
 import { cleanCode, connect, newCode, type Cursor, type Drag, type Wire } from '../net/peers.ts'
+import { connectTo, tableServer } from '../net/socket.ts'
 import { forget, kept, reopen, type Kept } from '../net/keep.ts'
 
 export type Stage = 'lobby' | 'joining' | 'table'
@@ -33,6 +34,16 @@ export interface Live {
   unfinished: Kept | null
   resume: (name: string, emoji: string) => void
   discard: () => void
+}
+
+/**
+ * Peer to peer by default, which needs nothing at all. Point it at a table
+ * server and it uses that instead: one socket to a box you own, messages that
+ * arrive in order, and a reconnection that takes a second.
+ */
+const link = (code: string): Wire => {
+  const server = tableServer()
+  return server ? connectTo(server, code) : connect(code)
 }
 
 const NAME = 'suitfold.name'
@@ -134,7 +145,7 @@ export function useTable(): Live {
     w.onPeerJoin((id) => {
       setPeers(w.peers().length)
       if (asHost) setTimeout(() => host.current?.catchUp(id), 500)
-      else w.hello.send({ name }, id)
+      else w.hello.send({ name, emoji: rememberedFace(), token: whoAmI() }, id)
     })
 
     w.onPeerLeave(() => {
@@ -156,7 +167,7 @@ export function useTable(): Live {
       setStage('joining')
       setUnfinished(null)
 
-      const w = connect(c)
+      const w = link(c)
       wire.current = w
       wireUp(w, name, true)
 
@@ -201,7 +212,7 @@ export function useTable(): Live {
       setIsHost(false)
       setStage('joining')
 
-      const w = connect(c)
+      const w = link(c)
       wire.current = w
       wireUp(w, name, false)
       const token = whoAmI()

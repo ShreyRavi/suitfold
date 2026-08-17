@@ -1321,3 +1321,6 @@ input.betbar-custom-val {
 .felt-tray { position: absolute; top: 0; left: 0; z-index: 3; pointer-events: none; }
 .pot .tray-col { width: 24px; height: 46px; }
 .pot .tray-col i { width: 24px; height: 8px; }
+
+.how-server { max-width: 34rem; margin-top: var(--s-7); }
+.how-server .row { gap: var(--s-4); }
