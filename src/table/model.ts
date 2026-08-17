@@ -249,6 +249,16 @@ export interface TableState {
   game: string
 }
 
+/**
+ * What the two ends of the wire agree a table looks like.
+ *
+ * Bumped when something is added that an older table cannot supply and a newer
+ * client actually needs. The table stamps every snapshot with it, so a client
+ * can say "that one is older than me" plainly rather than falling over on a
+ * field that is not there.
+ */
+export const WIRE = 1
+
 export const emptyTable = (): TableState => ({
   cards: {},
   seats: [],
@@ -679,6 +689,40 @@ export interface TableView {
   game: string
   lastPlay: CardId[]
   handCounts: Record<SeatId, number>
+}
+
+/**
+ * Whatever arrived, shaped like a table.
+ *
+ * A snapshot comes from somewhere that might be an older build than this one -
+ * the Mac app is a binary, and it updates when somebody downloads it rather
+ * than when the site deploys. A field it has never heard of arrives as nothing,
+ * and reading `.length` off nothing takes the whole screen down.
+ *
+ * So nothing reads a snapshot directly. Everything missing gets the empty
+ * table's answer, which is the right answer for every field so far: no cards,
+ * no dice, nobody sitting anywhere.
+ */
+export function asView(raw: Partial<TableView> | null | undefined): TableView {
+  const base = emptyTable()
+  return {
+    cards: raw?.cards ?? [],
+    seats: raw?.seats ?? [],
+    slots: raw?.slots ?? [],
+    pucks: raw?.pucks ?? [],
+    dice: raw?.dice ?? [],
+    lines: raw?.lines ?? [],
+    timer: raw?.timer ?? base.timer,
+    log: raw?.log ?? [],
+    scores: raw?.scores ?? {},
+    chips: raw?.chips ?? {},
+    pot: raw?.pot ?? 0,
+    chipsOn: raw?.chipsOn ?? false,
+    deckName: raw?.deckName ?? '',
+    game: raw?.game ?? '',
+    lastPlay: raw?.lastPlay ?? [],
+    handCounts: raw?.handCounts ?? {},
+  }
 }
 
 /**

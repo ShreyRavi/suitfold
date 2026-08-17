@@ -584,6 +584,12 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
 
       {sheet && <Sheet t={t} onClose={() => setSheet(false)} onRules={(id) => setRules(id)} />}
       {rules && <Rules gameId={rules} onClose={() => setRules(null)} />}
+      {t.oldTable && (
+        <div className="stale">
+          This table is being held by an older version of suitfold. Most things will work; some
+          newer bits will not. Update the app that is holding it.
+        </div>
+      )}
       {t.note && <div className="note">{t.note}</div>}
     </div>
   )

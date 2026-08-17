@@ -37,6 +37,8 @@ export interface Snapshot {
   rev: number
   /** Who is allowed to deal, when the table is not being held in a tab. */
   dealer?: SeatId | null
+  /** Which version of the wire the table speaks. Absent means older than 1. */
+  wire?: number
 }
 
 /** Where somebody's pointer is, in table coordinates. Never stored. */

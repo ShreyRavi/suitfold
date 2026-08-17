@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import {
   TABLE_H,
   TABLE_W,
+  WIRE,
+  asView,
   inHand,
   onTable,
   project,
@@ -963,5 +965,63 @@ describe('calling a liar', () => {
     h.setup('bluff')
     expect(h.state.lastPlay).toEqual([])
     h.close()
+  })
+})
+
+describe('a table older than the page looking at it', () => {
+  test('a snapshot missing everything is still a table', () => {
+    // What a build from before any of this would send.
+    const ancient = asView({ cards: [], seats: [] } as never)
+    expect(ancient.lastPlay).toEqual([])
+    expect(ancient.dice).toEqual([])
+    expect(ancient.lines).toEqual([])
+    expect(ancient.pucks).toEqual([])
+    expect(ancient.log).toEqual([])
+    expect(ancient.timer.endsAt).toBeNull()
+    expect(ancient.pot).toBe(0)
+    expect(ancient.chipsOn).toBe(false)
+    expect(ancient.handCounts).toEqual({})
+  })
+
+  test('nothing at all is still a table', () => {
+    for (const nothing of [null, undefined, {}]) {
+      const view = asView(nothing as never)
+      // The things the screen reads a length off, which is what took it down.
+      expect(view.cards.length).toBe(0)
+      expect(view.lastPlay.length).toBe(0)
+      expect(view.seats.length).toBe(0)
+      expect(view.slots.length).toBe(0)
+      expect(view.dice.length).toBe(0)
+    }
+  })
+
+  test('what is there is kept, exactly', () => {
+    const h = sitDown(3)
+    h.setup('holdem')
+    const real = project(h.state, h.state.seats[1]!.id)
+    const through = asView(real)
+    expect(through.cards.length).toBe(real.cards.length)
+    expect(through.game).toBe('holdem')
+    expect(through.chipsOn).toBe(true)
+    expect(through.pot).toBe(real.pot)
+    h.close()
+  })
+
+  test('every field of a real view survives the trip', () => {
+    const h = sitDown(2)
+    h.setup('boggle')
+    h.roll()
+    const real = project(h.state, h.state.seats[0]!.id)
+    const through = asView(real)
+    // If a field is ever added and not taught to asView, this catches it.
+    for (const key of Object.keys(real) as (keyof typeof real)[]) {
+      expect(through[key], `asView dropped ${key}`).toBeDefined()
+    }
+    expect(Object.keys(through).sort()).toEqual(Object.keys(real).sort())
+    h.close()
+  })
+
+  test('the table stamps which wire it speaks', () => {
+    expect(WIRE).toBeGreaterThan(0)
   })
 })

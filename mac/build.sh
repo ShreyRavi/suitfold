@@ -10,6 +10,11 @@ cd "$(dirname "$0")/.."
 APP="build/suitfold.app"
 ID="${SUITFOLD_SIGN_ID:-Developer ID Application}"
 
+echo "==> building the front end"
+# The app carries the client it was built with, so the two can never disagree
+# about what a table looks like - and a game works with the internet unplugged.
+bun run build
+
 echo "==> compiling the table"
 bun build server/table.ts --compile --minify --outfile build/suitfold-table
 
@@ -21,6 +26,8 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp build/Suitfold "$APP/Contents/MacOS/suitfold"
 cp build/suitfold-table "$APP/Contents/Resources/suitfold-table"
+rm -rf "$APP/Contents/Resources/web"
+cp -R dist "$APP/Contents/Resources/web"
 cp mac/Info.plist "$APP/Contents/Info.plist"
 [ -f mac/icon.icns ] && cp mac/icon.icns "$APP/Contents/Resources/icon.icns"
 

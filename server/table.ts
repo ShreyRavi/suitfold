@@ -17,6 +17,20 @@ import { emptyTable, type TableState } from '../src/table/model.ts'
 import type { Hello, PeerId, Wire } from '../src/net/peers.ts'
 
 const PORT = Number(process.env.PORT ?? 8123)
+/**
+ * The front end, served by the same thing that holds the table.
+ *
+ * This is the fix for a whole class of bug rather than one instance of it. The
+ * website updates every time it is deployed; this binary updates when somebody
+ * downloads a new one. Left alone, a browser on today's build ends up talking
+ * to a table from three months ago, and every field added in between is a
+ * crash waiting to happen.
+ *
+ * So the app hands out the client it was built with. They cannot disagree,
+ * because they are the same build. It also means a game works with the
+ * internet unplugged, which is worth having on its own.
+ */
+const WEB = process.env.SUITFOLD_WEB ?? ''
 const HOME = process.env.SUITFOLD_HOME ?? join(process.env.HOME ?? '.', 'Library/Application Support/suitfold')
 /** A table nobody has come back to in a day is last week's game. */
 const STALE = 24 * 60 * 60 * 1000
@@ -146,7 +160,7 @@ const server = Bun.serve<Seat, Record<string, never>>({
   port: PORT,
   hostname: '0.0.0.0',
 
-  fetch(req, srv) {
+  async fetch(req, srv) {
     const url = new URL(req.url)
 
     if (url.pathname === '/health') {
@@ -167,6 +181,16 @@ const server = Bun.serve<Seat, Record<string, never>>({
       const id = crypto.randomUUID()
       if (srv.upgrade(req, { data: { id, code } })) return undefined
       return new Response('expected a websocket', { status: 426 })
+    }
+
+    // Anything else is the front end, if we are carrying one.
+    if (WEB) {
+      const wanted = url.pathname === '/' ? '/index.html' : url.pathname
+      const file = Bun.file(join(WEB, wanted.replace(/\.\./g, '')))
+      if (await file.exists()) return new Response(file)
+      // A single page app: unknown paths are still the app.
+      const index = Bun.file(join(WEB, 'index.html'))
+      if (await index.exists()) return new Response(index)
     }
 
     return new Response('suitfold table', { status: 200 })

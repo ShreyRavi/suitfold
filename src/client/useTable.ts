@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Action, CardId, SeatId, TableView } from '../table/model.ts'
-import { FACES, project } from '../table/model.ts'
+import { FACES, WIRE, asView, project } from '../table/model.ts'
 import { Host } from '../net/host.ts'
 import { cleanCode, connect, newCode, type Cursor, type Drag, type Wire } from '../net/peers.ts'
 import { connectTo, heldElsewhere, tableServer } from '../net/socket.ts'
@@ -21,6 +21,8 @@ export interface Live {
   cursors: Record<SeatId, Cursor>
   peers: number
   note: string | null
+  /** The table is held by an older build than this page. */
+  oldTable: boolean
   create: (name: string, emoji: string) => void
   join: (code: string, name: string, emoji?: string) => void
   leave: () => void
@@ -66,10 +68,29 @@ const TOKEN = 'suitfold.who'
 function whoAmI(): string {
   let id = localStorage.getItem(TOKEN)
   if (!id) {
-    id = crypto.randomUUID()
+    id = freshId()
     localStorage.setItem(TOKEN, id)
   }
   return id
+}
+
+/**
+ * randomUUID only exists where the page is considered secure, and a table held
+ * on a Mac is served over plain http at an address like 10.0.0.4 - which is
+ * not. getRandomValues has no such rule, so the fallback is just as unguessable
+ * and works everywhere.
+ */
+function freshId(): string {
+  if (typeof crypto.randomUUID === 'function') {
+    try {
+      return crypto.randomUUID()
+    } catch {
+      /* not allowed here */
+    }
+  }
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
 export function useTable(): Live {
@@ -83,6 +104,8 @@ export function useTable(): Live {
   const [unfinished, setUnfinished] = useState<Kept | null>(() => kept())
   const [peers, setPeers] = useState(0)
   const [note, setNote] = useState<string | null>(null)
+  /** Set when the table is running an older build than this page. */
+  const [oldTable, setOldTable] = useState(false)
 
   const wire = useRef<Wire | null>(null)
   const host = useRef<Host | null>(null)
@@ -105,8 +128,12 @@ export function useTable(): Live {
       // arriving late must not undo a newer one that got here first.
       if (snap.rev < rev.current) return
       rev.current = snap.rev
-      viewRef.current = snap.view
-      setView(snap.view)
+      // Never read a snapshot straight: it may come from a build that had
+      // never heard of half of these fields.
+      const view = asView(snap.view)
+      viewRef.current = view
+      setView(view)
+      setOldTable((snap.wire ?? 0) < WIRE)
       // The table told us who deals. If that is us, we get the controls even
       // though the deck is somewhere else entirely.
       if (snap.dealer !== undefined) setRemote(snap.dealer === snap.seat)
@@ -322,6 +349,7 @@ export function useTable(): Live {
     cursors,
     peers,
     note,
+    oldTable,
     create,
     join,
     leave,

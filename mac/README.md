@@ -37,6 +37,27 @@ The app bundles a compiled copy of `server/table.ts`, which is the same `Host`
 class the browser runs. There is one implementation of the rules and one of the
 secrecy boundary; this only changes where they run.
 
+## Why it serves the web page too
+
+The app carries the front end it was built with and hands it out itself, so the
+link points at the Mac rather than at the website.
+
+That is not a convenience, it is the fix for a whole class of bug. The website
+updates every time it is deployed; this app updates when somebody downloads a
+new one. Left alone, a browser on today's build ends up talking to a table from
+three months ago, and every field added in between is a crash waiting to
+happen - which is exactly what happened once during development. Serving both
+halves from the same binary means they cannot disagree, because they are the
+same build.
+
+It also means a game works with the internet unplugged, which is worth having
+on its own.
+
+Two things follow from serving over a plain address like `http://10.0.0.4`:
+the browser does not consider it a secure page, so `crypto.randomUUID` and the
+clipboard API are simply not there. Both have fallbacks that work everywhere,
+and both are exercised by a game played over the LAN.
+
 ## What it does not do
 
 It cannot make your Mac reachable from outside your house - a laptop behind a

@@ -2,6 +2,7 @@ import type { Action, CardId, Note, SeatId, TableState } from '../table/model.ts
 import {
   CARD_GAP,
   FACES,
+  WIRE,
   TABLE_H,
   TABLE_W,
   apply,
@@ -380,7 +381,7 @@ export class Host {
   broadcast() {
     this.rev++
     for (const [peerId, seat] of this.seatOf) {
-      this.wire.snapshot.send({ view: project(this.state, seat), seat, rev: this.rev, dealer: this.dealer }, peerId)
+      this.wire.snapshot.send({ view: project(this.state, seat), seat, rev: this.rev, dealer: this.dealer, wire: WIRE }, peerId)
     }
     this.wire.ping.send(this.rev)
   }
@@ -388,7 +389,7 @@ export class Host {
   catchUp(peerId: PeerId) {
     const seat = this.seatOf.get(peerId)
     if (!seat) return
-    this.wire.snapshot.send({ view: project(this.state, seat), seat, rev: this.rev, dealer: this.dealer }, peerId)
+    this.wire.snapshot.send({ view: project(this.state, seat), seat, rev: this.rev, dealer: this.dealer, wire: WIRE }, peerId)
   }
 
   // -- setting the table ---------------------------------------------------

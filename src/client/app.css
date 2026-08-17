@@ -1347,3 +1347,12 @@ input.betbar-custom-val {
 .bar-code.is-copied { border-color: #1f6f3f; color: #1f6f3f; }
 .how-mac { max-width: 34rem; margin-top: var(--s-7); }
 .how-mac .btn { align-self: flex-start; text-decoration: none; }
+
+/* The table is older than this page. Say so rather than half working. */
+.stale {
+  position: fixed; z-index: 300; left: 50%; transform: translateX(-50%);
+  top: calc(env(safe-area-inset-top, 0px) + 58px);
+  max-width: min(30rem, 92vw); padding: var(--s-5) var(--s-7);
+  border-radius: var(--r-panel); font-size: var(--text-md);
+  background: #7a5c1f; color: #fff; box-shadow: 0 8px 26px rgba(0,0,0,.28);
+}

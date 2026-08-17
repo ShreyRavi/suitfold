@@ -14,9 +14,6 @@ import SwiftUI
 // button, it does not get throttled for being in the background, and it stops
 // the Mac dropping off to sleep in the middle of a hand.
 
-/// Where the front end lives. The app points browsers at it with the address of
-/// this Mac attached, so joining is a link rather than an installation.
-let site = "https://shreyravi.github.io/suitfold/"
 let port = 8123
 
 // MARK: - the table process
@@ -46,10 +43,12 @@ final class Table: ObservableObject {
         "ws://\(Self.lanIP() ?? "localhost"):\(port)"
     }
 
+    /// The app serves the front end itself, so the page and the table are always
+    /// the same build and there is nothing to keep in step. It also means this
+    /// works with the internet unplugged.
     var joinLink: String {
-        var bits = URLComponents(string: site)!
-        bits.queryItems = [URLQueryItem(name: "table", value: lanAddress)]
-        return (bits.url?.absoluteString ?? site) + "#" + code
+        let host = Self.lanIP() ?? "localhost"
+        return "http://\(host):\(port)/?table=ws://\(host):\(port)#\(code)"
     }
 
     func start() {
@@ -63,8 +62,10 @@ final class Table: ObservableObject {
 
         let p = Process()
         p.executableURL = binary
+        let web = Bundle.main.url(forResource: "web", withExtension: nil)?.path ?? ""
         p.environment = ProcessInfo.processInfo.environment.merging([
-            "PORT": String(port)
+            "PORT": String(port),
+            "SUITFOLD_WEB": web,
         ]) { _, new in new }
         p.terminationHandler = { [weak self] _ in
             Task { @MainActor in self?.stopped() }
