@@ -1,0 +1,28 @@
+name: mac app
+
+# Builds the Mac app on a tag. Signing and notarising need credentials, so this
+# only builds and checks it compiles; the signed release is cut from a Mac with
+# the certificate on it, using mac/build.sh and mac/notarise.sh.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: compile the table server
+        run: bun build server/table.ts --compile --minify --outfile build/suitfold-table
+      - name: compile the app
+        run: swiftc -O -parse-as-library mac/Suitfold.swift -o build/Suitfold
+      - name: check it starts
+        run: |
+          PORT=8199 SUITFOLD_HOME="$RUNNER_TEMP/sf" ./build/suitfold-table &
+          sleep 3
+          curl -fsS http://127.0.0.1:8199/health

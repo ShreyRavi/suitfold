@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>suitfold</string>
+  <key>CFBundleDisplayName</key><string>suitfold</string>
+  <key>CFBundleIdentifier</key><string>org.suitfold.table</string>
+  <key>CFBundleExecutable</key><string>suitfold</string>
+  <key>CFBundleIconFile</key><string>icon</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>1.0.0</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>LSMinimumSystemVersion</key><string>13.0</string>
+  <key>NSHighResolutionCapable</key><true/>
+  <!-- It listens on the local network so other people in the house can join. -->
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>suitfold holds the table on this Mac so everybody else can join from their own browser.</string>
+</dict>
+</plist>

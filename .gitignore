@@ -9,3 +9,4 @@ dist/
 *.sqlite-shm
 recaps/
 .gstack/
+build/
