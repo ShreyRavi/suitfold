@@ -31,6 +31,14 @@ export class Host {
   private peerOf = new Map<SeatId, PeerId>()
   /** Recent tables, so a mis-drag or a wrong deal can be taken back. */
   private history: TableState[] = []
+  /**
+   * Bumped on every change. Clients compare it against their own and ask for
+   * the table back when it does not match.
+   */
+  private rev = 0
+  /** Which browser is in which seat, so a reload comes back to its own cards. */
+  private tokenOf = new Map<string, SeatId>()
+  private beat: ReturnType<typeof setInterval> | null = null
 
   constructor(
     private wire: Wire,
@@ -39,9 +47,14 @@ export class Host {
     /** For the crash net. Nothing is written without it. */
     private code = '',
   ) {
-    this.wire.hello.on((hello, from) => this.seat(from, hello.name, hello.emoji))
+    this.wire.hello.on((hello, from) => this.seat(from, hello.name, hello.emoji, hello.token))
     this.wire.action.on((action, from) => this.fromPeer(action, from))
+    this.wire.resync.on((_, from) => this.catchUp(from))
     this.wire.onPeerLeave((id) => this.dropped(id))
+
+    // Say where we are, often. It is four bytes and it is the only thing that
+    // lets a client notice it has missed something.
+    this.beat = setInterval(() => this.wire.ping.send(this.rev), 2500)
   }
 
   // -- seating -------------------------------------------------------------
@@ -72,7 +85,13 @@ export class Host {
     return FACES.find((f) => !taken.has(f)) ?? FACES[this.state.seats.length % FACES.length]!
   }
 
-  private seat(peerId: PeerId, name: string, emoji?: string) {
+  /** Stop the heartbeat. The table is over. */
+  close() {
+    if (this.beat) clearInterval(this.beat)
+    this.beat = null
+  }
+
+  private seat(peerId: PeerId, name: string, emoji?: string, token?: string) {
     const existing = this.seatOf.get(peerId)
     if (existing) {
       // The hello repeats until it is acknowledged, so this runs again for a
@@ -87,20 +106,32 @@ export class Host {
       this.commit([{ t: 'seat_name', id: existing, name: settled, emoji: face }])
       return
     }
-    // Someone who dropped and came back takes their own seat again. Two rules
-    // keep this from handing one player another player's cards:
+    // Someone who dropped and came back takes their own seat again. If their
+    // browser remembers who it was, that settles it outright. Otherwise fall
+    // back to the name, with two rules that keep this from handing one player
+    // another player's cards:
     //   - never the host's own seat, which has no peer and so always looks free
     //   - only a seat currently marked disconnected, not merely unclaimed
-    const returning = this.state.seats.find(
-      (s) =>
-        s.id !== this.mySeat &&
-        !s.connected &&
-        !this.peerOf.has(s.id) &&
-        s.name.toLowerCase() === clean(name).toLowerCase(),
-    )
+    const byToken = token ? this.tokenOf.get(token) : undefined
+    const known = byToken ? this.state.seats.find((s) => s.id === byToken && !this.peerOf.has(s.id)) : undefined
+    // A browser that knows who it is has said so. If it is somebody new, it is
+    // somebody new, whatever they typed in the name box - otherwise a second
+    // person called Dad would walk into the first Dad's seat and his cards.
+    // The name is only a fallback for a browser with no memory of itself.
+    const byName = token
+      ? undefined
+      : this.state.seats.find(
+          (s) =>
+            s.id !== this.mySeat &&
+            !s.connected &&
+            !this.peerOf.has(s.id) &&
+            s.name.toLowerCase() === clean(name).toLowerCase(),
+        )
+    const returning = known ?? byName
     const id = returning?.id ?? `s${this.state.seats.length + 1}`
     this.seatOf.set(peerId, id)
     this.peerOf.set(id, peerId)
+    if (token) this.tokenOf.set(token, id)
 
     const actions: Action[] = returning
       ? [{ t: 'seat_here', id, connected: true }]
@@ -138,9 +169,14 @@ export class Host {
     this.commit([action], seat)
   }
 
+  /** A peer going quiet, without a peer. Tests only. */
+  droppedForTest(peerId: PeerId) {
+    this.dropped(peerId)
+  }
+
   /** Seating over the wire, without a wire. Tests only. */
-  helloForTest(peerId: PeerId, name: string, emoji?: string) {
-    this.seat(peerId, name, emoji)
+  helloForTest(peerId: PeerId, name: string, emoji?: string, token?: string) {
+    this.seat(peerId, name, emoji, token)
   }
 
   /** Seating somebody without a live connection. Tests only. */
@@ -286,15 +322,17 @@ export class Host {
   }
 
   broadcast() {
+    this.rev++
     for (const [peerId, seat] of this.seatOf) {
-      this.wire.snapshot.send({ view: project(this.state, seat), seat }, peerId)
+      this.wire.snapshot.send({ view: project(this.state, seat), seat, rev: this.rev }, peerId)
     }
+    this.wire.ping.send(this.rev)
   }
 
   catchUp(peerId: PeerId) {
     const seat = this.seatOf.get(peerId)
     if (!seat) return
-    this.wire.snapshot.send({ view: project(this.state, seat), seat }, peerId)
+    this.wire.snapshot.send({ view: project(this.state, seat), seat, rev: this.rev }, peerId)
   }
 
   // -- setting the table ---------------------------------------------------

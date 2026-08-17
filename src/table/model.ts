@@ -517,6 +517,33 @@ export const CHIP_TIERS = [
   { value: 1, colour: '#e9e2d3' },
 ] as const
 
+/**
+ * An amount as a tray of chips: columns of discs, tallest for the most money.
+ *
+ * Not a greedy breakdown into denominations - two thousand in thousand-chips is
+ * two discs, which looks like less than four hundred in twenty-fives. What you
+ * want to read across a table is *height*, so a disc is a fixed size of money
+ * and the tray grows with the stack. The number underneath is still the truth.
+ */
+export function chipTray(amount: number): { colour: string; count: number }[] {
+  const n = Math.max(0, Math.floor(amount))
+  if (n <= 0) return []
+  // Bigger money uses bigger chips, or a deep stack would be a mile high.
+  const unit = n > 4000 ? 500 : n > 1000 ? 100 : 25
+  const discs = Math.max(1, Math.min(Math.round(n / unit), 40))
+
+  const out: { colour: string; count: number }[] = []
+  const PER = 8
+  for (let left = discs, i = 0; left > 0; i++) {
+    const height = Math.min(PER, left)
+    // Columns go down the denominations, so the tall ones are the dear ones.
+    const tier = CHIP_TIERS[Math.min(i + (unit === 500 ? 0 : unit === 100 ? 2 : 3), CHIP_TIERS.length - 1)]!
+    out.push({ colour: tier.colour, count: height })
+    left -= height
+  }
+  return out
+}
+
 export function chipDiscs(amount: number, max = 7): string[] {
   const out: string[] = []
   let left = Math.max(0, Math.floor(amount))

@@ -5,7 +5,7 @@ import type { Cursor, Drag } from '../net/peers.ts'
 import { Card } from './Card.tsx'
 import { Piece } from './Piece.tsx'
 import { DieFace, dieLabel } from './Dice.tsx'
-import { ChipStack, money } from './Chips.tsx'
+import { ChipStack, ChipTray, money } from './Chips.tsx'
 
 interface Pos {
   x: number
@@ -405,12 +405,7 @@ export function Table({
                 <i key={i} style={{ left: i * 5 }} />
               ))}
             </span>
-            {view.chipsOn && (
-              <span className="spot-chips">
-                <ChipStack amount={view.chips[seat.id] ?? 0} />
-                {money(view.chips[seat.id] ?? 0)}
-              </span>
-            )}
+            {view.chipsOn && <span className="spot-chips">{money(view.chips[seat.id] ?? 0)}</span>}
             {(view.scores[seat.id] ?? 0) !== 0 && (
               <span className="spot-score">{view.scores[seat.id]}</span>
             )}
@@ -485,10 +480,30 @@ export function Table({
             middle where a pot goes. */}
         {view.chipsOn && view.pot > 0 && (
           <div className="pot" style={{ transform: `translate(${potAt(view).x - 60}px, ${potAt(view).y - 26}px)` }}>
-            <ChipStack amount={view.pot} big />
+            <ChipTray amount={view.pot} />
             <span className="pot-amount">{money(view.pot)}</span>
           </div>
         )}
+
+        {/* Everybody's chips, in front of them, as tall as they are rich. You
+            should be able to see who is winning without reading anything. */}
+        {view.chipsOn &&
+          places.map(({ seat, x, y }) => {
+            const amount = view.chips[seat.id] ?? 0
+            if (amount <= 0) return null
+            // Between the player and the middle, which is where chips go.
+            const towards = y > TABLE_H / 2 ? -1 : 1
+            return (
+              <div
+                key={`tray-${seat.id}`}
+                className="felt-tray"
+                style={{ transform: `translate(${x}px, ${y + towards * 54}px) translate(-50%, -50%)` }}
+                title={`${money(amount)}`}
+              >
+                <ChipTray amount={amount} />
+              </div>
+            )
+          })}
 
         {/* Dice. Anyone can shove one about; only the host decides what it
             shows, for the same reason only the host shuffles. */}

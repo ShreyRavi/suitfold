@@ -37,6 +37,20 @@ export interface Live {
 
 const NAME = 'suitfold.name'
 const FACE = 'suitfold.face'
+const TOKEN = 'suitfold.who'
+
+/**
+ * Who this browser is, kept for good. The host used to work out who was coming
+ * back from the name they typed, which is fine until two people are called Dad.
+ */
+function whoAmI(): string {
+  let id = localStorage.getItem(TOKEN)
+  if (!id) {
+    id = crypto.randomUUID()
+    localStorage.setItem(TOKEN, id)
+  }
+  return id
+}
 
 export function useTable(): Live {
   const [stage, setStage] = useState<Stage>('lobby')
@@ -52,6 +66,10 @@ export function useTable(): Live {
 
   const wire = useRef<Wire | null>(null)
   const host = useRef<Host | null>(null)
+  /** The revision of the table this browser has actually drawn. */
+  const rev = useRef(0)
+  /** When each live drag was last heard about, so a stuck one can be dropped. */
+  const dragAt = useRef<Record<CardId, number>>({})
 
   const flash = useCallback((m: string) => {
     setNote(m)
@@ -60,19 +78,38 @@ export function useTable(): Live {
 
   const wireUp = useCallback((w: Wire, name: string, asHost: boolean) => {
     w.snapshot.on((snap) => {
+      // A snapshot is a whole table, not a change to one, so an old one
+      // arriving late must not undo a newer one that got here first.
+      if (snap.rev < rev.current) return
+      rev.current = snap.rev
       setView(snap.view)
       setMe(snap.seat)
       setStage('table')
     })
 
+    // The host says where it is every couple of seconds. If that is not where
+    // we are, we missed something, so ask for the table back. This is what
+    // turns a dropped message from permanent damage into a blink.
+    w.ping.on((at) => {
+      if (at === rev.current) return
+      rev.current = Math.max(rev.current, 0)
+      w.resync.send(0)
+    })
+
     // Live drags are drawn immediately and never stored. A drag that ends,
     // or whose owner goes quiet, disappears.
     w.drag.on((d) => {
+      const now = Date.now()
       setDrags((prev) => {
         const next = { ...prev }
         for (const id of d.ids) {
-          if (d.holding) next[id] = d
-          else delete next[id]
+          if (d.holding) {
+            next[id] = d
+            dragAt.current[id] = now
+          } else {
+            delete next[id]
+            delete dragAt.current[id]
+          }
         }
         return next
       })
@@ -100,7 +137,12 @@ export function useTable(): Live {
       else w.hello.send({ name }, id)
     })
 
-    w.onPeerLeave(() => setPeers(w.peers().length))
+    w.onPeerLeave(() => {
+      setPeers(w.peers().length)
+      // Whatever they were holding, they are not holding it now.
+      setDrags({})
+      dragAt.current = {}
+    })
   }, [flash])
 
   /** Open a table. `carryOn` puts back the one this tab was holding before. */
@@ -122,6 +164,7 @@ export function useTable(): Live {
         w,
         'host',
         () => {
+          rev.current++
           setView(project(h.state, 'host'))
           setMe('host')
           setStage('table')
@@ -161,9 +204,10 @@ export function useTable(): Live {
       const w = connect(c)
       wire.current = w
       wireUp(w, name, false)
-      w.hello.send({ name, emoji })
+      const token = whoAmI()
+      w.hello.send({ name, emoji, token })
       // The host may not have heard the first hello, so say it a few times.
-      const again = setInterval(() => w.hello.send({ name, emoji }), 2000)
+      const again = setInterval(() => w.hello.send({ name, emoji, token }), 2000)
       setTimeout(() => clearInterval(again), 20000)
     },
     [wireUp],
@@ -183,6 +227,8 @@ export function useTable(): Live {
   }, [])
 
   const leave = useCallback(() => {
+    // Stop the heartbeat before letting go of the host, or it ticks forever.
+    host.current?.close()
     wire.current?.leave()
     wire.current = null
     host.current = null
@@ -193,8 +239,32 @@ export function useTable(): Live {
     setIsHost(false)
     setDrags({})
     setCursors({})
+    rev.current = 0
     // Closing the table on purpose is not a crash, so there is nothing to keep.
     forget()
+  }, [])
+
+  /**
+   * A card being dragged is drawn where the dragger says it is, which is right
+   * until the message saying they let go never arrives. Then that card sits at
+   * a stale spot forever, ignoring the real table underneath it. So a drag
+   * nobody has mentioned for a couple of seconds is over.
+   */
+  useEffect(() => {
+    const sweep = setInterval(() => {
+      const cutoff = Date.now() - 2500
+      setDrags((prev) => {
+        const stale = Object.keys(prev).filter((id) => (dragAt.current[id] ?? 0) < cutoff)
+        if (!stale.length) return prev
+        const next = { ...prev }
+        for (const id of stale) {
+          delete next[id]
+          delete dragAt.current[id]
+        }
+        return next
+      })
+    }, 1000)
+    return () => clearInterval(sweep)
   }, [])
 
   useEffect(() => () => wire.current?.leave(), [])

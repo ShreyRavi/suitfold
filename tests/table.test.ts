@@ -164,6 +164,8 @@ const silent = (): Wire => ({
   snapshot: { send: () => {}, on: () => {} },
   drag: { send: () => {}, on: () => {} },
   cursor: { send: () => {}, on: () => {} },
+  ping: { send: () => {}, on: () => {} },
+  resync: { send: () => {}, on: () => {} },
   chat: { send: () => {}, on: () => {} },
   onPeerJoin: () => {},
   onPeerLeave: () => {},

@@ -21,11 +21,19 @@ export const myPeerId = (): PeerId => selfId
 export interface Hello {
   name: string
   emoji?: string
+  /**
+   * Who this browser is, across reloads and reconnections. Names were doing
+   * this job, which meant coming back as "Dad" when somebody else was already
+   * called Dad handed you a new seat and left your cards stranded.
+   */
+  token?: string
 }
 
 export interface Snapshot {
   view: TableView
   seat: SeatId | null
+  /** Which revision of the table this is. Snapshots are whole, not deltas. */
+  rev: number
 }
 
 /** Where somebody's pointer is, in table coordinates. Never stored. */
@@ -56,6 +64,17 @@ export interface Wire {
   snapshot: { send: Send<Snapshot>; on: On<Snapshot> }
   drag: { send: Send<Drag>; on: On<Drag> }
   cursor: { send: Send<Cursor>; on: On<Cursor> }
+  /**
+   * The host says which revision it is on, often and cheaply. A client whose
+   * own revision does not match asks for the whole table back.
+   *
+   * This is the difference between a dropped message being a blip and being
+   * permanent: snapshots are whole tables, so one that arrives fixes anything
+   * that went missing. The problem was never the loss, it was that nothing
+   * ever told a client it had fallen behind.
+   */
+  ping: { send: Send<number>; on: On<number> }
+  resync: { send: Send<number>; on: On<number> }
   chat: { send: Send<string>; on: On<string> }
   onPeerJoin(fn: (id: PeerId) => void): void
   onPeerLeave(fn: (id: PeerId) => void): void
@@ -84,6 +103,8 @@ export function connect(roomCode: string): Wire {
     snapshot: channel<Snapshot>('snap'),
     drag: channel<Drag>('drag'),
     cursor: channel<Cursor>('cur'),
+    ping: channel<number>('ping'),
+    resync: channel<number>('resyn'),
     chat: channel<string>('chat'),
     onPeerJoin: (fn) => {
       room.onPeerJoin = fn

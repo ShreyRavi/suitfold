@@ -1224,10 +1224,7 @@ input.betbar-custom-val {
   justify-content: center; overflow-y: auto; overscroll-behavior: contain;
 }
 .rail-side .rail-acts { flex-wrap: wrap; }
-.rail-side .betbar {
-  padding: 0; border: 0; background: none; flex-wrap: wrap; gap: var(--s-4);
-}
-.rail-side .betbar-amounts { flex-wrap: wrap; }
+.rail-side .betbar { padding: 0; border: 0; background: none; }
 
 /* A handle you can actually grab. */
 .grip {
@@ -1266,3 +1263,61 @@ input.betbar-custom-val {
   padding: var(--s-4); border: 1px solid var(--line); border-radius: var(--r-panel);
   background: var(--paper-panel);
 }
+
+/* ---- a tray of chips ----------------------------------------------------- */
+/* Height is the point: you should be able to tell who is winning by glancing
+   at the table rather than by reading four numbers. */
+.tray { display: inline-flex; align-items: flex-end; gap: 3px; flex: none; }
+.tray-col { position: relative; width: 20px; height: 40px; }
+.tray-col i {
+  position: absolute; left: 0; width: 20px; height: 7px; border-radius: 3px;
+  border: 1px solid rgba(0,0,0,.32);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 1px 1px rgba(0,0,0,.18);
+}
+.tray--sm { gap: 2px; }
+.tray--sm .tray-col { width: 13px; height: 26px; }
+.tray--sm .tray-col i { width: 13px; height: 5px; border-radius: 2px; }
+.spot-chips { display: inline-flex; align-items: flex-end; gap: 5px; }
+.pot { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+
+/* ---- betting, in one row that always fits -------------------------------- */
+/* Every button visible without scrolling anything, on the dealer's screen and
+   on everybody else's. */
+.rail-body { overflow: visible; }
+/* Sized by its buttons, not by a share of the window: every one of them has to
+   be reachable without scrolling anything, so the hand gives up the space. */
+.rail-side { overflow: visible; width: auto; flex: 0 0 auto; max-width: none; }
+.fan { min-width: 0; }
+.betbar {
+  display: flex; align-items: center; gap: 6px; flex-wrap: nowrap;
+  min-width: 0;
+}
+.betbar-mine { display: inline-flex; align-items: flex-end; gap: 5px; flex: none; }
+.betbar-mine b { font-family: var(--font-mono); font-weight: 500; }
+.betbar-amounts { display: flex; gap: 4px; flex-wrap: nowrap; }
+.betbar-chip {
+  flex: none; min-width: 46px; padding: 7px 9px;
+  border: 1px solid var(--line); border-radius: 9px;
+  background: var(--paper-panel); font-family: var(--font-mono); font-size: var(--text-md);
+  white-space: nowrap;
+}
+.betbar-chip:hover { border-color: var(--accent); color: var(--accent); }
+.betbar-chip.is-all { background: var(--accent); border-color: var(--accent); color: var(--accent-on); }
+.betbar-chip.is-more { min-width: 34px; }
+.betbar-pot {
+  flex: none; padding: 7px 12px; border-radius: 9px; white-space: nowrap;
+  background: #1f6f3f; color: #fff; font-size: var(--text-md);
+}
+.betbar-pot b { font-family: var(--font-mono); margin-left: 5px; }
+.betbar-custom {
+  position: absolute; bottom: calc(100% + 8px); left: 0; z-index: 30;
+  display: flex; align-items: center; gap: 5px; padding: 7px;
+  background: var(--paper-raised); border: 1px solid var(--line);
+  border-radius: var(--r-panel); box-shadow: var(--shadow-app);
+}
+.rail-side { position: relative; }
+
+/* Chips in front of each player, on the felt itself. */
+.felt-tray { position: absolute; top: 0; left: 0; z-index: 3; pointer-events: none; }
+.pot .tray-col { width: 24px; height: 46px; }
+.pot .tray-col i { width: 24px; height: 8px; }

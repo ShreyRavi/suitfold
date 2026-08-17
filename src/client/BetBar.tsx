@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Action, SeatId, TableView } from '../table/model.ts'
-import { ChipStack, money } from './Chips.tsx'
+import { ChipStack, ChipTray, money } from './Chips.tsx'
 
 /**
  * Betting lives with your hand, at the bottom, because your chips are yours in
@@ -42,8 +42,8 @@ export function BetBar({
   return (
     <div className="betbar">
       <span className="betbar-mine" title="Your chips">
-        <ChipStack amount={mine} />
-        {money(mine)}
+        <ChipTray amount={mine} small />
+        <b>{money(mine)}</b>
       </span>
 
       <div className="betbar-amounts">
