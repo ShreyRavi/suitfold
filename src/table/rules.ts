@@ -98,6 +98,15 @@ export const RULES: Record<string, Rules> = {
     winning: 'Score your bid plus ten if you got it exactly right, and nothing at all if you did not. Most points after the last round wins.',
     sections: [
       {
+        title: 'How it works here',
+        items: [
+          'Tap a number under your hand to announce your bid. Everybody sees it in the log.',
+          'Play a card and it lands in the space in front of you, so you can see whose is whose.',
+          'Whoever wins the trick taps Take the trick, which sweeps up all of them at once.',
+          'Use Deal for the next round: one more card each, then one more, and so on.',
+        ],
+      },
+      {
         title: 'The bits people argue about',
         items: [
           'Many families make the last bidder unable to bid the number that would let everybody get theirs. It is called the hook, and it is what stops the round being easy.',
@@ -154,32 +163,6 @@ export const RULES: Record<string, Rules> = {
           'Whether you may hold back a card you could legally play. Strictly you may not, and it is much the better game that way, because sitting on a seven blocks everybody.',
           'Some houses start on the seven of diamonds instead. Agree first.',
           'The ace is high here, above the king. It is not both ends like poker.',
-        ],
-      },
-    ],
-  },
-  'spade-queen': {
-    goal: 'Take as few hearts as possible, and above all avoid the queen of spades.',
-    players: '4',
-    setup: [
-      'Deal the whole deck out, thirteen each.',
-      'Pass three cards face down to the player on your left. Next hand pass right, then across, then not at all, then start again.',
-      'Whoever has the two of clubs leads it.',
-    ],
-    play: [
-      'Follow the suit led if you can. If you cannot, throw anything.',
-      'Highest card of the suit led wins the trick and leads the next. There is no trump suit at all.',
-      'You cannot lead a heart until hearts have been broken, which means somebody has discarded one.',
-      'You may not throw a heart or the queen of spades on the very first trick.',
-    ],
-    winning: 'Each heart is one point and the queen of spades is thirteen. Points are bad. Play until somebody hits a hundred, and the lowest score wins.',
-    sections: [
-      {
-        title: 'The bits people argue about',
-        items: [
-          'Shooting the moon: take every heart and the queen as well and you score nothing while everybody else takes twenty six. It is worth trying and it is agony to fail at.',
-          'Some houses let a shooter subtract twenty six instead. Decide before somebody tries.',
-          'The queen of spades can be led at any time. She is not held back by hearts being broken.',
         ],
       },
     ],
@@ -474,21 +457,27 @@ export const RULES: Record<string, Rules> = {
   },
 
   hearts: {
-    goal: 'Collect as few points as possible. This is a game you try to lose.',
+    goal: 'Take as few hearts as possible, and above all avoid the queen of spades.',
     players: '4',
-    setup: ['All 52 cards dealt out, 13 each.'],
-    play: [
-      'Whoever has the 2 of clubs plays it. Going clockwise, everyone puts down one card.',
-      'You must follow the suit that was led if you can. If you cannot, play anything.',
-      'Highest card of the suit that was led takes all four cards. That is a trick. Whoever took it leads the next one.',
+    setup: [
+      'Deal the whole deck out, thirteen each.',
+      'Pass three cards face down to the player on your left. Next hand pass right, then across, then not at all, then start again.',
+      'Whoever has the two of clubs leads it.',
     ],
-    winning: 'Every heart you collect is 1 point. The Queen of spades is 13. Lowest score wins.',
+    play: [
+      'Follow the suit led if you can. If you cannot, throw anything.',
+      'Highest card of the suit led wins the trick and leads the next. There is no trump suit at all.',
+      'You cannot lead a heart until hearts have been broken, which means somebody has discarded one.',
+      'You may not throw a heart or the queen of spades on the very first trick.',
+    ],
+    winning: 'Each heart is one point and the queen of spades is thirteen. Points are bad. Play until somebody hits a hundred, and the lowest score wins.',
     sections: [
       {
-        title: 'Shooting the moon',
+        title: 'The bits people argue about',
         items: [
-          'If you collect every heart AND the Queen of spades, you get zero and everyone else gets 26. It is very hard and very satisfying.',
-          'You cannot lead a heart until somebody has already thrown one away on another suit.',
+          'Shooting the moon: take every heart and the queen as well and you score nothing while everybody else takes twenty six. It is worth trying and it is agony to fail at.',
+          'Some houses let a shooter subtract twenty six instead. Decide before somebody tries.',
+          'The queen of spades can be led at any time. She is not held back by hearts being broken.',
         ],
       },
     ],

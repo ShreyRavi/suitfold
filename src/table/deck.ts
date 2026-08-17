@@ -125,8 +125,8 @@ export interface Preset {
    * the hand goes.
    */
   hand?: { each: number | ((seats: number) => number); board?: number; boardSlot?: string }
-  /** Draggable markers: the dealer button and the blinds. */
-  pucks?: () => Puck[]
+  /** Draggable markers: the dealer button, the blinds, the playing pieces. */
+  pucks?: (seats: number) => Puck[]
   /** Dice on the table when it is set. */
   dice?: () => Die[]
   /** Board furniture drawn underneath: snakes, ladders. */
@@ -136,11 +136,22 @@ export interface Preset {
   /** Somewhere private to write. Boggle needs one, Yahtzee needs one. */
   pad?: string
   /**
-   * You announce what you are putting down, and you are allowed to be lying.
-   * Without this the announcement has to be typed out, which costs more than
-   * the move it is describing.
+   * Won tricks are gathered up by whoever took them, over and over, so there
+   * is a button for it rather than four separate picks every single trick.
    */
-  claim?: boolean
+  trick?: boolean
+  /**
+   * Cards go to the row for their own suit, in rank order out from the seven.
+   * Sevens is unplayable otherwise: every card is a drag to the right row.
+   */
+  bySuit?: boolean
+  /**
+   * Games where you have to announce something every turn. Saying it out loud
+   * used to mean typing a sentence into chat, which cost more than the move it
+   * described. 'rank' is what you claim to be putting down, truthfully or not;
+   * 'bid' is how many tricks you say you will take.
+   */
+  claim?: 'rank' | 'bid'
 }
 
 const CX = TABLE_W / 2
@@ -156,6 +167,9 @@ const blinds = (): Puck[] => [
   { id: 'pk-d', x: CX - 476, y: CY + 110, label: 'D', hint: 'Dealer button' },
   { id: 'pk-sb', x: CX - 420, y: CY + 110, label: 'SB', hint: 'Small blind' },
   { id: 'pk-bb', x: CX - 364, y: CY + 110, label: 'BB', hint: 'Big blind' },
+  // Knows nothing and enforces nothing. Whoever is next drags it to themselves,
+  // which is exactly how a real table remembers whose go it is.
+  { id: 'pk-trn', x: CX - 476, y: CY + 175, label: 'TRN', hint: 'Whose turn it is' },
 ]
 
 /**
@@ -251,13 +265,14 @@ export const PRESETS: Preset[] = [
     id: 'hearts',
     name: 'Hearts',
     players: '4',
-    hint: '13 each, whole deck out',
+    hint: 'Also called Spade Queen or Black Maria. Duck the hearts and the black lady',
     group: 'card games',
     cards: () => standard(1),
     deal: 13,
     layout: 'pile',
     slots: (n: number) => roundTable(n, 'Trick'),
     hand: { each: 13 },
+    trick: true,
   },
   {
     id: 'spades',
@@ -270,6 +285,7 @@ export const PRESETS: Preset[] = [
     layout: 'pile',
     slots: (n: number) => roundTable(n, 'Trick'),
     hand: { each: 13 },
+    trick: true,
   },
   {
     id: 'euchre',
@@ -282,6 +298,7 @@ export const PRESETS: Preset[] = [
     layout: 'starter',
     slots: (n: number) => roundTable(n, 'Trick'),
     hand: { each: 5 },
+    trick: true,
   },
   {
     id: 'cribbage',
@@ -346,7 +363,7 @@ export const PRESETS: Preset[] = [
     deal: -1,
     layout: 'pile',
     slots: () => [{ id: 'pile', x: CX, y: CY, label: 'Pile', play: true }],
-    claim: true,
+    claim: 'rank',
   },
   {
     id: 'go-fish',
@@ -357,7 +374,7 @@ export const PRESETS: Preset[] = [
     cards: () => standard(1),
     deal: 7,
     layout: 'pile',
-    slots: () => [{ id: 'pond', x: CX, y: CY, label: 'Pond' }],
+    slots: () => [{ id: 'draw', x: CX, y: CY, label: 'Pond' }],
     hand: { each: 7 },
   },
   {
@@ -435,6 +452,8 @@ export const PRESETS: Preset[] = [
     layout: 'starter',
     slots: (n: number) => roundTable(n, 'Trick'),
     hand: { each: 1 },
+    trick: true,
+    claim: 'bid',
   },
   {
     id: 'kot-pees',
@@ -447,12 +466,13 @@ export const PRESETS: Preset[] = [
     layout: 'pile',
     slots: (n: number) => roundTable(n, 'Trick'),
     hand: { each: 13 },
+    trick: true,
   },
   {
     id: 'spade-seven',
-    name: 'Spade Seven',
+    name: 'Sevens',
     players: '3-8',
-    hint: 'Sevens: build each suit up and down from the seven',
+    hint: 'Satti, Fan Tan, Parliament: build out from the sevens',
     group: 'card games',
     cards: () => standard(1),
     deal: -1,
@@ -463,18 +483,7 @@ export const PRESETS: Preset[] = [
       { id: 'di', x: CX + CARD_GAP, y: CY, label: 'Diamonds', wide: 2 },
       { id: 'cl', x: CX + 3 * CARD_GAP, y: CY, label: 'Clubs', wide: 2 },
     ],
-  },
-  {
-    id: 'spade-queen',
-    name: 'Spade Queen',
-    players: '4',
-    hint: 'Hearts: duck the hearts and the black lady',
-    group: 'card games',
-    cards: () => standard(1),
-    deal: 13,
-    layout: 'pile',
-    slots: (n: number) => roundTable(n, 'Trick'),
-    hand: { each: 13 },
+    bySuit: true,
   },
   {
     id: 'chess',

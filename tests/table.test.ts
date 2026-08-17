@@ -745,7 +745,9 @@ describe('the dealer button and the blinds', () => {
   test('poker puts three markers on the felt', () => {
     const h = hosted()
     h.setup('poker')
-    expect(h.state.pucks.map((p) => p.label)).toEqual(['D', 'SB', 'BB'])
+    // A turn marker as well, which is dumb on purpose: whoever is next drags
+    // it to themselves.
+    expect(h.state.pucks.map((p) => p.label)).toEqual(['D', 'SB', 'BB', 'TRN'])
   })
 
   test('a game without blinds has none', () => {
@@ -1193,7 +1195,8 @@ describe('the star board', () => {
     const h = hosted()
     h.setup('chinese-checkers')
     expect(Object.keys(h.state.cards).length).toBe(0)
-    expect(h.state.pucks.length).toBe(60)
+    // Three playing, so three points of the star are filled and three are not.
+    expect(h.state.pucks.length).toBe(30)
     expect(h.state.slots.length).toBe(121)
     expect(h.state.slots.every((s) => s.dot)).toBe(true)
   })

@@ -9,7 +9,7 @@ import {
   type TableState,
 } from '../src/table/model.ts'
 import { PRESETS, presetById } from '../src/table/deck.ts'
-import { Host } from '../src/net/host.ts'
+import { Host, allowed } from '../src/net/host.ts'
 import type { Wire } from '../src/net/peers.ts'
 
 /**
@@ -341,17 +341,18 @@ describe('a game with no cards in it', () => {
     everythingIsOnTheTable(h.state, 'chess')
   })
 
-  test('chinese checkers: sixty marbles stay sixty', () => {
+  test('chinese checkers: the marbles you put out stay put out', () => {
     const h = sitDown(3)
     h.setup('chinese-checkers')
-    expect(h.state.pucks.length).toBe(60)
+    // Three playing means three points of the star, not all six.
+    expect(h.state.pucks.length).toBe(30)
     const holes = h.state.slots
     for (const m of h.state.pucks.slice(0, 20)) {
       const to = holes[Math.floor(Math.random() * holes.length)]!
       h.local({ t: 'puck', id: m.id, x: to.x, y: to.y })
     }
-    expect(h.state.pucks.length).toBe(60)
-    expect(new Set(h.state.pucks.map((p) => p.id)).size).toBe(60)
+    expect(h.state.pucks.length).toBe(30)
+    expect(new Set(h.state.pucks.map((p) => p.id)).size).toBe(30)
   })
 
   test('yahtzee: a full turn of three rolls with dice kept back', () => {
@@ -768,5 +769,122 @@ describe('games played into the middle', () => {
       const targets = h.state.slots.filter((s) => s.play)
       expect(targets.length, `${preset.id} has ${targets.length} places to play`).toBeLessThanOrEqual(1)
     }
+  })
+})
+
+describe('chinese checkers puts out what is needed', () => {
+  test('a point of the star per player, ten marbles each', () => {
+    for (const [seats, points] of [[2, 2], [3, 3], [4, 4], [5, 5], [6, 6]] as const) {
+      const h = sitDown(seats)
+      h.setup('chinese-checkers')
+      expect(h.state.pucks.length, `${seats} playing`).toBe(points * 10)
+      const colours = new Set(h.state.pucks.map((p) => p.colour))
+      expect(colours.size, `${seats} playing`).toBe(points)
+      h.close()
+    }
+  })
+
+  test('two players sit across the board from each other', () => {
+    const h = sitDown(2)
+    h.setup('chinese-checkers')
+    const ys = h.state.pucks.map((p) => p.y)
+    const top = ys.filter((y) => y < TABLE_H / 2).length
+    const bottom = ys.filter((y) => y > TABLE_H / 2).length
+    expect(top).toBe(10)
+    expect(bottom).toBe(10)
+    h.close()
+  })
+
+  test('every marble still starts in a hole', () => {
+    for (const seats of [2, 3, 4, 6]) {
+      const h = sitDown(seats)
+      h.setup('chinese-checkers')
+      const holes = new Set(h.state.slots.map((s) => `${s.x},${s.y}`))
+      for (const m of h.state.pucks) expect(holes.has(`${m.x},${m.y}`)).toBe(true)
+      h.close()
+    }
+  })
+})
+
+describe('the moves you make over and over', () => {
+  test('trick games say they are trick games', () => {
+    for (const id of ['hearts', 'spades', 'euchre', 'judgement', 'kot-pees']) {
+      expect(presetById(id).trick, `${id}`).toBe(true)
+    }
+    for (const id of ['holdem', 'bluff', 'uno', 'solitaire']) {
+      expect(presetById(id).trick, `${id} is not a trick game`).toBeUndefined()
+    }
+  })
+
+  test('every game you draw from has somewhere marked to draw from', () => {
+    for (const id of ['uno', 'crazy-eights', 'indian-rummy', 'gin', 'go-fish', 'dominoes', 'solitaire']) {
+      const h = sitDown(3)
+      h.setup(id)
+      const marked = h.state.slots.find((s) => ['draw', 'deck', 'stock'].includes(s.id))
+      expect(marked, `${id} has nowhere to draw from`).toBeDefined()
+      // And there is actually something face down sitting on it.
+      const there = onTable(h.state).filter((c) => c.x === marked!.x && c.y === marked!.y && !c.faceUp)
+      expect(there.length, `${id}: nothing on the draw pile`).toBeGreaterThan(0)
+      h.close()
+    }
+  })
+
+  test('sevens lays out four rows, one per suit', () => {
+    const h = sitDown(4)
+    h.setup('spade-seven')
+    expect(presetById('spade-seven').bySuit).toBe(true)
+    for (const id of ['sp', 'he', 'di', 'cl']) {
+      expect(h.state.slots.find((s) => s.id === id), `no ${id} row`).toBeDefined()
+    }
+    h.close()
+  })
+
+  test('poker has a turn marker anybody can shove about', () => {
+    const h = sitDown(4)
+    h.setup('holdem')
+    const turn = h.state.pucks.find((p) => p.label === 'TRN')
+    expect(turn).toBeDefined()
+    expect(allowed({ t: 'puck', id: turn!.id, x: 10, y: 10 }, 's2')).toBe(true)
+    h.close()
+  })
+
+  test('the deck no longer lists the same game twice', () => {
+    const names = PRESETS.map((p) => p.name)
+    expect(new Set(names).size, 'two entries share a name').toBe(names.length)
+    // Spade Queen was Hearts with a different label on it.
+    expect(names).toContain('Hearts')
+    expect(names).toContain('Sevens')
+    expect(names).not.toContain('Spade Queen')
+    expect(names).not.toContain('Spade Seven')
+  })
+})
+
+describe('saying the thing you have to say every turn', () => {
+  test('bluff claims a rank, judgement announces a bid', () => {
+    expect(presetById('bluff').claim).toBe('rank')
+    expect(presetById('judgement').claim).toBe('bid')
+    for (const id of ['holdem', 'hearts', 'uno']) {
+      expect(presetById(id).claim, `${id}`).toBeUndefined()
+    }
+  })
+})
+
+describe('sevens builds out from the seven', () => {
+  test('the ace is high, which is what the rules say', () => {
+    const order = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A']
+    expect(order.indexOf('A')).toBeGreaterThan(order.indexOf('K'))
+    // Thirteen ranks, seven in the middle, six either side.
+    expect(order.indexOf('7')).toBe(5)
+    expect(order.length - 1 - order.indexOf('7')).toBe(7)
+  })
+
+  test('a row never wanders into the suit next door', () => {
+    const h = sitDown(4)
+    h.setup('spade-seven')
+    const rows = h.state.slots.filter((s) => ['sp', 'he', 'di', 'cl'].includes(s.id))
+    const gap = Math.min(...rows.slice(1).map((r, i) => Math.abs(r.x - rows[i]!.x)))
+    // The furthest a card leans from its own row, at eight units a rank.
+    expect(7 * 8 * 2).toBeLessThan(gap)
+    h.close()
   })
 })

@@ -77,13 +77,31 @@ export const starSlots = (): Slot[] =>
   holes().map((h) => ({ id: `h${h.row}-${h.at}`, x: h.x, y: h.y, label: '', dot: true }))
 
 /**
- * Sixty marbles, ten sitting in each point of the star. Nobody is assigned a
- * colour: you take the ones nearest you, the way you would reach for them.
+ * Which points of the star are used, for a given number of players. Straight
+ * out of the rules on the box: two play across the board from each other, three
+ * take alternate points, four take two facing pairs, six take the lot.
  */
-export const marbles = (): Puck[] => {
+export function playing(seats: number): number[] {
+  if (seats <= 2) return [0, 3]
+  if (seats === 3) return [0, 2, 4]
+  if (seats === 4) return [0, 1, 3, 4]
+  if (seats === 5) return [0, 1, 2, 3, 4]
+  return [0, 1, 2, 3, 4, 5]
+}
+
+/**
+ * Ten marbles in each point that is being used, and none in the ones that are
+ * not. Putting out all sixty regardless meant a two player game began by
+ * clearing forty marbles off the board by hand.
+ *
+ * Nobody is assigned a colour: you take the ones nearest you, the way you would
+ * reach for them.
+ */
+export const marbles = (seats = 6): Puck[] => {
+  const inPlay = new Set(playing(seats))
   const out: Puck[] = []
   for (const h of holes()) {
-    if (h.home === null) continue
+    if (h.home === null || !inPlay.has(h.home)) continue
     out.push({
       id: `m${h.row}-${h.at}`,
       x: h.x,

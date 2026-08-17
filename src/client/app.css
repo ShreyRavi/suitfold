@@ -1339,3 +1339,7 @@ input.betbar-custom-val {
 }
 .claim-rank:disabled { opacity: .38; }
 .claim-rank:not(:disabled):hover { border-color: var(--accent); color: var(--accent); background: var(--accent-wash); }
+
+/* The moves you make over and over get a button of their own. */
+.mini.is-go { border-color: var(--accent); color: var(--accent); background: var(--accent-wash); }
+.mini.is-go:hover { background: var(--accent); color: var(--accent-on); }

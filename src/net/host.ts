@@ -385,7 +385,7 @@ export class Host {
         deckName: preset.name,
         game: preset.id,
         slots,
-        pucks: preset.pucks?.() ?? [],
+        pucks: preset.pucks?.(seats.length) ?? [],
         dice: preset.dice?.() ?? [],
         lines: preset.lines?.() ?? [],
         cards: [

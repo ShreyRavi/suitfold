@@ -185,8 +185,21 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
 
   // Only worth counting while the log is shut; once it is open you can see it.
   const unread = log ? 0 : view.log.filter((e) => e.kind === 'chat').length
+  const deck = drawPile(view)
+  const trick = faceUpOnTable(view)
 
   const play = (ids: CardId[], faceUp: boolean) => {
+    // Sevens is built in four rows, one per suit, running out from the seven.
+    // Sending every card to one spot, or to the space in front of you, means
+    // dragging each one to its row - which is the entire game.
+    if (presetById(view.game).bySuit) {
+      for (const id of ids) {
+        const card = view.cards.find((c) => c.id === id)
+        const at = suitRow(view, card?.face ?? id)
+        if (at) t.act({ t: 'play', ids: [id], x: at.x, y: at.y, faceUp: true })
+      }
+      return
+    }
     const at = myPlace(view, t.me)
     t.act({ t: 'play', ids, x: at.x, y: at.y, faceUp })
   }
@@ -329,11 +342,41 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
             )}
           </div>
 
+          {/* The moves that happen over and over. Drawing a card was a drag
+              from the deck to the rail every single turn; taking a trick was
+              four separate picks, thirteen times a hand. */}
+          <div className="rail-acts">
+            {deck.length > 0 && (
+              <button
+                className="mini is-go"
+                onClick={() => {
+                  const top = topOf(view, deck)
+                  if (top && t.me) t.act({ t: 'take', ids: [top], seat: t.me })
+                }}
+              >
+                Draw
+              </button>
+            )}
+            {presetById(view.game).trick && trick.length > 0 && (
+              <button
+                className="mini is-go"
+                onClick={() => t.me && t.act({ t: 'take', ids: trick, seat: t.me })}
+              >
+                Take the trick · {trick.length}
+              </button>
+            )}
+            {myHand.length > 1 && (
+              <button className="mini" onClick={() => t.act({ t: 'reorder', ids: tidy(myHand) })}>
+                Sort
+              </button>
+            )}
+          </div>
+
           {/* In a game where you announce what you are putting down - and are
               allowed to be lying about it - the announcement should not cost
               more than the move. One tap plays the cards and says what they
               are, truthfully or otherwise. */}
-          {presetById(view.game).claim && (
+          {presetById(view.game).claim === 'rank' && (
             <div className={`claim ${picked.length ? 'is-ready' : ''}`}>
               <span className="claim-lbl">
                 {picked.length ? `Put ${picked.length} down as` : 'Pick your cards, then say what they are'}
@@ -347,17 +390,30 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
                     onClick={() => {
                       const n = picked.length
                       play(picked, false)
-                      if (t.me) {
-                        t.act({
-                          t: 'say',
-                          seat: t.me,
-                          text: `${n} × ${r === 'T' ? '10' : r}`,
-                        })
-                      }
+                      if (t.me) t.act({ t: 'say', seat: t.me, text: `${n} × ${r === 'T' ? '10' : r}` })
                       setPicked([])
                     }}
                   >
                     {r === 'T' ? '10' : r}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Judgement is won and lost on the bid, and saying it out loud was
+              a sentence typed into chat before every single round. */}
+          {presetById(view.game).claim === 'bid' && (
+            <div className="claim is-ready">
+              <span className="claim-lbl">How many tricks are you taking?</span>
+              <div className="claim-ranks">
+                {Array.from({ length: Math.min(myHand.length, 13) + 1 }, (_, n) => (
+                  <button
+                    key={n}
+                    className="claim-rank"
+                    onClick={() => t.me && t.act({ t: 'say', seat: t.me, text: `bids ${n}` })}
+                  >
+                    {n}
                   </button>
                 ))}
               </div>
@@ -483,6 +539,79 @@ function myPlace(view: TableView, me: SeatId | null) {
 
   const mine = seatPlaces(view.seats).find((p) => p.seat.id === me)
   return mine ? mine.drop : freeSpot(view)
+}
+
+/**
+ * The pile you draw from: the one the game marked out, or failing that the
+ * biggest face-down heap on the table.
+ */
+function drawPile(view: TableView) {
+  const marked = view.slots.find((s) => ['draw', 'deck', 'stock'].includes(s.id))
+  const piles = new Map<string, CardId[]>()
+  for (const c of view.cards) {
+    if (c.hand !== null || c.faceUp) continue
+    const key = `${c.x},${c.y}`
+    piles.set(key, [...(piles.get(key) ?? []), c.id])
+  }
+  if (marked) {
+    const there = piles.get(`${marked.x},${marked.y}`)
+    if (there?.length) return there
+  }
+  return [...piles.values()].sort((a, b) => b.length - a.length)[0] ?? []
+}
+
+/** The top card of a pile is the one drawn highest. */
+const topOf = (view: TableView, ids: CardId[]) => {
+  const byZ = view.cards.filter((c) => ids.includes(c.id)).sort((a, b) => b.z - a.z)
+  return byZ[0]?.id
+}
+
+/** Everything face up on the table, which in a trick game is the trick. */
+const faceUpOnTable = (view: TableView) =>
+  view.cards.filter((c) => c.hand === null && c.faceUp).map((c) => c.id)
+
+const SUIT_ORDER = ['S', 'H', 'C', 'D']
+const RANK_ORDER = ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K']
+
+/**
+ * A hand, in the order you would arrange it yourself: suits together, running
+ * up in rank. Thirteen cards dealt in random order is otherwise a minute of
+ * dragging before every single hand.
+ */
+function tidy(cards: { id: CardId; face: string | null }[]): CardId[] {
+  const key = (c: { id: CardId; face: string | null }) => {
+    const f = c.face ?? c.id
+    // Uno by colour then value, tiles by letter, cards by suit then rank.
+    if (f.startsWith('U-')) return `1${f.slice(2)}`
+    if (f.startsWith('L-') || f.startsWith('D-')) return `2${f}`
+    const rank = f[0] ?? ''
+    const suit = f[1] ?? ''
+    const si = SUIT_ORDER.indexOf(suit)
+    const ri = RANK_ORDER.indexOf(rank)
+    if (si < 0 || ri < 0) return `3${f}`
+    return `0${si}${String(ri).padStart(2, '0')}`
+  }
+  return [...cards].sort((a, b) => key(a).localeCompare(key(b))).map((c) => c.id)
+}
+
+/**
+ * Where a card belongs in a game built out from the sevens: its own suit's row,
+ * placed above or below the seven by how far from it the rank is.
+ */
+const SUIT_SLOT: Record<string, string> = { S: 'sp', H: 'he', D: 'di', C: 'cl' }
+
+/** In this one the ace is high, above the king, which the rules also say. */
+const SEVENS_ORDER = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A']
+
+function suitRow(view: TableView, face: string) {
+  const rank = face[0] ?? ''
+  const suit = face[1] ?? ''
+  const slot = view.slots.find((s) => s.id === SUIT_SLOT[suit])
+  if (!slot) return null
+  const away = SEVENS_ORDER.indexOf(rank) - SEVENS_ORDER.indexOf('7')
+  // Fanned out from the seven, leaning a little so the row reads as a run
+  // without the far ends wandering into the next suit along.
+  return { x: slot.x + away * 8, y: slot.y + away * 30 }
 }
 
 /** What you can claim to be putting down, which need not be true. */
