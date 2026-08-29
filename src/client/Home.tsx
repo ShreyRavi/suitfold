@@ -239,9 +239,9 @@ export function Home({
         </div>
 
         <p className="how-note">
-          There is no server. The browsers talk to each other directly, so nothing you do here is
-          stored anywhere - close the tab and the game is over. Whoever starts the table is holding
-          the deck, so keep that tab open.
+          Out of the box there is no server at all: the browsers talk to each other directly, so
+          nothing you do here is stored anywhere. Close the tab and the game is over, which is why
+          whoever starts a table needs to leave theirs open.
         </p>
       </section>
 
