@@ -13,10 +13,11 @@ import {
   onTable,
   project,
   record,
+  SEAT_COLOURS,
   stacks,
 } from '../table/model.ts'
 import { cryptoShuffle, place, presetById } from '../table/deck.ts'
-import { SEAT_COLOURS, type Knock, type PeerId, type Wire } from './peers.ts'
+import type { Knock, PeerId, Wire } from './peers.ts'
 import type { Command, Dealer } from './dealer.ts'
 import { keep } from './keep.ts'
 
@@ -428,7 +429,27 @@ export class Host {
   }
 
   /** Carry on a table this tab was holding before it went away. */
-  restore(state: TableState) {
+  /**
+   * Which browser owns which seat.
+   *
+   * Deliberately not part of the table: a token is how a browser proves it is
+   * the one that sat down, so it must never be projected to anybody. It is
+   * kept alongside the table instead, by whatever is holding it.
+   */
+  get tokens(): Record<string, SeatId> {
+    return Object.fromEntries(this.tokenOf)
+  }
+
+  /**
+   * Put a table back, and with it the answer to "who is this".
+   *
+   * Without the tokens a restart is indistinguishable from everybody being new,
+   * so a returning player is handed a fresh seat while their own one sits there
+   * disconnected with their cards still in it. That is the whole point of
+   * keeping the table at all, so the tokens keep with it.
+   */
+  restore(state: TableState, tokens?: Record<string, SeatId>) {
+    if (tokens) for (const [token, seat] of Object.entries(tokens)) this.tokenOf.set(token, seat)
     this.state = state
     this.save()
     this.broadcast()

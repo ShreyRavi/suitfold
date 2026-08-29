@@ -136,7 +136,7 @@ class Table {
     // somebody who arrived rather than whoever happened to be holding state.
     this.host = new Host(wire, 'table', () => this.later())
     const back = this.load()
-    if (back) this.host.restore(back)
+    if (back) this.host.restore(back.state, back.tokens)
   }
 
   onJoin: (id: PeerId) => void = () => {}
@@ -176,19 +176,30 @@ class Table {
   save() {
     try {
       mkdirSync(dirname(this.file), { recursive: true })
-      writeFileSync(this.file, JSON.stringify({ at: Date.now(), state: this.host.state }))
+      writeFileSync(
+        this.file,
+        JSON.stringify({ at: Date.now(), state: this.host.state, tokens: this.host.tokens }),
+      )
     } catch {
       // A table that cannot be written is still a table worth playing.
     }
   }
 
-  load(): TableState | null {
+  load(): { state: TableState; tokens: Record<string, string> } | null {
     try {
       if (!existsSync(this.file)) return null
-      const kept = JSON.parse(readFileSync(this.file, 'utf8')) as { at: number; state: TableState }
+      const kept = JSON.parse(readFileSync(this.file, 'utf8')) as {
+        at: number
+        state: TableState
+        tokens?: Record<string, string>
+      }
       if (!kept?.state?.cards || Date.now() - kept.at > STALE) return null
-      // Nobody is connected yet, whatever the file remembers.
-      return { ...emptyTable(), ...kept.state, seats: kept.state.seats.map((s) => ({ ...s, connected: false })) }
+      return {
+        // Nobody is connected yet, whatever the file remembers.
+        state: { ...emptyTable(), ...kept.state, seats: kept.state.seats.map((s) => ({ ...s, connected: false })) },
+        // Written by an older build, before seats were kept with their owners.
+        tokens: kept.tokens ?? {},
+      }
     } catch {
       return null
     }

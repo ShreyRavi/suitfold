@@ -25,6 +25,10 @@ COPY --from=build /app/server ./server
 COPY --from=build /app/src ./src
 COPY --from=build /app/package.json ./
 
+# No node_modules on purpose: the server imports nothing outside the standard
+# library and this repository. --no-install below turns a stray import into a
+# crash at boot rather than a quiet download from npm on somebody's VPS.
+
 ENV PORT=8123
 ENV SUITFOLD_WEB=/app/web
 ENV SUITFOLD_HOME=/data
@@ -36,4 +40,4 @@ EXPOSE 8123
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s \
   CMD bun -e "fetch('http://127.0.0.1:'+(process.env.PORT??8123)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-CMD ["bun", "run", "server/table.ts"]
+CMD ["bun", "--no-install", "run", "server/table.ts"]

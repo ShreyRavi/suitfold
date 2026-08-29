@@ -239,3 +239,71 @@ describe('the door when the deck is on a server', () => {
     expect(sent.at(-1)).toEqual({ data: { state: 'refused' }, to: 'peer-2' })
   })
 })
+
+/**
+ * A redeploy is a restart, and a restart must not lose people.
+ *
+ * The whole reason to put the table on a server is that it survives everybody
+ * closing everything. If a returning browser is treated as a stranger, it gets
+ * a fresh seat while its own one sits there disconnected with its cards still
+ * in it, which is worse than not keeping the table at all.
+ */
+describe('coming back after the table server restarts', () => {
+  const kept = () => {
+    const { wire } = spy()
+    const first = new Host(wire, 'table', () => {})
+    first.proved.add('peer-1')
+    first.helloForTest('peer-1', 'Mom', '🐯', 'tok-mom')
+    first.joinForTest('peer-2', 'Kid', '🐺', 'tok-kid')
+    return {
+      state: JSON.parse(JSON.stringify(first.state)),
+      tokens: JSON.parse(JSON.stringify(first.tokens)),
+    }
+  }
+
+  const reopened = (saved: ReturnType<typeof kept>) => {
+    const { wire, sent } = spy()
+    const h = new Host(wire, 'table', () => {})
+    h.restore(saved.state, saved.tokens)
+    return { h, sent }
+  }
+
+  test('a player takes their own seat again, from a new connection', () => {
+    const saved = kept()
+    const { h } = reopened(saved)
+    h.proved.add('peer-9')
+    h.helloForTest('peer-9', 'Mom', '🐯', 'tok-mom')
+
+    expect(h.state.seats.map((s) => s.name)).toEqual(['Mom', 'Kid'])
+    expect(h.state.seats.find((s) => s.name === 'Mom')?.connected).toBe(true)
+  })
+
+  test('somebody who was let in before does not knock again', () => {
+    const saved = kept()
+    const { h, sent } = reopened(saved)
+    h.helloForTest('peer-9', 'Kid', '🐺', 'tok-kid')
+
+    expect(h.knocking).toHaveLength(0)
+    expect(sent.filter((s) => s.data.state === 'waiting')).toHaveLength(0)
+    expect(h.state.seats).toHaveLength(2)
+  })
+
+  test('a stranger with a made up token still knocks', () => {
+    const saved = kept()
+    const { h, sent } = reopened(saved)
+    h.helloForTest('peer-9', 'Mom', '🐯', 'not-a-real-token')
+
+    expect(h.state.seats).toHaveLength(2)
+    expect(h.knocking.map((k) => k.peer)).toEqual(['peer-9'])
+    expect(sent.at(-1)?.data.state).toBe('waiting')
+  })
+
+  test('a table written by an older build still opens', () => {
+    const saved = kept()
+    const { wire } = spy()
+    const h = new Host(wire, 'table', () => {})
+    h.restore(saved.state)
+
+    expect(h.state.seats.map((s) => s.name)).toEqual(['Mom', 'Kid'])
+  })
+})

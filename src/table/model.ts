@@ -930,3 +930,12 @@ export function mentions(text: string, seats: Seat[]): SeatId[] {
   }
   return hit
 }
+
+/**
+ * The colours seats are handed out in, in order.
+ *
+ * Here rather than next to the peer to peer code, because the table server
+ * seats people too, and importing that file would drag a WebRTC library onto a
+ * machine that has no browser and no use for one.
+ */
+export const SEAT_COLOURS = ['#1f4b7a', '#b9482f', '#4a7c59', '#7a5c1f', '#6b4a7a', '#2f7f8f', '#a8462c', '#3f5b8a']

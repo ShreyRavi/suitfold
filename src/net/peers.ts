@@ -222,4 +222,3 @@ export const cleanCode = (raw: string) =>
     .replace(/[IO01]/g, (c) => ({ I: 'J', O: 'Q', '0': 'Q', '1': 'J' })[c] ?? c)
     .slice(0, 5)
 
-export const SEAT_COLOURS = ['#1f4b7a', '#b9482f', '#4a7c59', '#7a5c1f', '#6b4a7a', '#2f7f8f', '#a8462c', '#3f5b8a']

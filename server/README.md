@@ -29,23 +29,32 @@ worth having and not worth depending on.
 The container carries the front end as well as the table, so one service is the
 whole thing and there is nothing to point at anything.
 
-1. **New Resource → Docker Compose**, pointed at this repository.
-2. Set one environment variable, `SUITFOLD_KEY`, and mark it **Build Variable**
-   as well so the front end is built with it. It is the sha256 of the phrase,
+1. **New Resource → Application → Public Repository**, this repository, branch
+   `main`, **Build Pack: Dockerfile**.
+2. **Port**: `8123`.
+3. **Environment Variables**: add `SUITFOLD_KEY` and tick **Build Variable** as
+   well, so the front end is built with it too. It is the sha256 of the phrase,
    never the phrase:
 
    ```sh
    printf '%s' 'your phrase' | shasum -a 256
    ```
 
-   Leave it empty and anybody who reaches the box can open a table.
-3. Give it a domain. Coolify terminates TLS, and the websocket goes over the
+   Leave it unset and anybody who can reach the box can open a table.
+4. **Persistent Storage**: a volume mounted at `/data`. Without it every
+   redeploy forgets every table, which rather defeats the point.
+5. Give it a domain. Coolify terminates TLS and the websocket goes over the
    same one, so there is nothing further to configure.
-4. Deploy, then open the domain. Not the Pages site - the domain. That is what
+6. Deploy, then open the domain. Not the Pages site, the domain. That is what
    makes it a table server rather than a static page.
 
-The `tables` volume is where games are kept. Without it a redeploy forgets
-every table, which rather defeats the point.
+`docker-compose.yml` is here too if you would rather deploy that way, but the
+Dockerfile route is fewer moving parts.
+
+There is no `node_modules` in the running image, on purpose: the server imports
+nothing outside the standard library and this repository. It runs with
+`--no-install` so that if that ever stops being true it crashes on the spot
+rather than quietly downloading a package from npm onto your VPS.
 
 ## Running it by hand
 
