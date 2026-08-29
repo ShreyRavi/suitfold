@@ -1,32 +1,16 @@
 /**
- * The front door of a static site.
+ * The front door.
  *
- * Be clear about what this is, because it would be easy to mistake it for
- * security. There is no server here. Everything the browser needs to decide
- * whether to let you in is in the browser, which means somebody who opens the
- * developer tools can walk straight past it. It is a door on a garden shed:
- * it stops people wandering in, and stops nobody who is trying.
+ * One shared phrase, learned by word of mouth, typed once and remembered. Not
+ * a login and not an account system: everybody uses the same one, and if it
+ * ever gets out you change it and tell people the new one.
  *
- * The door itself is only a door: somebody who opens the developer tools can
- * walk past it, and no amount of care here changes that.
+ * The phrase is also the key the peering layer encrypts its handshake with, so
+ * it is a requirement for reaching anybody rather than only a screen to get
+ * past. It is not in the source: only a sha256 of it, injected at build time.
  *
- * The phrase is not only a door, though. It is also the key the peering layer
- * uses to encrypt the handshake between browsers, and trystero will not
- * introduce two peers whose keys disagree. So getting past this screen buys
- * nothing on its own - without the actual phrase you cannot reach anybody,
- * because the encryption is done by the peers rather than by a server that
- * could be argued with. That part is real.
- *
- * The rest is hygiene:
- *
- *   - the phrase is not in the source, only a sha256 of it, injected at build
- *     time, so a public repository gives nothing away
- *   - guessing is slowed down, so a bored person cannot sit and try words
- *   - an invite link carries it, so family click once and are in, and a bare
- *     visit to the address shows nothing but this door
- *
- * The phrase itself is kept in this browser, because the peering layer needs
- * it every time it connects. On a shared computer that is worth knowing.
+ * It is kept in this browser afterwards, because the peering layer needs it
+ * every time it connects. On a shared computer that is worth knowing.
  */
 
 const LOCK = (import.meta.env.VITE_LOCK ?? '').trim().toLowerCase()

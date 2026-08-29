@@ -12,6 +12,9 @@ export const SEEN_TERMS = 'suitfold.terms'
 export function Terms({ onAgree }: { onAgree: () => void }) {
   return (
     <div className="ask" role="dialog" aria-modal="true" aria-label="Before you play">
+      {/* Dimmed, like every other dialog, but not a way out: this one is read
+          and acknowledged rather than dismissed. */}
+      <div className="ask-scrim" aria-hidden="true" />
       <div className="ask-box terms-box">
         <h2>Before you play</h2>
 
