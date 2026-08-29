@@ -1,12 +1,9 @@
 node_modules/
 dist/
 *.log
-
-# Data never belongs in the repo. It lives in ~/.suitfold/ so that a stray
-# `git clean -fd` cannot destroy the season ledger.
-*.sqlite
-*.sqlite-wal
-*.sqlite-shm
-recaps/
 .gstack/
+
+# Build output. This was briefly missing from here, and one `git add -A` later
+# a hundred and forty five megabytes of signed binaries were in a public
+# repository.
 build/
