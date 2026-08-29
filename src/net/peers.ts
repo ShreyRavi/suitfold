@@ -21,16 +21,23 @@ import type { Command } from './dealer.ts'
  * Public nostr relays, used purely to swap connection details. No game data
  * goes through them: once two browsers have found each other they talk
  * directly, and a relay that dies mid-game costs nothing.
+ *
+ * Every one of these was reachable when the list was written. That is not a
+ * promise about next month: they are run by strangers as a favour and they
+ * come and go. Half of an earlier list had gone quiet within a fortnight, some
+ * refusing the connection and one accepting it and then rejecting everything
+ * sent through it, which is the worse failure because it looks alive. Hence
+ * several, and several at a time.
  */
 const RELAYS = [
-  'wss://relay.damus.io',
   'wss://nos.lol',
-  'wss://relay.nostr.band',
   'wss://relay.primal.net',
+  'wss://relay.nostr.net',
+  'wss://nostr.oxtr.dev',
+  'wss://offchain.pub',
+  'wss://relay.mostr.pub',
+  'wss://nostr21.com',
   'wss://nostr.mom',
-  'wss://relay.snort.social',
-  'wss://nostr-pub.wellorder.net',
-  'wss://relay.nostr.bg',
 ]
 
 export type PeerId = string

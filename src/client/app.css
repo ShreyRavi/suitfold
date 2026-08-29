@@ -1433,3 +1433,13 @@ input.betbar-custom-val {
   .rail-side { justify-content: flex-start; overflow: visible; }
   .fan { min-height: 116px; flex: none; }
 }
+
+/* When something has thrown, and the alternative is a blank page. */
+.broke-why { margin-top: var(--s-6); text-align: left; font-size: var(--text-sm); }
+.broke-why summary { cursor: pointer; color: var(--ink-faint); }
+.broke-why code {
+  display: block; margin-top: var(--s-4); padding: var(--s-5);
+  background: var(--paper-panel); border: 1px solid var(--line);
+  border-radius: var(--r-panel); font-size: 11px; overflow-wrap: anywhere;
+  color: var(--ink-soft);
+}
