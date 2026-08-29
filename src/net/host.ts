@@ -16,7 +16,7 @@ import {
   stacks,
 } from '../table/model.ts'
 import { cryptoShuffle, place, presetById } from '../table/deck.ts'
-import { SEAT_COLOURS, type PeerId, type Wire } from './peers.ts'
+import { SEAT_COLOURS, type Knock, type PeerId, type Wire } from './peers.ts'
 import type { Command, Dealer } from './dealer.ts'
 import { keep } from './keep.ts'
 
@@ -32,6 +32,14 @@ export class Host {
   private seatOf = new Map<PeerId, SeatId>()
   /** Peers the host has already let in, so a reconnect does not knock again. */
   private welcome = new Set<PeerId>()
+  /**
+   * Peers who showed the phrase.
+   *
+   * Only ever filled in when the deck is held on a server, where there is no
+   * host sitting in a tab to answer the first knock. In a tab the host is the
+   * dealer from the moment the table exists, so this stays empty and unread.
+   */
+  proved = new Set<PeerId>()
   private peerOf = new Map<SeatId, PeerId>()
   /**
    * People who have knocked and are waiting to be let in.
@@ -41,7 +49,7 @@ export class Host {
    * table decides, which is a better door than a secret for a game played by
    * people who know each other.
    */
-  knocking: Knock[] = []
+  knocking: (Knock & { token?: string })[] = []
 
   /** Recent tables, so a mis-drag or a wrong deal can be taken back. */
   private history: TableState[] = []
@@ -148,6 +156,10 @@ export class Host {
         return this.buyIn(cmd.each)
       case 'removeSeat':
         return this.removeSeat(cmd.seat)
+      case 'admit':
+        return this.admit(cmd.peer)
+      case 'refuse':
+        return this.refuse(cmd.peer)
     }
   }
 
@@ -198,7 +210,10 @@ export class Host {
     // Somebody coming back is somebody already let in: their phone slept, or
     // the wifi dropped, and making them knock again mid-hand would be worse
     // than useless. Only strangers wait.
-    if (!returning && !this.welcome.has(peerId)) {
+    // An empty table has nobody to answer the door, so whoever brought the
+    // phrase walks in and becomes the dealer. Everyone after them knocks.
+    const opening = this.dealer === null && this.proved.has(peerId)
+    if (!returning && !this.welcome.has(peerId) && !opening) {
       if (!this.knocking.some((k) => k.peer === peerId)) {
         this.knocking.push({
           peer: peerId,
@@ -207,6 +222,7 @@ export class Host {
           at: this.now(),
           ...(token ? { token } : {}),
         })
+        this.broadcast()
         this.onChange()
       }
       this.wire.door.send({ state: 'waiting' }, peerId)
@@ -441,18 +457,30 @@ export class Host {
     this.onChange()
   }
 
+  /**
+   * What one person is allowed to see, plus the door if they are the one who
+   * has to answer it.
+   *
+   * The list of people waiting goes to the dealer and to nobody else. When the
+   * deck is held in a tab that costs nothing, because the dealer is already
+   * holding this object. When it is held on a server the dealer is somebody
+   * across the room, and the list has to travel or the door never opens.
+   */
+  private snap(seat: SeatId) {
+    const knocking = seat === this.dealer && this.knocking.length ? { knocking: this.knocking } : {}
+    return { view: project(this.state, seat), seat, rev: this.rev, dealer: this.dealer, wire: WIRE, ...knocking }
+  }
+
   broadcast() {
     this.rev++
-    for (const [peerId, seat] of this.seatOf) {
-      this.wire.snapshot.send({ view: project(this.state, seat), seat, rev: this.rev, dealer: this.dealer, wire: WIRE }, peerId)
-    }
+    for (const [peerId, seat] of this.seatOf) this.wire.snapshot.send(this.snap(seat), peerId)
     this.wire.ping.send(this.rev)
   }
 
   catchUp(peerId: PeerId) {
     const seat = this.seatOf.get(peerId)
     if (!seat) return
-    this.wire.snapshot.send({ view: project(this.state, seat), seat, rev: this.rev, dealer: this.dealer, wire: WIRE }, peerId)
+    this.wire.snapshot.send(this.snap(seat), peerId)
   }
 
   // -- setting the table ---------------------------------------------------
@@ -760,15 +788,6 @@ export class Host {
   tableCards() {
     return onTable(this.state)
   }
-}
-
-/** Somebody at the door, waiting to be let in. */
-export interface Knock {
-  peer: PeerId
-  name: string
-  emoji: string
-  at: number
-  token?: string
 }
 
 const clean = (n: string) => (n || '').trim().slice(0, 14)

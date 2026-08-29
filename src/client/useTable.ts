@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Action, CardId, SeatId, TableView } from '../table/model.ts'
 import { FACES, WIRE, asView, project } from '../table/model.ts'
 import { Host } from '../net/host.ts'
-import { cleanCode, connect, newCode, type Cursor, type Drag, type Wire } from '../net/peers.ts'
-import { connectTo, heldElsewhere, tableServer } from '../net/socket.ts'
+import { cleanCode, connect, newCode, type Cursor, type Drag, type Knock, type Wire } from '../net/peers.ts'
+import { connectTo, whereTheTableIs } from '../net/socket.ts'
 import { remoteDealer, type Command, type Dealer } from '../net/dealer.ts'
 import { forget, kept, reopen, type Kept } from '../net/keep.ts'
+import { phrase } from '../net/lock.ts'
 
 export type Stage =
   | 'lobby'
@@ -46,6 +47,12 @@ export interface Live {
    * app on a Mac, say. Null when you are not the one dealing.
    */
   dealer: Dealer | null
+  /**
+   * Anybody waiting at the door. Read straight off the Host when this tab is
+   * holding the table, and off the last snapshot when it is not, because the
+   * person who has to answer the door is not always the one holding the list.
+   */
+  knocking: Knock[]
   /** A table this tab was holding when it went away, if there is one. */
   unfinished: Kept | null
   resume: (name: string, emoji: string) => void
@@ -56,12 +63,13 @@ export interface Live {
  * Peer to peer by default, which needs nothing at all. Point it at a table
  * server and it uses that instead: one socket to a box you own, messages that
  * arrive in order, and a reconnection that takes a second.
+ *
+ * If that server does not answer we go back to peers rather than refusing to
+ * deal. A server is worth having and not worth depending on.
  */
-const link = (code: string): Wire => {
-  const held = heldElsewhere()
-  if (held) return connectTo(held, code)
-  const server = tableServer()
-  return server ? connectTo(server, code) : connect(code)
+const link = async (code: string): Promise<Wire> => {
+  const where = await whereTheTableIs()
+  return where ? connectTo(where, code, phrase()) : connect(code)
 }
 
 const NAME = 'suitfold.name'
@@ -118,6 +126,8 @@ export function useTable(): Live {
   const host = useRef<Host | null>(null)
   /** Set when the table is held elsewhere and this browser is the dealer. */
   const [remote, setRemote] = useState(false)
+  /** People at the door of a table held elsewhere, as last reported. */
+  const [waiting, setWaiting] = useState<Knock[]>([])
   const viewRef = useRef<TableView | null>(null)
   /** The revision of the table this browser has actually drawn. */
   const rev = useRef(0)
@@ -144,6 +154,7 @@ export function useTable(): Live {
       // The table told us who deals. If that is us, we get the controls even
       // though the deck is somewhere else entirely.
       if (snap.dealer !== undefined) setRemote(snap.dealer === snap.seat)
+      setWaiting(snap.knocking ?? [])
       setMe(snap.seat)
       setStage('table')
     })
@@ -215,10 +226,10 @@ export function useTable(): Live {
 
   /** Open a table. `carryOn` puts back the one this tab was holding before. */
   const start = useCallback(
-    (name: string, emoji: string, carryOn?: Kept) => {
+    async (name: string, emoji: string, carryOn?: Kept) => {
       // When the table is held elsewhere, starting one is just walking into an
       // empty room: this browser holds nothing and deals because it is first.
-      if (heldElsewhere()) {
+      if (await whereTheTableIs()) {
         joinRoom(carryOn?.code ?? newCode(), name, emoji, true)
         return
       }
@@ -230,7 +241,7 @@ export function useTable(): Live {
       setStage('joining')
       setUnfinished(null)
 
-      const w = link(c)
+      const w = await link(c)
       wire.current = w
       wireUp(w, name, true)
 
@@ -268,7 +279,7 @@ export function useTable(): Live {
 
   /** Walk into a room somebody else is holding, or a Mac app is. */
   const joinRoom = useCallback(
-    (c: string, name: string, emoji: string, opened = false) => {
+    async (c: string, name: string, emoji: string, opened = false) => {
       localStorage.setItem(NAME, name)
       localStorage.setItem(FACE, emoji)
       setCode(c)
@@ -276,7 +287,7 @@ export function useTable(): Live {
       setStage('joining')
       setUnfinished(null)
 
-      const w = link(c)
+      const w = await link(c)
       wire.current = w
       wireUp(w, name, false)
       const token = whoAmI()
@@ -371,6 +382,7 @@ export function useTable(): Live {
     broadcastDrag,
     broadcastCursor,
     host: host.current,
+    knocking: host.current ? host.current.knocking : waiting,
     dealer:
       host.current ??
       (remote && wire.current

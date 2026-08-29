@@ -132,3 +132,110 @@ describe('waiting gives nothing away', () => {
     }
   })
 })
+
+/**
+ * The same door, with the deck on a server.
+ *
+ * Nobody is sitting in 'table', so there is no host in a tab to answer the
+ * first knock. The phrase settles that one case and one case only: whoever
+ * brings it may pick up a deck nobody is holding. Everybody after them knocks
+ * at the door like anyone else, and it is the dealer who answers - over the
+ * wire, since the list is not in their browser.
+ */
+const held = () => {
+  const { wire, sent } = spy()
+  const snaps: { to?: string; snap: { seat: string; knocking?: { peer: string }[] } }[] = []
+  wire.snapshot.send = (data, to) => {
+    snaps.push({ to: to as string, snap: data as { seat: string; knocking?: { peer: string }[] } })
+  }
+  const h = new Host(wire, 'table', () => {})
+  return { h, sent, snaps }
+}
+
+describe('the door when the deck is on a server', () => {
+  test('the phrase opens an empty table, and deals', () => {
+    const { h } = held()
+    h.proved.add('peer-1')
+    h.helloForTest('peer-1', 'Mom')
+
+    expect(h.knocking).toHaveLength(0)
+    expect(h.dealer).toBe('s1')
+    expect(h.state.seats.map((s) => s.name)).toEqual(['Mom'])
+  })
+
+  test('without the phrase there is nobody to let you in', () => {
+    const { h, sent } = held()
+    h.helloForTest('peer-1', 'Chancer')
+
+    expect(h.state.seats).toHaveLength(0)
+    expect(h.dealer).toBe(null)
+    expect(sent.at(-1)?.data.state).toBe('waiting')
+  })
+
+  test('the second person knocks, and the dealer hears about it', () => {
+    const { h, snaps } = held()
+    h.proved.add('peer-1')
+    h.helloForTest('peer-1', 'Mom')
+    snaps.length = 0
+
+    h.helloForTest('peer-2', 'Kid')
+
+    expect(h.state.seats).toHaveLength(1)
+    const toDealer = snaps.filter((s) => s.to === 'peer-1').at(-1)
+    expect(toDealer?.snap.knocking?.map((k) => k.peer)).toEqual(['peer-2'])
+  })
+
+  test('the knock goes to the dealer and to nobody else', () => {
+    const { h, snaps } = held()
+    h.proved.add('peer-1')
+    h.helloForTest('peer-1', 'Mom')
+    h.command({ c: 'admit', peer: 'peer-2' }, 's1')
+    h.helloForTest('peer-2', 'Kid')
+    h.command({ c: 'admit', peer: 'peer-2' }, 's1')
+    snaps.length = 0
+
+    h.helloForTest('peer-3', 'Stranger')
+
+    expect(snaps.filter((s) => s.to === 'peer-2').every((s) => !s.snap.knocking)).toBe(true)
+  })
+
+  test('the dealer opens the door from across the room', () => {
+    const { h } = held()
+    h.proved.add('peer-1')
+    h.helloForTest('peer-1', 'Mom')
+    h.helloForTest('peer-2', 'Kid')
+
+    h.command({ c: 'admit', peer: 'peer-2' }, 's1')
+
+    expect(h.knocking).toHaveLength(0)
+    expect(h.state.seats.map((s) => s.name)).toEqual(['Mom', 'Kid'])
+  })
+
+  test('somebody who is not the dealer cannot open it', () => {
+    const { h, sent } = held()
+    h.proved.add('peer-1')
+    h.helloForTest('peer-1', 'Mom')
+    h.helloForTest('peer-2', 'Kid')
+    h.command({ c: 'admit', peer: 'peer-2' }, 's1')
+    h.helloForTest('peer-3', 'Stranger')
+
+    h.command({ c: 'admit', peer: 'peer-3' }, 's2')
+
+    expect(h.knocking.map((k) => k.peer)).toEqual(['peer-3'])
+    expect(h.state.seats).toHaveLength(2)
+    expect(sent.at(-1)?.data.state).toBe('waiting')
+  })
+
+  test('the dealer can turn somebody away from across the room', () => {
+    const { h, sent } = held()
+    h.proved.add('peer-1')
+    h.helloForTest('peer-1', 'Mom')
+    h.helloForTest('peer-2', 'Stranger')
+
+    h.command({ c: 'refuse', peer: 'peer-2' }, 's1')
+
+    expect(h.knocking).toHaveLength(0)
+    expect(h.state.seats).toHaveLength(1)
+    expect(sent.at(-1)).toEqual({ data: { state: 'refused' }, to: 'peer-2' })
+  })
+})

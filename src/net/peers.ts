@@ -40,6 +40,14 @@ const RELAYS = [
   'wss://nostr.mom',
 ]
 
+/** Somebody at the door, waiting to be let in. */
+export interface Knock {
+  peer: PeerId
+  name: string
+  emoji: string
+  at: number
+}
+
 /** What the host says to somebody who has knocked. */
 export interface Door {
   state: 'waiting' | 'refused'
@@ -66,6 +74,14 @@ export interface Snapshot {
   rev: number
   /** Who is allowed to deal, when the table is not being held in a tab. */
   dealer?: SeatId | null
+  /**
+   * Anybody waiting at the door, sent to the dealer and to nobody else.
+   *
+   * The door lives wherever the deck does. When that is a server rather than
+   * somebody's tab, the person who has to answer it is not the person holding
+   * the list, so the list has to travel.
+   */
+  knocking?: Knock[]
   /** Which version of the wire the table speaks. Absent means older than 1. */
   wire?: number
 }

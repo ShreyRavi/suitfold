@@ -13,7 +13,7 @@ import type { Command } from './dealer.ts'
  * It reconnects on its own, backing off a little each time, because a laptop
  * lid closing for ten seconds should not end the game.
  */
-export function connectTo(url: string, roomCode: string): Wire {
+export function connectTo(url: string, roomCode: string, key = ''): Wire {
   const handlers: Record<string, ((data: never, from: PeerId) => void)[]> = {}
   let sock: WebSocket | null = null
   let shut = false
@@ -27,9 +27,12 @@ export function connectTo(url: string, roomCode: string): Wire {
 
   const open = () => {
     if (shut) return
-    // No phrase in this URL: the browser carries an httpOnly ticket the server
-    // set when somebody said it, and the server checks that on the upgrade.
-    const where = `${url.replace(/\/$/, '')}/room?code=${encodeURIComponent(roomCode)}`
+    // The phrase, if this browser has one. It does not decide whether you may
+    // connect - a guest follows a link and has none. It decides one thing: may
+    // this person pick up the deck of a table nobody is holding.
+    const where =
+      `${url.replace(/\/$/, '').replace(/^http/, 'ws')}/room?code=${encodeURIComponent(roomCode)}` +
+      (key ? `&key=${encodeURIComponent(key)}` : '')
     sock = new WebSocket(where)
 
     sock.onopen = () => {
@@ -138,11 +141,10 @@ export function connectTo(url: string, roomCode: string): Wire {
  * peer to peer, which is the default and needs nothing.
  */
 export function tableServer(): string {
-  // A server on the link wins, and is remembered, so that the next time this
-  // browser opens the app plainly it still knows where the table is.
+  // A server on the link wins. It is remembered only once it has answered, so
+  // that a wrong address in a forwarded link is forgotten rather than kept.
   const asked = new URLSearchParams(location.search).get('server')
   if (asked) {
-    rememberServer(asked)
     return asked
   }
   const remembered = localStorage.getItem('suitfold.server')
@@ -203,3 +205,49 @@ const rememberServer = (url: string) => {
 
 /** A seat id for somebody the server is holding the table for. */
 export type ServerSeat = SeatId
+
+/**
+ * Where the table lives, once, having actually asked.
+ *
+ * A configured server is a hope, not a fact. It can be down, moved, or on a
+ * network this laptop is not on, and a table that will not open because a box
+ * somewhere is off is worse than no server at all. So we knock on it first,
+ * and if nobody answers we play the way we always did: peer to peer, the deck
+ * in whoever's tab started it.
+ *
+ * Asked once per page load and remembered, because every table opened in this
+ * tab should agree about where it is.
+ */
+let asking: Promise<string> | null = null
+
+export function whereTheTableIs(): Promise<string> {
+  return (asking ??= (async () => {
+    // Somewhere we were told about, or failing that, wherever this page came
+    // from. That last one is the whole configuration story for anyone who runs
+    // the server with the front end inside it: the page asks its own origin
+    // whether there is a table server there, and there is.
+    const told = heldElsewhere() || tableServer()
+    const url = told || location.origin
+    try {
+      const res = await fetch(`${url.replace(/\/$/, '').replace(/^ws/, 'http')}/health`, {
+        signal: AbortSignal.timeout(2500),
+      })
+      // Not just a 200. Static hosts answer plenty of things with a 200, and a
+      // page that mistakes its own 404 for a table server never deals a card.
+      const body = res.ok ? ((await res.json()) as { ok?: boolean; tables?: unknown }) : null
+      if (body?.ok === true && Array.isArray(body.tables)) {
+        // Remembered now that it has answered, so opening the app plainly next
+        // time still finds the table.
+        if (told) rememberServer(told)
+        return url
+      }
+    } catch {
+      /* down, moved, not on this network, or simply not a table server */
+    }
+    if (told) {
+      console.warn('suitfold: no answer from', told, '- playing peer to peer instead')
+      if (localStorage.getItem('suitfold.server') === told) rememberServer('')
+    }
+    return ''
+  })())
+}

@@ -1,0 +1,24 @@
+# Coolify reads this. Everything it needs is the one secret and the one volume.
+services:
+  suitfold:
+    build:
+      context: .
+      args:
+        # The sha256 of the phrase. Set SUITFOLD_KEY in Coolify's environment
+        # variables and mark it "build variable" so the front end gets it too.
+        SUITFOLD_KEY: ${SUITFOLD_KEY}
+    environment:
+      PORT: 8123
+      SUITFOLD_WEB: /app/web
+      SUITFOLD_HOME: /data
+      # Checked on the server as well as in the browser, because a browser is
+      # not somewhere you can check anything.
+      SUITFOLD_KEY: ${SUITFOLD_KEY}
+    volumes:
+      - tables:/data
+    restart: unless-stopped
+    ports:
+      - '8123:8123'
+
+volumes:
+  tables:

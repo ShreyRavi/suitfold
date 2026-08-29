@@ -1,4 +1,4 @@
-import type { Knock } from '../net/host.ts'
+import type { Knock } from '../net/peers.ts'
 
 /**
  * Somebody is at the door.

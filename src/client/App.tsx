@@ -593,11 +593,11 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
         <Pad code={t.code} game={view.game} title={padFor} onClose={() => setPad(false)} />
       )}
 
-      {t.host && (
+      {t.dealer && (
         <Door
-          knocking={t.host.knocking}
-          onLetIn={(peer) => t.host!.admit(peer)}
-          onTurnAway={(peer) => t.host!.refuse(peer)}
+          knocking={t.knocking}
+          onLetIn={(peer) => t.dealer!.admit(peer)}
+          onTurnAway={(peer) => t.dealer!.refuse(peer)}
         />
       )}
 

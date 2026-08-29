@@ -120,6 +120,9 @@ at a kitchen table. Play with people you would hand a real deck to.
 
 **Nothing is saved.** Close the tab and the game is over. It is a game, not a bank.
 
+All three stop being true if you run the [table server](server/README.md), which is
+optional and which the app finds by itself. Without one, this is how it works.
+
 ## Development
 
 ```sh
@@ -152,6 +155,9 @@ is forwarded on cannot be used to start a table.
 
 Push to `main`. GitHub Actions typechecks, tests, builds and publishes to Pages. Enable it
 once under **Settings → Pages → Source: GitHub Actions**, and set `SUITFOLD_LOCK`.
+
+To run the table server instead, see [server/README.md](server/README.md). Pages keeps
+working either way.
 
 ## How it is put together
 

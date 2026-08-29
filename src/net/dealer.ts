@@ -29,6 +29,8 @@ export type Command =
   | { c: 'logClear' }
   | { c: 'buyIn'; each: number }
   | { c: 'removeSeat'; seat: SeatId }
+  | { c: 'admit'; peer: string }
+  | { c: 'refuse'; peer: string }
 
 /** What the table's controls need, wherever the table happens to be. */
 export interface Dealer {
@@ -48,6 +50,9 @@ export interface Dealer {
   clearScores(): void
   sources(): { x: number; y: number; count: number }[]
   readonly canDealHand: boolean
+  /** Answering the door. */
+  admit(peer: string): void
+  refuse(peer: string): void
 }
 
 /**
@@ -78,6 +83,8 @@ export function remoteDealer(view: () => TableView, send: (cmd: Command) => void
     removePuck: (id) => send({ c: 'puckRemove', id }),
     score: (seat, by) => send({ c: 'score', seat, by }),
     clearScores: () => send({ c: 'scoresClear' }),
+    admit: (peer) => send({ c: 'admit', peer }),
+    refuse: (peer) => send({ c: 'refuse', peer }),
     sources: () => facedownPiles(view()),
     get canDealHand() {
       const v = view()
