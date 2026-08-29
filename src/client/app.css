@@ -1322,8 +1322,6 @@ input.betbar-custom-val {
 .pot .tray-col { width: 24px; height: 46px; }
 .pot .tray-col i { width: 24px; height: 8px; }
 
-.how-server { max-width: 34rem; margin-top: var(--s-7); }
-.how-server .row { gap: var(--s-4); }
 
 /* ---- announcing what you put down ---------------------------------------- */
 /* Bluff is played by saying what you are putting down and being allowed to lie

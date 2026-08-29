@@ -195,7 +195,8 @@ export function inviteLink(code: string): string {
   return `${base}${bits.length ? `?${bits.join('&')}` : ''}#${code}`
 }
 
-export const rememberServer = (url: string) => {
+/** Internal now: nothing in the app offers to set one. */
+const rememberServer = (url: string) => {
   if (url) localStorage.setItem('suitfold.server', url)
   else localStorage.removeItem('suitfold.server')
 }

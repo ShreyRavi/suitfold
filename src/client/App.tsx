@@ -17,7 +17,6 @@ import { Door } from './Door.tsx'
 import { SEEN_TERMS, Terms } from './Terms.tsx'
 import { Gate } from './Gate.tsx'
 import { alreadyIn, locked } from '../net/lock.ts'
-import { badge } from './desktop.ts'
 
 const RAIL_H = 'suitfold.railh'
 import { Clock, Pad } from './Pad.tsx'
@@ -255,8 +254,6 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
   // Only worth counting while the log is shut; once it is open you can see it.
   const unread = log ? 0 : view.log.filter((e) => e.kind === 'chat').length
 
-  // The same number, on the dock icon, when this is the Mac app.
-  useEffect(() => badge(unread), [unread])
   const deck = drawPile(view)
   const trick = faceUpOnTable(view)
   // The heap in the middle, and anything that has wandered off it.
