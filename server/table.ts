@@ -17,6 +17,20 @@ import { emptyTable, type TableState } from '../src/table/model.ts'
 import type { Hello, PeerId, Wire } from '../src/net/peers.ts'
 
 const PORT = Number(process.env.PORT ?? 8123)
+/** Older than this and it is last week's game, not an interrupted one. */
+const STALE = 6 * 60 * 60 * 1000
+
+/**
+ * Somebody connected to a table.
+ *
+ * This was never declared, so TypeScript quietly matched it against an
+ * unrelated ambient type that happens to be called Client and happens to have
+ * a send method. Nothing was checked here at all.
+ */
+interface Client {
+  id: PeerId
+  send(channel: string, data: unknown): void
+}
 
 /**
  * The front end, carried by the table itself.
@@ -194,7 +208,7 @@ interface Seat {
   code: string
 }
 
-const server = Bun.serve<Seat, Record<string, never>>({
+const server = Bun.serve<Seat>({
   port: PORT,
   hostname: '0.0.0.0',
 
@@ -251,7 +265,7 @@ const server = Bun.serve<Seat, Record<string, never>>({
       const table = tableFor(ws.data.code)
       table.join({
         id: ws.data.id,
-        send: (channel, data) => {
+        send: (channel: string, data: unknown) => {
           try {
             ws.send(JSON.stringify({ channel, data }))
           } catch {

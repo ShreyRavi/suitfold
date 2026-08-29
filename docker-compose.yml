@@ -1,0 +1,30 @@
+# The table, for Coolify.
+#
+# Point Coolify at this repo, pick Docker Compose, set SUITFOLD_KEY, deploy.
+# There is nothing to browse to: the front end is the Mac app, and this only
+# answers apps that know the phrase.
+services:
+  table:
+    build: .
+    restart: unless-stopped
+    environment:
+      # sha256 of the family phrase. Never the phrase itself, so it is not
+      # sitting in the compose file, in Coolify's UI, or in this repository.
+      #   printf %s 'your phrase' | shasum -a 256
+      SUITFOLD_KEY: ${SUITFOLD_KEY:?set this to the sha256 of the phrase}
+      PORT: 8123
+      SUITFOLD_HOME: /data
+    volumes:
+      # Tables live here, so a deploy or a restart does not end somebody's game.
+      - table-data:/data
+    ports:
+      - "8123"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8123/health"]
+      interval: 30s
+      timeout: 4s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  table-data:

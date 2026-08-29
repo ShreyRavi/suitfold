@@ -5,6 +5,7 @@ import { GROUPS, PRESETS } from '../table/deck.ts'
 import { cleanCode } from '../net/peers.ts'
 import { rememberServer, tableServer } from '../net/socket.ts'
 import { Card } from './Card.tsx'
+import { Small } from './Terms.tsx'
 
 /**
  * Pick a face. Names collide at a family table - two people will type "Dad" -
@@ -52,6 +53,7 @@ export function Home({
   onResume,
   onDiscard,
   onRules,
+  onTerms,
 }: {
   onCreate: (name: string, emoji: string) => void
   onJoin: (code: string, name: string, emoji: string) => void
@@ -62,6 +64,7 @@ export function Home({
   onResume: (name: string, emoji: string) => void
   onDiscard: () => void
   onRules: (gameId: string) => void
+  onTerms: () => void
 }) {
   const [name, setName] = useState(initialName)
   const [face, setFace] = useState(initialFace)
@@ -239,8 +242,11 @@ export function Home({
       </section>
 
       <footer className="home-foot">
-        <span>suitfold</span>
-        <span>free, and always will be - there is nothing to charge for</span>
+        <div className="home-foot-row">
+          <span>suitfold</span>
+          <span>free, and always will be - there is nothing to charge for</span>
+        </div>
+        <Small onOpen={onTerms} />
       </footer>
     </div>
   )

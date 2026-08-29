@@ -64,7 +64,7 @@ setInterval(() => {
   }
 }, 60_000)
 
-const server = Bun.serve<Seat, Record<string, never>>({
+const server = Bun.serve<Seat>({
   port: PORT,
 
   fetch(req, srv) {

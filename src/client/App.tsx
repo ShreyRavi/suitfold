@@ -3,7 +3,7 @@ import type { CardId, SeatId, TableView } from '../table/model.ts'
 import { SNAP, TABLE_H, TABLE_W, seatPlaces } from '../table/model.ts'
 import { GROUPS, PRESETS } from '../table/deck.ts'
 import { cleanCode } from '../net/peers.ts'
-import { forgetKey, houseKey, inviteLink, isLocked, keyWorks } from '../net/socket.ts'
+import { inviteLink } from '../net/socket.ts'
 import { rememberedFace, rememberedName, suggestFace, suggestName, useTable } from './useTable.ts'
 import { Table, toTableCoords } from './Table.tsx'
 import { Home, Invite } from './Home.tsx'
@@ -13,8 +13,8 @@ import { Toolbar } from './Toolbar.tsx'
 import { BetBar } from './BetBar.tsx'
 import { Log, Mention, Toasts } from './Log.tsx'
 import { Help, SEEN_HELP } from './Help.tsx'
+import { SEEN_TERMS, Terms } from './Terms.tsx'
 import { badge } from './desktop.ts'
-import { Gate } from './Gate.tsx'
 
 const RAIL_H = 'suitfold.railh'
 import { Clock, Pad } from './Pad.tsx'
@@ -22,36 +22,9 @@ import { presetById } from '../table/deck.ts'
 
 export function App() {
   const t = useTable()
-  // Does this table want a phrase, and do we have one? Asked once, on the way
-  // in, so nobody is stopped halfway through sitting down.
-  const [locked, setLocked] = useState<boolean | null>(null)
-  const [key, setKey] = useState(houseKey())
-
-  useEffect(() => {
-    let alive = true
-    void (async () => {
-      const wants = await isLocked()
-      if (!alive) return
-      if (!wants) {
-        setLocked(false)
-        return
-      }
-      // A phrase that used to work and does not any more should send you back
-      // to the door. Without this the socket is simply refused and you sit on
-      // "finding the table" forever, being told the host needs their tab open
-      // when the host is right there and it is the phrase that is wrong.
-      const mine = houseKey()
-      if (mine && !(await keyWorks(mine))) {
-        forgetKey()
-        if (alive) setKey('')
-      }
-      if (alive) setLocked(true)
-    })()
-    return () => {
-      alive = false
-    }
-  }, [])
   const [rules, setRules] = useState<string | null>(null)
+  // Said once, and afterwards it lives in the footer.
+  const [terms, setTerms] = useState(() => !localStorage.getItem(SEEN_TERMS))
   // A link with a code on it means somebody invited you; that gets its own
   // page rather than dropping you on the sales pitch.
   const [invited, setInvited] = useState(() => cleanCode(location.hash.replace('#', '')))
@@ -68,19 +41,6 @@ export function App() {
     addEventListener('hashchange', onHash)
     return () => removeEventListener('hashchange', onHash)
   }, [])
-
-  // Waiting on the table to say whether it is locked. It is one request to
-  // something on the same machine, so this is a blink.
-  if (locked === null) return <div className="gate" />
-  if (locked && !key) {
-    return (
-      <Gate
-        onIn={() => {
-          setKey(houseKey())
-        }}
-      />
-    )
-  }
 
   if (t.stage === 'lobby') {
     return (
@@ -106,9 +66,18 @@ export function App() {
             onResume={t.resume}
             onDiscard={t.discard}
             onRules={(id) => setRules(id)}
+            onTerms={() => setTerms(true)}
           />
         )}
         {rules && <Rules gameId={rules} onClose={() => setRules(null)} />}
+        {terms && (
+          <Terms
+            onAgree={() => {
+              localStorage.setItem(SEEN_TERMS, new Date().toISOString())
+              setTerms(false)
+            }}
+          />
+        )}
       </>
     )
   }

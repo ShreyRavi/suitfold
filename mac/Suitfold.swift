@@ -9,19 +9,32 @@ import WebKit
 
 // suitfold, on a Mac.
 //
-// This is the same table as the website, in a window of its own. Not a control
-// panel beside a browser: the game is here, and the deck is held by a process
-// this app owns, which is the whole reason it exists. A browser tab gets
-// throttled the moment it goes to the back, gets closed by accident, and takes
-// the game with it. This does none of that, and it keeps the Mac awake while a
-// hand is in progress.
+// There is no website. This app is the whole thing, and everybody who plays
+// has a copy: one person holds a table, the rest find it on the network and
+// sit down. Nothing is published anywhere and nothing needs the internet.
 //
-// Everything the page can do, it can still do. The extras are the ones only a
-// real application gets: notifications when somebody says your name, a badge on
-// the dock, a window that comes back where you left it, and a table that
-// survives the front end being reloaded.
+// Every copy carries the front end and can run a table, so the two jobs are
+// the same program in different moods. Holding one announces itself over
+// Bonjour; joining one is picking a name off a list rather than typing an
+// address at somebody.
+//
+// The deck lives in a process this app owns, which is the whole reason to be
+// an app rather than a tab. A tab gets throttled the moment it goes to the
+// back, gets closed by accident, and takes the game with it. This does none of
+// that, keeps the Mac awake mid-hand, and can say something out loud when
+// somebody needs you.
 
 let port = 8123
+
+/// Which of its two jobs the app is doing.
+enum Doing: Equatable {
+    /// Deciding, and looking around the network for somebody else's table.
+    case choosing
+    /// Holding a table of our own.
+    case holding
+    /// Sitting at somebody else's, at this address.
+    case visiting(host: String, code: String)
+}
 
 // MARK: - the table process
 
@@ -34,6 +47,7 @@ final class Table: ObservableObject {
     @Published var players: [Player] = []
     @Published var game = ""
     @Published var trouble: String?
+    @Published var doing: Doing = .choosing
 
     private var task: Process?
     private var sleepless: IOPMAssertionID = 0
@@ -47,10 +61,19 @@ final class Table: ObservableObject {
         var id: String { emoji + name }
     }
 
-    /// Where this Mac plays. Localhost is a secure context, so everything the
-    /// browser gives the page it gives it here too.
+    /// Where this Mac plays.
+    ///
+    /// The page always comes from our own copy, so it is always the build this
+    /// app shipped with. Only the table it talks to changes: ours when we are
+    /// holding one, somebody else's when we are visiting. Localhost is a
+    /// secure context, so the page gets everything a browser would give it.
     var mine: URL {
-        URL(string: "http://127.0.0.1:\(port)/?table=ws://127.0.0.1:\(port)#\(code)")!
+        switch doing {
+        case .visiting(let host, let code):
+            return URL(string: "http://127.0.0.1:\(port)/?table=ws://\(host):\(port)#\(code)")!
+        default:
+            return URL(string: "http://127.0.0.1:\(port)/?table=ws://127.0.0.1:\(port)#\(code)")!
+        }
     }
 
     /// The link other people on this network use. The app serves the front end
@@ -61,9 +84,10 @@ final class Table: ObservableObject {
         return "http://\(host):\(port)/?table=ws://\(host):\(port)#\(code)"
     }
 
+    /// Bring up our own copy of the server. Every app does this, holding a
+    /// table or not: it is what serves the front end.
     func start() {
         guard task == nil else { return }
-        code = Self.freshCode()
 
         guard let binary = Bundle.main.url(forResource: "suitfold-table", withExtension: nil) else {
             trouble = "The table server is missing from the app bundle."
@@ -103,12 +127,36 @@ final class Table: ObservableObject {
         stopped()
     }
 
-    /// A fresh code, same table process. Everybody has to come back through the
-    /// new link, which is the point of it.
-    func newTable() {
+    /// Hold a table of our own, and tell the network about it.
+    func hold(as name: String) {
         code = Self.freshCode()
         known = []
         players = []
+        doing = .holding
+        Beacon.shared.announce(code: code, who: name)
+    }
+
+    /// Sit down at somebody else's.
+    func visit(host: String, code: String) {
+        Beacon.shared.hush()
+        self.code = code
+        known = []
+        players = []
+        doing = .visiting(host: host, code: code)
+    }
+
+    /// Back to the list, holding nothing.
+    func leave() {
+        Beacon.shared.hush()
+        doing = .choosing
+        code = ""
+        players = []
+        game = ""
+    }
+
+    /// A fresh code for the table we are holding.
+    func newTable(as name: String) {
+        hold(as: name)
     }
 
     private func stopped() {
@@ -144,6 +192,10 @@ final class Table: ObservableObject {
         guard let health = try? JSONDecoder().decode(Health.self, from: data) else { return }
         if !ready { ready = true }
 
+        guard case .holding = doing else {
+            players = []
+            return
+        }
         let mine = health.tables.first { $0.code == code }
         let seats = mine?.seats ?? []
 
@@ -209,6 +261,122 @@ final class Table: ObservableObject {
             break
         }
         return address
+    }
+}
+
+// MARK: - finding each other
+
+/// A table found on the network.
+struct Nearby: Identifiable, Equatable {
+    var name: String
+    var host: String
+    var code: String
+    var id: String { host + code }
+}
+
+/**
+ Tables announce themselves and apps listen for them.
+
+ This is the whole reason joining is not a chore. Without it every guest has to
+ be told an address and a code by somebody reading numbers out loud; with it
+ they open the app and their sister's table is sitting there in a list.
+
+ It never leaves the local network. Nothing is registered anywhere, there is no
+ directory, and an app that is not holding a table says nothing at all.
+ */
+@MainActor
+final class Beacon: NSObject, ObservableObject {
+    static let shared = Beacon()
+
+    @Published var found: [Nearby] = []
+
+    private var service: NetService?
+    private var browser: NetServiceBrowser?
+    private var resolving: [NetService] = []
+
+    /// Tell the network we are holding a table.
+    func announce(code: String, who: String) {
+        hush()
+        let s = NetService(domain: "local.", type: "_suitfold._tcp.", name: "\(who) - \(code)", port: Int32(port))
+        // The code travels in the record so a guest never types one.
+        s.setTXTRecord(NetService.data(fromTXTRecord: [
+            "code": Data(code.utf8),
+            "who": Data(who.utf8),
+        ]))
+        s.publish()
+        service = s
+    }
+
+    /// Stop announcing. An app not holding a table is not a table.
+    func hush() {
+        service?.stop()
+        service = nil
+    }
+
+    /// Start looking for other people's tables.
+    func look() {
+        found = []
+        let b = NetServiceBrowser()
+        b.delegate = self
+        b.searchForServices(ofType: "_suitfold._tcp.", inDomain: "local.")
+        browser = b
+    }
+
+    func stopLooking() {
+        browser?.stop()
+        browser = nil
+        resolving = []
+    }
+}
+
+extension Beacon: NetServiceBrowserDelegate, NetServiceDelegate {
+    nonisolated func netServiceBrowser(_ b: NetServiceBrowser, didFind service: NetService, moreComing: Bool) {
+        Task { @MainActor in
+            service.delegate = self
+            self.resolving.append(service)
+            service.resolve(withTimeout: 5)
+        }
+    }
+
+    nonisolated func netServiceBrowser(_ b: NetServiceBrowser, didRemove service: NetService, moreComing: Bool) {
+        Task { @MainActor in
+            self.found.removeAll { $0.name == service.name }
+        }
+    }
+
+    nonisolated func netServiceDidResolveAddress(_ service: NetService) {
+        Task { @MainActor in
+            guard let host = Self.ipv4(of: service) else { return }
+            // Our own table is not somewhere to go.
+            if host == Table.lanIP() { return }
+            var code = ""
+            var who = service.name
+            if let data = service.txtRecordData() {
+                let record = NetService.dictionary(fromTXTRecord: data)
+                if let c = record["code"], let text = String(data: c, encoding: .utf8) { code = text }
+                if let w = record["who"], let text = String(data: w, encoding: .utf8) { who = text }
+            }
+            guard !code.isEmpty else { return }
+            let table = Nearby(name: who, host: host, code: code)
+            if !self.found.contains(table) { self.found.append(table) }
+            self.resolving.removeAll { $0 === service }
+        }
+    }
+
+    /// The dotted address out of whatever the resolver handed back.
+    static func ipv4(of service: NetService) -> String? {
+        for case let data as Data in service.addresses ?? [] {
+            let host = data.withUnsafeBytes { raw -> String? in
+                guard let sa = raw.baseAddress?.assumingMemoryBound(to: sockaddr.self) else { return nil }
+                guard sa.pointee.sa_family == UInt8(AF_INET) else { return nil }
+                var name = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                guard getnameinfo(sa, socklen_t(data.count), &name, socklen_t(name.count), nil, 0, NI_NUMERICHOST) == 0
+                else { return nil }
+                return String(cString: name)
+            }
+            if let host { return host }
+        }
+        return nil
     }
 }
 
@@ -308,10 +476,12 @@ struct SuitfoldApp: App {
             Group {
                 if let trouble = table.trouble {
                     Trouble(text: trouble) { table.stop(); table.start() }
-                } else if table.running && table.ready {
-                    Felt(url: table.mine, reload: $reload)
-                } else {
+                } else if !table.running || !table.ready {
                     Setting(table: table)
+                } else if table.doing == .choosing {
+                    Chooser(table: table)
+                } else {
+                    Felt(url: table.mine, reload: $reload)
                 }
             }
             .frame(minWidth: 900, minHeight: 640)
@@ -339,16 +509,148 @@ struct SuitfoldApp: App {
             CommandGroup(after: .newItem) {
                 Button("Invite people\u{2026}") { sharing = true }
                     .keyboardShortcut("i")
+                    .disabled(table.doing != .holding)
                 Button("New table") {
-                    table.newTable()
+                    table.newTable(as: myName())
                     reload += 1
                 }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
+                .disabled(table.doing != .holding)
                 Divider()
+                Button("Back to the list") {
+                    table.leave()
+                    Beacon.shared.look()
+                }
+                .keyboardShortcut("l", modifiers: [.command, .shift])
+                .disabled(table.doing == .choosing)
                 Button("Reload the table") { reload += 1 }
                     .keyboardShortcut("r")
             }
         }
+    }
+}
+
+/// What this Mac calls itself, for announcing a table. Just a starting point;
+/// the name you play under is the one you type at the table.
+func myName() -> String {
+    let host = Host.current().localizedName ?? "Somebody"
+    return host.replacingOccurrences(of: "'s MacBook Pro", with: "")
+        .replacingOccurrences(of: "'s MacBook Air", with: "")
+        .replacingOccurrences(of: "'s Mac", with: "")
+        .replacingOccurrences(of: "'s iMac", with: "")
+}
+
+/**
+ The first thing you see: hold a table, or sit at one somebody else is holding.
+
+ The list fills itself in. Nobody reads an address out loud, nobody types a
+ code, and if the network will not cooperate there is a box at the bottom for
+ doing it the hard way.
+ */
+struct Chooser: View {
+    @ObservedObject var table: Table
+    @ObservedObject private var beacon = Beacon.shared
+    @State private var manual = ""
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 8) {
+                Image(systemName: "suit.spade.fill")
+                    .font(.system(size: 30))
+                    .foregroundStyle(.tint)
+                Text("suitfold").font(.system(size: 26, weight: .medium))
+                Text("A card table for the family")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top, 46)
+            .padding(.bottom, 26)
+
+            Button {
+                table.hold(as: myName())
+            } label: {
+                Label("Hold a table", systemImage: "plus.circle.fill")
+                    .frame(maxWidth: 260)
+            }
+            .controlSize(.large)
+            .buttonStyle(.borderedProminent)
+            .keyboardShortcut(.defaultAction)
+
+            Text("Everybody else can sit down at it")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 6)
+
+            Divider().padding(.vertical, 24).frame(width: 320)
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 7) {
+                    Text("TABLES NEARBY")
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                    if beacon.found.isEmpty {
+                        ProgressView().controlSize(.small).scaleEffect(0.7)
+                    }
+                }
+
+                if beacon.found.isEmpty {
+                    Text("Nothing yet. They show up here on their own once somebody is holding one on this network.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 320, alignment: .leading)
+                } else {
+                    ForEach(beacon.found) { table_ in
+                        Button {
+                            table.visit(host: table_.host, code: table_.code)
+                        } label: {
+                            HStack {
+                                Image(systemName: "person.2.fill").foregroundStyle(.tint)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(table_.name).fontWeight(.medium)
+                                    Text(table_.code)
+                                        .font(.system(size: 11, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+                            }
+                            .frame(width: 300)
+                            .padding(.vertical, 4)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            }
+
+            Spacer()
+
+            // For a network that will not do Bonjour, or somebody on a VPN.
+            HStack(spacing: 6) {
+                TextField("or an address, like 192.168.1.5", text: $manual)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 230)
+                    .onSubmit(byHand)
+                Button("Join", action: byHand).disabled(manual.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            .padding(.bottom, 22)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { beacon.look() }
+        .onDisappear { beacon.stopLooking() }
+    }
+
+    /// An address typed in, with or without a code on the end of it.
+    private func byHand() {
+        let said = manual.trimmingCharacters(in: .whitespaces)
+        guard !said.isEmpty else { return }
+        // Accept a bare address, or a whole link pasted out of a message.
+        let host = said
+            .replacingOccurrences(of: "http://", with: "")
+            .replacingOccurrences(of: "ws://", with: "")
+            .split(separator: "/").first.map(String.init)?
+            .split(separator: ":").first.map(String.init) ?? said
+        let code = said.contains("#") ? String(said.split(separator: "#").last ?? "") : ""
+        table.visit(host: host, code: code.uppercased())
     }
 }
 
