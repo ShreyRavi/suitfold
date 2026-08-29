@@ -3,7 +3,7 @@ import type { CardId, SeatId, TableView } from '../table/model.ts'
 import { SNAP, TABLE_H, TABLE_W, seatPlaces } from '../table/model.ts'
 import { GROUPS, PRESETS } from '../table/deck.ts'
 import { cleanCode } from '../net/peers.ts'
-import { inviteLink } from '../net/socket.ts'
+import { houseKey, inviteLink, isLocked } from '../net/socket.ts'
 import { rememberedFace, rememberedName, suggestFace, suggestName, useTable } from './useTable.ts'
 import { Table, toTableCoords } from './Table.tsx'
 import { Home, Invite } from './Home.tsx'
@@ -13,6 +13,8 @@ import { Toolbar } from './Toolbar.tsx'
 import { BetBar } from './BetBar.tsx'
 import { Log, Mention, Toasts } from './Log.tsx'
 import { Help, SEEN_HELP } from './Help.tsx'
+import { badge } from './desktop.ts'
+import { Gate } from './Gate.tsx'
 
 const RAIL_H = 'suitfold.railh'
 import { Clock, Pad } from './Pad.tsx'
@@ -20,6 +22,18 @@ import { presetById } from '../table/deck.ts'
 
 export function App() {
   const t = useTable()
+  // Does this table want a phrase, and do we have one? Asked once, on the way
+  // in, so nobody is stopped halfway through sitting down.
+  const [locked, setLocked] = useState<boolean | null>(null)
+  const [key, setKey] = useState(houseKey())
+
+  useEffect(() => {
+    let alive = true
+    void isLocked().then((yes) => alive && setLocked(yes))
+    return () => {
+      alive = false
+    }
+  }, [])
   const [rules, setRules] = useState<string | null>(null)
   // A link with a code on it means somebody invited you; that gets its own
   // page rather than dropping you on the sales pitch.
@@ -37,6 +51,19 @@ export function App() {
     addEventListener('hashchange', onHash)
     return () => removeEventListener('hashchange', onHash)
   }, [])
+
+  // Waiting on the table to say whether it is locked. It is one request to
+  // something on the same machine, so this is a blink.
+  if (locked === null) return <div className="gate" />
+  if (locked && !key) {
+    return (
+      <Gate
+        onIn={() => {
+          setKey(houseKey())
+        }}
+      />
+    )
+  }
 
   if (t.stage === 'lobby') {
     return (
@@ -189,6 +216,9 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
 
   // Only worth counting while the log is shut; once it is open you can see it.
   const unread = log ? 0 : view.log.filter((e) => e.kind === 'chat').length
+
+  // The same number, on the dock icon, when this is the Mac app.
+  useEffect(() => badge(unread), [unread])
   const deck = drawPile(view)
   const trick = faceUpOnTable(view)
   // The heap in the middle, and anything that has wandered off it.

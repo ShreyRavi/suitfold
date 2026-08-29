@@ -17,27 +17,65 @@ import { emptyTable, type TableState } from '../src/table/model.ts'
 import type { Hello, PeerId, Wire } from '../src/net/peers.ts'
 
 const PORT = Number(process.env.PORT ?? 8123)
+
 /**
- * The front end, served by the same thing that holds the table.
+ * The front end, carried by the table itself.
  *
- * This is the fix for a whole class of bug rather than one instance of it. The
- * website updates every time it is deployed; this binary updates when somebody
- * downloads a new one. Left alone, a browser on today's build ends up talking
- * to a table from three months ago, and every field added in between is a
- * crash waiting to happen.
- *
- * So the app hands out the client it was built with. They cannot disagree,
- * because they are the same build. It also means a game works with the
- * internet unplugged, which is worth having on its own.
+ * The page and the table are then always the same build, which matters because
+ * a website updates every time it is deployed while this binary updates when
+ * somebody downloads a new one. It also means the whole thing works with the
+ * internet unplugged.
  */
 const WEB = process.env.SUITFOLD_WEB ?? ''
 const HOME = process.env.SUITFOLD_HOME ?? join(process.env.HOME ?? '.', 'Library/Application Support/suitfold')
-/** A table nobody has come back to in a day is last week's game. */
-const STALE = 24 * 60 * 60 * 1000
 
-interface Client {
-  id: PeerId
-  send: (channel: string, data: unknown) => void
+/**
+ * The house key.
+ *
+ * SUITFOLD_KEY holds the sha256 of a phrase, never the phrase, so the password
+ * is not sitting in the binary in plain sight. It is still a shared family
+ * secret rather than a security system: anybody who has it can play, and a
+ * determined person with the binary and a word list could work a weak phrase
+ * out. It is a lock on a garden gate, which is what was asked for.
+ *
+ * Unset means an open house, which is how the tests and a dev server run.
+ */
+const LOCK = (process.env.SUITFOLD_KEY ?? '').trim().toLowerCase()
+
+async function sha(text: string) {
+  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+  return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/**
+ * Hand back a file as bytes with the type spelled out.
+ *
+ * Not `new Response(file)`: Bun sees an html BunFile and runs its own HTML
+ * bundler over it, which inside a compiled binary cannot resolve the assets and
+ * quietly serves a fallback page instead of the front end. Bytes and a header
+ * are unambiguous.
+ */
+const TYPES: Record<string, string> = {
+  html: 'text/html; charset=utf-8',
+  js: 'text/javascript; charset=utf-8',
+  css: 'text/css; charset=utf-8',
+  svg: 'image/svg+xml',
+  png: 'image/png',
+  json: 'application/json',
+  woff2: 'font/woff2',
+}
+
+async function serve(file: Bun.BunFile) {
+  const ext = (file.name ?? '').split('.').pop()?.toLowerCase() ?? ''
+  return new Response(await file.arrayBuffer(), {
+    headers: { 'content-type': TYPES[ext] ?? 'application/octet-stream' },
+  })
+}
+
+async function lets(given: string | null) {
+  if (!LOCK) return true
+  if (!given) return false
+  return (await sha(given)) === LOCK
 }
 
 /** One table: the real Host, plus whoever is connected to it. */
@@ -178,19 +216,29 @@ const server = Bun.serve<Seat, Record<string, never>>({
     if (url.pathname === '/room') {
       const code = (url.searchParams.get('code') ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)
       if (!code) return new Response('no code', { status: 400 })
+      if (!(await lets(url.searchParams.get('key')))) return new Response('wrong password', { status: 401 })
       const id = crypto.randomUUID()
       if (srv.upgrade(req, { data: { id, code } })) return undefined
       return new Response('expected a websocket', { status: 426 })
+    }
+
+    // The front end asks this before it bothers showing a password box.
+    if (url.pathname === '/locked') return Response.json({ locked: !!LOCK })
+
+    // And this to find out whether the phrase somebody typed is the phrase,
+    // so a wrong one is turned away at the door rather than three screens in.
+    if (url.pathname === '/check') {
+      return Response.json({ ok: await lets(url.searchParams.get('key')) })
     }
 
     // Anything else is the front end, if we are carrying one.
     if (WEB) {
       const wanted = url.pathname === '/' ? '/index.html' : url.pathname
       const file = Bun.file(join(WEB, wanted.replace(/\.\./g, '')))
-      if (await file.exists()) return new Response(file)
+      if (await file.exists()) return await serve(file)
       // A single page app: unknown paths are still the app.
       const index = Bun.file(join(WEB, 'index.html'))
-      if (await index.exists()) return new Response(index)
+      if (await index.exists()) return await serve(index)
     }
 
     return new Response('suitfold table', { status: 200 })

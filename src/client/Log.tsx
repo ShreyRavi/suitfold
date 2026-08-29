@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Action, LogEntry, SeatId, TableView } from '../table/model.ts'
 import { money } from './Chips.tsx'
+import { notify } from './desktop.ts'
 
 const LOG_W = 'suitfold.logw'
 
@@ -188,7 +189,12 @@ export function Mention({
     const mine = view.log.filter((e) => e.n > seen.current! && me && e.to?.includes(me))
     seen.current = newest
     const last = mine[mine.length - 1]
-    if (last) setHail(last)
+    if (!last) return
+    setHail(last)
+    // On the Mac this also comes through as a real notification, because a
+    // window behind another window is the same as no window at all.
+    const from = view.seats.find((s) => s.id === last.seat)
+    notify(`${from?.emoji ?? ''} ${from?.name ?? 'Someone'} said your name`.trim(), last.text)
   }, [view.log, me])
 
   if (!hail) return null

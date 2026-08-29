@@ -31,6 +31,17 @@ cp -R dist "$APP/Contents/Resources/web"
 cp mac/Info.plist "$APP/Contents/Info.plist"
 [ -f mac/icon.icns ] && cp mac/icon.icns "$APP/Contents/Resources/icon.icns"
 
+# The house key, baked in as a hash so the phrase itself is not in the binary.
+# Without it the app is an open house, which is fine for a build you keep.
+if [ -n "${SUITFOLD_PASSWORD:-}" ]; then
+  KEY=$(printf %s "$SUITFOLD_PASSWORD" | shasum -a 256 | cut -d' ' -f1)
+  /usr/libexec/PlistBuddy -c "Add :SuitfoldKey string $KEY" "$APP/Contents/Info.plist" 2>/dev/null \
+    || /usr/libexec/PlistBuddy -c "Set :SuitfoldKey $KEY" "$APP/Contents/Info.plist"
+  echo "==> locked with a phrase"
+else
+  echo "==> no phrase set (open house); pass SUITFOLD_PASSWORD to lock it"
+fi
+
 echo "==> signing"
 # The table server is a separate executable and has to be signed in its own
 # right, innermost first, or the outer signature will not verify.

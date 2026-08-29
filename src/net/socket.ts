@@ -27,7 +27,10 @@ export function connectTo(url: string, roomCode: string): Wire {
 
   const open = () => {
     if (shut) return
-    const where = `${url.replace(/\/$/, '')}/room?code=${encodeURIComponent(roomCode)}`
+    const key = houseKey()
+    const where =
+      `${url.replace(/\/$/, '')}/room?code=${encodeURIComponent(roomCode)}` +
+      (key ? `&key=${encodeURIComponent(key)}` : '')
     sock = new WebSocket(where)
 
     sock.onopen = () => {
@@ -188,3 +191,43 @@ export const rememberServer = (url: string) => {
 
 /** A seat id for somebody the server is holding the table for. */
 export type ServerSeat = SeatId
+
+
+// ---------------------------------------------------------------------------
+// The house key
+// ---------------------------------------------------------------------------
+
+const KEY = 'suitfold.key'
+
+/** The shared phrase, remembered so nobody types it twice. */
+export const houseKey = () => localStorage.getItem(KEY) ?? ''
+export const rememberKey = (key: string) => localStorage.setItem(KEY, key.trim())
+export const forgetKey = () => localStorage.removeItem(KEY)
+
+/** Is this the phrase? Asked at the door, so a wrong one never gets in. */
+export async function keyWorks(key: string): Promise<boolean> {
+  try {
+    const url = tableServer().replace(/^ws/, 'http').replace(/\/$/, '')
+    const res = await fetch(`${url}/check?key=${encodeURIComponent(key)}`)
+    if (!res.ok) return false
+    const body = (await res.json()) as { ok?: boolean }
+    return !!body.ok
+  } catch {
+    // No table to ask means nothing to unlock; let them get as far as the
+    // front page and fail there with something that explains itself.
+    return true
+  }
+}
+
+/** Does this table want a password at all? Open houses do not. */
+export async function isLocked(): Promise<boolean> {
+  try {
+    const url = tableServer().replace(/^ws/, 'http').replace(/\/$/, '')
+    const res = await fetch(`${url}/locked`)
+    if (!res.ok) return false
+    const body = (await res.json()) as { locked?: boolean }
+    return !!body.locked
+  } catch {
+    return false
+  }
+}

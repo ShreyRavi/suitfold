@@ -1356,3 +1356,21 @@ input.betbar-custom-val {
   border-radius: var(--r-panel); font-size: var(--text-md);
   background: #7a5c1f; color: #fff; box-shadow: 0 8px 26px rgba(0,0,0,.28);
 }
+
+/* ---- the house key ------------------------------------------------------- */
+/* Not a login. One phrase, shared by word of mouth, typed once. */
+.gate {
+  min-height: 100%; display: grid; place-items: center;
+  padding: var(--s-8); background: var(--paper);
+}
+.gate-box {
+  width: min(26rem, 100%); display: flex; flex-direction: column; gap: var(--s-5);
+  padding: var(--s-9) var(--s-8);
+  background: var(--paper-raised); border: 1px solid var(--line);
+  border-radius: 14px; box-shadow: var(--shadow-app); text-align: center;
+}
+.gate-box .mark { width: 34px; height: 34px; font-size: 17px; margin: 0 auto; }
+.gate-box h1 { margin: 0; font-size: 28px; font-weight: 500; }
+.gate-box .fld { text-align: left; }
+.gate-box input { text-align: center; }
+.gate-no { margin: 0; color: var(--suit-red); font-size: var(--text-md); }
