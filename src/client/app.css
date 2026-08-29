@@ -1395,3 +1395,41 @@ input.betbar-custom-val {
   font-size: 12px; line-height: 1.5; color: var(--ink-faint);
 }
 .small-print .linkish { font-size: 12px; }
+
+/* ---- the top bar on a phone --------------------------------------------- */
+/* Brand, game, help, log, code and menu do not fit across 390 pixels. They
+   used to simply run off the right, taking the menu button with them - which
+   is the button you pick a game with, so on a phone there was no way to start
+   one. */
+@media (max-width: 560px) {
+  .bar { gap: var(--s-4); padding-left: var(--s-5); padding-right: var(--s-5); }
+  /* The game name is on the table anyway, and its rules are in the menu. */
+  .bar-mid { display: none; }
+  .bar-code {
+    letter-spacing: .06em; padding: 5px 8px; font-size: var(--text-sm);
+    min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  }
+  .bar-log { padding: 5px 8px; }
+  .brand b { display: none; }
+  .menu { width: 38px; height: 38px; margin-left: auto; }
+}
+
+/* The bet amounts wrap rather than running off the edge. */
+@media (max-width: 560px) {
+  .betbar { flex-wrap: wrap; }
+  .betbar-amounts { flex-wrap: wrap; }
+}
+
+/* ---- the drawer on a phone ---------------------------------------------- */
+/* On a portrait screen the table is limited by width, not height, so the felt
+   area can give up as much vertical space as the drawer wants without the
+   table getting any smaller. It was not doing that: the drawer kept the height
+   it has on a laptop, its contents stacked, and your own hand ended up below
+   the bottom of the screen. You could not see your cards. */
+@media (max-width: 720px) {
+  .rail { height: auto !important; max-height: 62vh; }
+  /* Cards first, then the buttons that act on them. */
+  .rail-body { flex-direction: column-reverse; justify-content: flex-end; }
+  .rail-side { justify-content: flex-start; overflow: visible; }
+  .fan { min-height: 116px; flex: none; }
+}
