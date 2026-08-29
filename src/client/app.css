@@ -1345,8 +1345,6 @@ input.betbar-custom-val {
 .mini.is-go:hover { background: var(--accent); color: var(--accent-on); }
 .betbar-chip:disabled { opacity: .35; cursor: default; border-color: var(--line); color: inherit; }
 .bar-code.is-copied { border-color: #1f6f3f; color: #1f6f3f; }
-.how-mac { max-width: 34rem; margin-top: var(--s-7); }
-.how-mac .btn { align-self: flex-start; text-decoration: none; }
 
 /* The table is older than this page. Say so rather than half working. */
 .stale {

@@ -207,22 +207,6 @@ export function Home({
             <b>Pick a game and deal.</b> One press lays the whole table out.
           </li>
         </ol>
-        <div className="fld how-mac">
-          <span>Hold the table on your Mac</span>
-          <p className="fine">
-            Optional. Everybody still plays in a browser, but the deck lives in a little app
-            instead of in somebody's tab - so nobody closing a window ends the game, your Mac
-            will not drop off to sleep in the middle of a hand, and everyone in the house
-            connects straight to it. Signed, and it needs nothing else installed.
-          </p>
-          <a
-            className="btn primary"
-            href="https://github.com/ShreyRavi/suitfold/releases/latest/download/suitfold.zip"
-          >
-            Download for macOS
-          </a>
-        </div>
-
         <div className="fld how-server">
           <span>Your own table server (optional)</span>
           <ServerBox />

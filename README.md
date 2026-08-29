@@ -148,10 +148,29 @@ bun run build
 
 Two tabs on localhost are enough to test a real two-player table.
 
+## The phrase
+
+The site asks for one before it shows anything. It is not in this repository: only a
+sha256 of it, injected at build time from a repository secret called `SUITFOLD_LOCK`.
+
+    printf %s 'the phrase' | shasum -a 256 | cut -d' ' -f1 | gh secret set SUITFOLD_LOCK
+
+Build without that secret and there is no door, which is what a fork or a local build
+should get.
+
+The screen itself is only a screen - anybody who opens the developer tools walks past it.
+The part that is real is underneath: the phrase is the key the peer handshake is encrypted
+with, and trystero will not introduce two peers whose keys disagree. So without the actual
+phrase you cannot reach anybody, however you got past the door. Wrong phrase finds nobody;
+right phrase finds the table.
+
+Invite links carry it, so family click once and are in, and it is taken back out of the
+address bar on arrival.
+
 ## Deploying
 
 Push to `main`. GitHub Actions typechecks, tests, builds and publishes to Pages. Enable it
-once under **Settings → Pages → Source: GitHub Actions**.
+once under **Settings → Pages → Source: GitHub Actions**, and set `SUITFOLD_LOCK`.
 
 ## How it is put together
 
