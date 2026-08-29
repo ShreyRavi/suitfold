@@ -67,19 +67,3 @@ export function Gate({ onIn }: { onIn: () => void }) {
     </div>
   )
 }
-
-/** Shown when the table turned the phrase down. */
-export function WrongKey({ onAgain }: { onAgain: () => void }) {
-  return (
-    <div className="gate">
-      <div className="gate-box">
-        <i className="mark">♠</i>
-        <h1>Not that phrase</h1>
-        <p className="lede">The table would not let us in. It may have been changed.</p>
-        <button className="btn primary big" onClick={onAgain}>
-          Try another
-        </button>
-      </div>
-    </div>
-  )
-}

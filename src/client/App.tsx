@@ -3,7 +3,7 @@ import type { CardId, SeatId, TableView } from '../table/model.ts'
 import { SNAP, TABLE_H, TABLE_W, seatPlaces } from '../table/model.ts'
 import { GROUPS, PRESETS } from '../table/deck.ts'
 import { cleanCode } from '../net/peers.ts'
-import { houseKey, inviteLink, isLocked } from '../net/socket.ts'
+import { forgetKey, houseKey, inviteLink, isLocked, keyWorks } from '../net/socket.ts'
 import { rememberedFace, rememberedName, suggestFace, suggestName, useTable } from './useTable.ts'
 import { Table, toTableCoords } from './Table.tsx'
 import { Home, Invite } from './Home.tsx'
@@ -29,7 +29,24 @@ export function App() {
 
   useEffect(() => {
     let alive = true
-    void isLocked().then((yes) => alive && setLocked(yes))
+    void (async () => {
+      const wants = await isLocked()
+      if (!alive) return
+      if (!wants) {
+        setLocked(false)
+        return
+      }
+      // A phrase that used to work and does not any more should send you back
+      // to the door. Without this the socket is simply refused and you sit on
+      // "finding the table" forever, being told the host needs their tab open
+      // when the host is right there and it is the phrase that is wrong.
+      const mine = houseKey()
+      if (mine && !(await keyWorks(mine))) {
+        forgetKey()
+        if (alive) setKey('')
+      }
+      if (alive) setLocked(true)
+    })()
     return () => {
       alive = false
     }
