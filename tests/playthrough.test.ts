@@ -37,6 +37,7 @@ const silent = (): Wire => ({
   ping: { send: () => {}, on: () => {} },
   resync: { send: () => {}, on: () => {} },
   chat: { send: () => {}, on: () => {} },
+  door: { send: () => {}, on: () => {} },
   onPeerJoin: () => {},
   onPeerLeave: () => {},
   peers: () => [],
@@ -571,6 +572,7 @@ describe('holding the table together over a bad connection', () => {
         ping: chan('ping'),
         resync: chan('resync'),
         chat: chan('chat'),
+        door: chan('door'),
         onPeerJoin: () => {},
         onPeerLeave: () => {},
         peers: () => [],
@@ -596,7 +598,7 @@ describe('holding the table together over a bad connection', () => {
     const net = loopback()
     const h = new Host(net.wire, 'host', () => {})
     h.seatSelf('Mom')
-    h.helloForTest('peer-1', 'Dad')
+    h.joinForTest('peer-1', 'Dad')
     h.setup('holdem')
     const snaps = net.sent.filter((m) => m.channel === 'snapshot').map((m) => m.data as { rev: number })
     expect(snaps.length).toBeGreaterThan(0)
@@ -608,7 +610,7 @@ describe('holding the table together over a bad connection', () => {
     const net = loopback()
     const h = new Host(net.wire, 'host', () => {})
     h.seatSelf('Mom')
-    h.helloForTest('peer-1', 'Dad')
+    h.joinForTest('peer-1', 'Dad')
     h.setup('holdem')
     net.sent.length = 0
     h.catchUp('peer-1')
@@ -624,7 +626,7 @@ describe('holding the table together over a bad connection', () => {
     const net = loopback()
     const h = new Host(net.wire, 'host', () => {})
     h.seatSelf('Mom')
-    h.helloForTest('peer-1', 'Dad')
+    h.joinForTest('peer-1', 'Dad')
     h.setup('holdem')
 
     // The connection drops exactly across the one-press deal, which is the
@@ -645,7 +647,7 @@ describe('holding the table together over a bad connection', () => {
     const net = loopback()
     const h = new Host(net.wire, 'host', () => {})
     h.seatSelf('Dad')
-    h.helloForTest('peer-1', 'Dad', '🦊', 'token-abc')
+    h.joinForTest('peer-1', 'Dad', '🦊', 'token-abc')
     h.setup('hearts')
     const seat = h.state.seats[1]!.id
     const hand = inHand(h.state, seat).map((c) => c.id)
@@ -653,7 +655,7 @@ describe('holding the table together over a bad connection', () => {
 
     // They drop off and come back on a new connection, with the same browser.
     h.droppedForTest('peer-1')
-    h.helloForTest('peer-2', 'Dad', '🦊', 'token-abc')
+    h.joinForTest('peer-2', 'Dad', '🦊', 'token-abc')
 
     expect(h.state.seats.length, 'a returning browser must not take a new seat').toBe(2)
     expect(inHand(h.state, seat).map((c) => c.id)).toEqual(hand)
@@ -664,12 +666,12 @@ describe('holding the table together over a bad connection', () => {
     const net = loopback()
     const h = new Host(net.wire, 'host', () => {})
     h.seatSelf('Mom')
-    h.helloForTest('peer-1', 'Dad', '🦊', 'token-abc')
+    h.joinForTest('peer-1', 'Dad', '🦊', 'token-abc')
     h.setup('hearts')
     const dadSeat = h.state.seats[1]!.id
     h.droppedForTest('peer-1')
 
-    h.helloForTest('peer-9', 'Dad', '🐻', 'token-someone-else')
+    h.joinForTest('peer-9', 'Dad', '🐻', 'token-someone-else')
     const theirs = h.state.seats.find((s) => s.id !== dadSeat && s.id !== 'host')
     expect(theirs, 'a stranger should get their own seat').toBeDefined()
     expect(theirs!.id).not.toBe(dadSeat)
@@ -690,6 +692,7 @@ describe('who gets which seat back', () => {
   ping: { send: () => {}, on: () => {} },
         resync: { send: () => {}, on: () => {} },
         chat: { send: () => {}, on: () => {} },
+  door: { send: () => {}, on: () => {} },
         onPeerJoin: () => {},
         onPeerLeave: () => {},
         peers: () => [],
@@ -704,12 +707,12 @@ describe('who gets which seat back', () => {
 
   test('a browser with no memory of itself may still claim its name', () => {
     const h = table()
-    h.helloForTest('p1', 'Dad')
+    h.joinForTest('p1', 'Dad')
     h.setup('hearts')
     const seat = h.state.seats[1]!.id
     h.droppedForTest('p1')
     // No token: an older client, or one whose storage was wiped.
-    h.helloForTest('p2', 'Dad')
+    h.joinForTest('p2', 'Dad')
     expect(h.state.seats.length).toBe(2)
     expect(h.state.seats[1]!.id).toBe(seat)
     h.close()
@@ -717,13 +720,13 @@ describe('who gets which seat back', () => {
 
   test('a browser that knows it is somebody else gets its own seat', () => {
     const h = table()
-    h.helloForTest('p1', 'Dad', '🦊', 'dads-browser')
+    h.joinForTest('p1', 'Dad', '🦊', 'dads-browser')
     h.setup('hearts')
     const dad = h.state.seats[1]!.id
     const hand = inHand(h.state, dad).map((c) => c.id)
     h.droppedForTest('p1')
 
-    h.helloForTest('p9', 'Dad', '🐻', 'someone-elses-browser')
+    h.joinForTest('p9', 'Dad', '🐻', 'someone-elses-browser')
     expect(h.state.seats.length, 'the stranger needs a seat of their own').toBe(3)
     expect(inHand(h.state, dad).map((c) => c.id), 'Dad keeps his cards').toEqual(hand)
     expect(h.state.seats[2]!.name, 'and they are told apart').toBe('Dad 2')
@@ -732,14 +735,14 @@ describe('who gets which seat back', () => {
 
   test('and the real Dad still gets his seat when he comes back', () => {
     const h = table()
-    h.helloForTest('p1', 'Dad', '🦊', 'dads-browser')
+    h.joinForTest('p1', 'Dad', '🦊', 'dads-browser')
     h.setup('hearts')
     const dad = h.state.seats[1]!.id
     const hand = inHand(h.state, dad).map((c) => c.id)
     h.droppedForTest('p1')
-    h.helloForTest('p9', 'Dad', '🐻', 'someone-elses-browser')
+    h.joinForTest('p9', 'Dad', '🐻', 'someone-elses-browser')
 
-    h.helloForTest('p3', 'Dad', '🦊', 'dads-browser')
+    h.joinForTest('p3', 'Dad', '🦊', 'dads-browser')
     expect(h.state.seats.length).toBe(3)
     expect(inHand(h.state, dad).map((c) => c.id)).toEqual(hand)
     h.close()

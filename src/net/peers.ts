@@ -1,5 +1,4 @@
 import { joinRoom, selfId } from 'trystero/nostr'
-import { phrase } from './lock.ts'
 import type { Action, CardId, SeatId, TableView } from '../table/model.ts'
 import type { Command } from './dealer.ts'
 
@@ -22,23 +21,29 @@ import type { Command } from './dealer.ts'
  * goes through them: once two browsers have found each other they talk
  * directly, and a relay that dies mid-game costs nothing.
  *
- * Every one of these was reachable when the list was written. That is not a
- * promise about next month: they are run by strangers as a favour and they
- * come and go. Half of an earlier list had gone quiet within a fortnight, some
- * refusing the connection and one accepting it and then rejecting everything
- * sent through it, which is the worse failure because it looks alive. Hence
- * several, and several at a time.
+ * These are run by strangers as a favour and they come and go, so this is a
+ * snapshot rather than a promise. Two kinds of failure have been seen: the
+ * honest one, where the socket will not open, and the awkward one, where it
+ * opens and the relay then refuses to carry anything - a web of trust policy,
+ * or a spam rule. The second looks perfectly healthy to anything that only
+ * checks whether it can connect, which is why the list is long.
+ *
+ * It cannot be checked from a script: trystero needs WebRTC, and there is no
+ * RTCPeerConnection outside a browser. Two browser tabs is the only real test.
  */
 const RELAYS = [
   'wss://nos.lol',
   'wss://relay.primal.net',
   'wss://relay.nostr.net',
   'wss://nostr.oxtr.dev',
-  'wss://offchain.pub',
   'wss://relay.mostr.pub',
-  'wss://nostr21.com',
   'wss://nostr.mom',
 ]
+
+/** What the host says to somebody who has knocked. */
+export interface Door {
+  state: 'waiting' | 'refused'
+}
 
 export type PeerId = string
 export const myPeerId = (): PeerId => selfId
@@ -111,6 +116,12 @@ export interface Wire {
   ping: { send: Send<number>; on: On<number> }
   resync: { send: Send<number>; on: On<number> }
   chat: { send: Send<string>; on: On<string> }
+  /**
+   * The host telling somebody where they stand at the door: waiting to be let
+   * in, or turned away. Only ever host to guest, and only before they are
+   * seated, which is exactly when they get no snapshots to learn it from.
+   */
+  door: { send: Send<Door>; on: On<Door> }
   onPeerJoin(fn: (id: PeerId) => void): void
   onPeerLeave(fn: (id: PeerId) => void): void
   peers(): PeerId[]
@@ -127,12 +138,17 @@ export function connect(roomCode: string): Wire {
       // rate limiting on the night you want to play. With no server of our own
       // this handshake is the single thing that can stop a game starting, so
       // it does not get to depend on one stranger's goodwill.
-      relayConfig: { urls: RELAYS, redundancy: 4 },
-      // The phrase is the key the handshake is encrypted with, and trystero
-      // will not introduce two peers whose keys disagree. So this is the part
-      // of the lock that is not merely a screen: without it you cannot reach
-      // anybody, however you got past the door.
-      ...(phrase() ? { password: phrase() } : {}),
+      // No redundancy setting: supplying urls makes trystero use all of them
+      // and ignore it, so asking for four of eight would have been a comment
+      // that lied. All of them, and the bad ones cost a failed socket.
+      relayConfig: { urls: RELAYS },
+      // No shared password on the room any more. It used to be the phrase,
+      // which made the phrase a real cryptographic requirement for reaching
+      // anybody - but it also meant everybody joining had to know it, and
+      // joining is meant to need nothing but a code now. The door is a person
+      // instead: knowing the code gets you as far as knocking, and somebody at
+      // the table decides. Trystero still encrypts the handshake with a key
+      // derived from the app and room ids, so nothing is in the clear.
     },
     roomCode,
   )
@@ -159,6 +175,7 @@ export function connect(roomCode: string): Wire {
     ping: channel<number>('ping'),
     resync: channel<number>('resyn'),
     chat: channel<string>('chat'),
+    door: channel<Door>('door'),
     onPeerJoin: (fn) => {
       room.onPeerJoin = fn
     },

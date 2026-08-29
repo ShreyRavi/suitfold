@@ -1,5 +1,5 @@
 import type { Action, SeatId } from '../table/model.ts'
-import type { Cursor, Drag, Hello, PeerId, Snapshot, Wire } from './peers.ts'
+import type { Cursor, Door, Drag, Hello, PeerId, Snapshot, Wire } from './peers.ts'
 import type { Command } from './dealer.ts'
 import { phraseForLink } from './lock.ts'
 
@@ -111,6 +111,7 @@ export function connectTo(url: string, roomCode: string): Wire {
     ping: channel<number>('ping'),
     resync: channel<number>('resync'),
     chat: channel<string>('chat'),
+    door: channel<Door>('door'),
     onPeerJoin: (fn) => {
       joined = fn
       // A socket coming back is everybody arriving again as far as the host is

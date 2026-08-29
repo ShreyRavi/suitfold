@@ -7,7 +7,14 @@ import { connectTo, heldElsewhere, tableServer } from '../net/socket.ts'
 import { remoteDealer, type Command, type Dealer } from '../net/dealer.ts'
 import { forget, kept, reopen, type Kept } from '../net/keep.ts'
 
-export type Stage = 'lobby' | 'joining' | 'table'
+export type Stage =
+  | 'lobby'
+  | 'joining'
+  /** Knocked, and waiting for whoever is holding the table to open the door. */
+  | 'waiting'
+  /** Told no. */
+  | 'refused'
+  | 'table'
 
 export interface Live {
   stage: Stage
@@ -181,6 +188,13 @@ export function useTable(): Live {
         }
         return { ...prev, [c.by]: c }
       })
+    })
+
+    // Where we stand at the door. Only ever arrives before we are seated,
+    // which is exactly when there are no snapshots to learn it from.
+    w.door.on((said) => {
+      if (said.state === 'waiting') setStage((now) => (now === 'table' ? now : 'waiting'))
+      if (said.state === 'refused') setStage('refused')
     })
 
     w.chat.on((text) => flash(text))

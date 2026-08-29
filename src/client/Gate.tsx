@@ -4,11 +4,11 @@ import { noteMiss, opens, remember, waitLeft } from '../net/lock.ts'
 /**
  * The door.
  *
- * One phrase, shared by word of mouth, typed once. Not a login, no accounts,
- * and deliberately not pretending to be more than it is: see src/net/lock.ts
- * for what it does and does not do.
+ * Asked of whoever is starting a table, and of nobody else. Sitting down at
+ * one somebody else is holding needs no phrase: the code gets you as far as
+ * knocking, and a person who is actually at the table decides the rest.
  */
-export function Gate({ onIn }: { onIn: () => void }) {
+export function Gate({ onIn, onGiveUp }: { onIn: () => void; onGiveUp?: () => void }) {
   const [phrase, setPhrase] = useState('')
   const [wrong, setWrong] = useState(false)
   const [wait, setWait] = useState(() => waitLeft())
@@ -39,7 +39,9 @@ export function Gate({ onIn }: { onIn: () => void }) {
       <div className="gate-box">
         <i className="mark">♠</i>
         <h1>suitfold</h1>
-        <p className="lede">A card table for one family in particular.</p>
+        <p className="lede">
+          Starting a table needs the phrase. Joining one does not.
+        </p>
 
         <label className="fld">
           <span>The phrase</span>
@@ -72,6 +74,11 @@ export function Gate({ onIn }: { onIn: () => void }) {
         </button>
 
         <p className="fine">Asked once and remembered on this device.</p>
+        {onGiveUp && (
+          <button className="linkish" onClick={onGiveUp}>
+            Never mind
+          </button>
+        )}
       </div>
     </div>
   )

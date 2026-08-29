@@ -120,6 +120,7 @@ class Table {
       ping: channel('ping'),
       resync: channel('resync'),
       chat: channel('chat'),
+      door: channel('door'),
       onPeerJoin: (fn: (id: PeerId) => void) => {
         this.onJoin = fn
       },

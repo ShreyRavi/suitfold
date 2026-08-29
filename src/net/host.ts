@@ -30,7 +30,19 @@ import { keep } from './keep.ts'
 export class Host {
   state: TableState = emptyTable()
   private seatOf = new Map<PeerId, SeatId>()
+  /** Peers the host has already let in, so a reconnect does not knock again. */
+  private welcome = new Set<PeerId>()
   private peerOf = new Map<SeatId, PeerId>()
+  /**
+   * People who have knocked and are waiting to be let in.
+   *
+   * Knowing the code gets you as far as this list and no further: no seat, no
+   * snapshots, nothing of the game at all. Somebody who is actually at the
+   * table decides, which is a better door than a secret for a game played by
+   * people who know each other.
+   */
+  knocking: Knock[] = []
+
   /** Recent tables, so a mis-drag or a wrong deal can be taken back. */
   private history: TableState[] = []
   /**
@@ -182,6 +194,25 @@ export class Host {
             s.name.toLowerCase() === clean(name).toLowerCase(),
         )
     const returning = known ?? byName
+
+    // Somebody coming back is somebody already let in: their phone slept, or
+    // the wifi dropped, and making them knock again mid-hand would be worse
+    // than useless. Only strangers wait.
+    if (!returning && !this.welcome.has(peerId)) {
+      if (!this.knocking.some((k) => k.peer === peerId)) {
+        this.knocking.push({
+          peer: peerId,
+          name: clean(name) || 'Somebody',
+          emoji: emoji || this.freeFace(),
+          at: this.now(),
+          ...(token ? { token } : {}),
+        })
+        this.onChange()
+      }
+      this.wire.door.send({ state: 'waiting' }, peerId)
+      return
+    }
+
     const id = returning?.id ?? `s${this.state.seats.length + 1}`
     // Nobody is sitting in the deck's own seat when the table is held
     // elsewhere, so the first person through the door deals.
@@ -205,6 +236,11 @@ export class Host {
   }
 
   private dropped(peerId: PeerId) {
+    // Somebody who leaves the queue without being let in is simply gone.
+    if (this.knocking.some((k) => k.peer === peerId)) {
+      this.knocking = this.knocking.filter((k) => k.peer !== peerId)
+      this.onChange()
+    }
     const seat = this.seatOf.get(peerId)
     if (!seat) return
     this.seatOf.delete(peerId)
@@ -231,6 +267,16 @@ export class Host {
     this.dropped(peerId)
   }
 
+  /**
+   * A peer that knocks and is let in, in one go. Tests only, and the common
+   * case: most tests are about what happens once somebody is at the table
+   * rather than about the door itself.
+   */
+  joinForTest(peerId: PeerId, name: string, emoji?: string, token?: string) {
+    this.seat(peerId, name, emoji, token)
+    if (this.knocking.some((k) => k.peer === peerId)) this.admit(peerId)
+  }
+
   /** Seating over the wire, without a wire. Tests only. */
   helloForTest(peerId: PeerId, name: string, emoji?: string, token?: string) {
     this.seat(peerId, name, emoji, token)
@@ -241,6 +287,23 @@ export class Host {
     this.commit([
       { t: 'seat_add', id, name, colour: this.colour(this.state.seats.length), emoji: this.freeFace() },
     ])
+  }
+
+  /** Let somebody in. They are seated exactly as anybody else would be. */
+  admit(peer: PeerId) {
+    const knock = this.knocking.find((k) => k.peer === peer)
+    if (!knock) return
+    this.knocking = this.knocking.filter((k) => k.peer !== peer)
+    this.welcome.add(peer)
+    this.seat(peer, knock.name, knock.emoji, knock.token)
+    this.onChange()
+  }
+
+  /** Turn somebody away. They are told, rather than left wondering. */
+  refuse(peer: PeerId) {
+    this.knocking = this.knocking.filter((k) => k.peer !== peer)
+    this.wire.door.send({ state: 'refused' }, peer)
+    this.onChange()
   }
 
   /** Only the host can do this - it dumps that player's hand back on the table. */
@@ -697,6 +760,15 @@ export class Host {
   tableCards() {
     return onTable(this.state)
   }
+}
+
+/** Somebody at the door, waiting to be let in. */
+export interface Knock {
+  peer: PeerId
+  name: string
+  emoji: string
+  at: number
+  token?: string
 }
 
 const clean = (n: string) => (n || '').trim().slice(0, 14)

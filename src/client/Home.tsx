@@ -6,6 +6,7 @@ import { cleanCode } from '../net/peers.ts'
 import { rememberServer, tableServer } from '../net/socket.ts'
 import { Card } from './Card.tsx'
 import { Small } from './Terms.tsx'
+import { Gate } from './Gate.tsx'
 
 /**
  * Pick a face. Names collide at a family table - two people will type "Dad" -
@@ -54,6 +55,7 @@ export function Home({
   onDiscard,
   onRules,
   onTerms,
+  needsPhrase,
 }: {
   onCreate: (name: string, emoji: string) => void
   onJoin: (code: string, name: string, emoji: string) => void
@@ -65,10 +67,14 @@ export function Home({
   onDiscard: () => void
   onRules: (gameId: string) => void
   onTerms: () => void
+  /** Starting a table needs the phrase. Sitting down at one does not. */
+  needsPhrase: boolean
 }) {
   const [name, setName] = useState(initialName)
   const [face, setFace] = useState(initialFace)
   const [code, setCode] = useState('')
+  // Only asked of whoever is starting a table, and only once.
+  const [asking, setAsking] = useState(false)
   const ready = name.trim().length > 0
 
   return (
@@ -80,6 +86,16 @@ export function Home({
         </div>
         <span className="home-tag">no accounts · no install · nothing saved</span>
       </header>
+
+      {asking && (
+        <Gate
+          onIn={() => {
+            setAsking(false)
+            onCreate(name.trim(), face)
+          }}
+          onGiveUp={() => setAsking(false)}
+        />
+      )}
 
       {unfinished && (
         <div className="carry">
@@ -122,7 +138,11 @@ export function Home({
               maxLength={14}
               aria-label="Your name"
             />
-            <button className="btn primary big" disabled={!ready} onClick={() => onCreate(name.trim(), face)}>
+            <button
+              className="btn primary big"
+              disabled={!ready}
+              onClick={() => (needsPhrase ? setAsking(true) : onCreate(name.trim(), face))}
+            >
               Start a table
             </button>
           </div>

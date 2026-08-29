@@ -13,6 +13,7 @@ import { Toolbar } from './Toolbar.tsx'
 import { BetBar } from './BetBar.tsx'
 import { Log, Mention, Toasts } from './Log.tsx'
 import { Help, SEEN_HELP } from './Help.tsx'
+import { Door } from './Door.tsx'
 import { SEEN_TERMS, Terms } from './Terms.tsx'
 import { Gate } from './Gate.tsx'
 import { alreadyIn, locked, opens, phraseFromLink, remember, scrubLink } from '../net/lock.ts'
@@ -71,10 +72,6 @@ export function App() {
     return () => removeEventListener('hashchange', onHash)
   }, [])
 
-  // Nothing at all until the door is answered, including the front page.
-  if (inside === null) return <div className="gate" />
-  if (!inside) return <Gate onIn={() => setInside(true)} />
-
   if (t.stage === 'lobby') {
     return (
       <>
@@ -91,6 +88,7 @@ export function App() {
           />
         ) : (
           <Home
+            needsPhrase={locked() && !inside}
             onCreate={t.create}
             onJoin={t.join}
             initialName={name}
@@ -115,12 +113,42 @@ export function App() {
     )
   }
 
+  if (t.stage === 'waiting') return <Knocking code={t.code} />
+  if (t.stage === 'refused') return <Refused />
   if (t.stage === 'joining' || !t.view) return <Joining code={t.code} isHost={t.isHost} />
 
   return <TableScreen t={t} />
 }
 
 // ---------------------------------------------------------------------------
+
+/** Knocked, and waiting for somebody at the table to open the door. */
+function Knocking({ code }: { code: string }) {
+  return (
+    <div className="lobby">
+      <h1>Knocking</h1>
+      <div className="code-big">{code}</div>
+      <p className="lede">
+        Whoever is holding the table has to let you in. They will see your name come up.
+      </p>
+      <p className="fine">
+        If nothing happens, say something to them - they may not be looking at the screen.
+      </p>
+    </div>
+  )
+}
+
+function Refused() {
+  return (
+    <div className="lobby">
+      <h1>Not this time</h1>
+      <p className="lede">Whoever is holding the table did not let you in.</p>
+      <button className="btn" onClick={() => location.reload()}>
+        Try again
+      </button>
+    </div>
+  )
+}
 
 function Joining({ code, isHost }: { code: string; isHost: boolean }) {
   return (
@@ -575,6 +603,14 @@ function TableScreen({ t }: { t: ReturnType<typeof useTable> }) {
 
       {padFor && pad && (
         <Pad code={t.code} game={view.game} title={padFor} onClose={() => setPad(false)} />
+      )}
+
+      {t.host && (
+        <Door
+          knocking={t.host.knocking}
+          onLetIn={(peer) => t.host!.admit(peer)}
+          onTurnAway={(peer) => t.host!.refuse(peer)}
+        />
       )}
 
       <Log

@@ -168,6 +168,7 @@ const silent = (): Wire => ({
   ping: { send: () => {}, on: () => {} },
   resync: { send: () => {}, on: () => {} },
   chat: { send: () => {}, on: () => {} },
+  door: { send: () => {}, on: () => {} },
   onPeerJoin: () => {},
   onPeerLeave: () => {},
   peers: () => [],
@@ -311,7 +312,7 @@ describe('seating is not a way to take somebody else’s cards', () => {
     const hostHand = h.handOf('host').map((c) => c.id)
 
     // Someone joins claiming to be Mom as well.
-    h['seat']('peer1', 'Mom')
+    h.joinForTest('peer1', 'Mom')
 
     expect(h.state.seats.length).toBe(2)
     expect(h.state.seats[1]!.name).not.toBe('Mom') // disambiguated
@@ -321,8 +322,8 @@ describe('seating is not a way to take somebody else’s cards', () => {
   test('a connected seat is never reclaimed by a namesake', () => {
     const h = new Host(silent(), 'host', () => {})
     h.seatSelf('Host')
-    h['seat']('peer1', 'Dad')
-    h['seat']('peer2', 'Dad')
+    h.joinForTest('peer1', 'Dad')
+    h.joinForTest('peer2', 'Dad')
     expect(h.state.seats.length).toBe(3)
     expect(new Set(h.state.seats.map((s) => s.name)).size).toBe(3)
   })
@@ -330,14 +331,14 @@ describe('seating is not a way to take somebody else’s cards', () => {
   test('someone who really did drop gets their own seat back', () => {
     const h = new Host(silent(), 'host', () => {})
     h.seatSelf('Host')
-    h['seat']('peer1', 'Dad')
+    h.joinForTest('peer1', 'Dad')
     h.setup('poker')
     const before = h.handOf('s2').map((c) => c.id)
 
     h['dropped']('peer1')
     expect(h.state.seats.find((s) => s.id === 's2')!.connected).toBe(false)
 
-    h['seat']('peer9', 'Dad')
+    h.joinForTest('peer9', 'Dad')
     expect(h.state.seats.length).toBe(2)
     expect(h.state.seats.find((s) => s.id === 's2')!.connected).toBe(true)
     expect(h.handOf('s2').map((c) => c.id)).toEqual(before) // cards waited for them
@@ -388,7 +389,7 @@ describe('dealing and undo', () => {
   test('undo keeps whoever is currently at the table', () => {
     const h = hosted(['A', 'B'])
     h.setup('poker')
-    h['seat']('peer9', 'Late')
+    h.joinForTest('peer9', 'Late')
     expect(h.state.seats.length).toBe(3)
     h.undo()
     expect(h.state.seats.length).toBe(3) // seats are live state, not card state
@@ -1045,9 +1046,9 @@ describe('two people with the same name', () => {
   const twice = () => {
     const h = new Host(silent(), 'host', () => {})
     h.seatSelf('Dad', '🐺')
-    h.helloForTest('peer-1', 'Dad', '🐺')
-    h.helloForTest('peer-1', 'Dad', '🐺')
-    h.helloForTest('peer-1', 'Dad', '🐺')
+    h.joinForTest('peer-1', 'Dad', '🐺')
+    h.joinForTest('peer-1', 'Dad', '🐺')
+    h.joinForTest('peer-1', 'Dad', '🐺')
     return h
   }
 
@@ -1065,13 +1066,13 @@ describe('two people with the same name', () => {
   test('a repeated hello that changes nothing is not a new log line', () => {
     const h = twice()
     const before = h.state.log.length
-    h.helloForTest('peer-1', 'Dad', '🐺')
+    h.joinForTest('peer-1', 'Dad', '🐺')
     expect(h.state.log.length).toBe(before)
   })
 
   test('changing your name for real still works', () => {
     const h = twice()
-    h.helloForTest('peer-1', 'Mum', '🦊')
+    h.joinForTest('peer-1', 'Mum', '🦊')
     expect(h.state.seats[1]!.name).toBe('Mum')
     expect(h.state.seats[1]!.emoji).toBe('🦊')
   })
