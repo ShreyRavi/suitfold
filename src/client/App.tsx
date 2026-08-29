@@ -14,6 +14,8 @@ import { BetBar } from './BetBar.tsx'
 import { Log, Mention, Toasts } from './Log.tsx'
 import { Help, SEEN_HELP } from './Help.tsx'
 import { SEEN_TERMS, Terms } from './Terms.tsx'
+import { Gate } from './Gate.tsx'
+import { alreadyIn, locked, opens, phraseFromLink, remember, scrubLink } from '../net/lock.ts'
 import { badge } from './desktop.ts'
 
 const RAIL_H = 'suitfold.railh'
@@ -23,6 +25,8 @@ import { presetById } from '../table/deck.ts'
 export function App() {
   const t = useTable()
   const [rules, setRules] = useState<string | null>(null)
+  // Null while we work out whether an invite link brought the phrase with it.
+  const [inside, setInside] = useState<boolean | null>(() => (locked() ? null : true))
   // Said once, and afterwards it lives in the footer.
   const [terms, setTerms] = useState(() => !localStorage.getItem(SEEN_TERMS))
   // A link with a code on it means somebody invited you; that gets its own
@@ -34,6 +38,31 @@ export function App() {
   const name = rememberedName() || suggested.name
   const face = rememberedFace() || suggested.face
 
+  // A link can carry the phrase, so family click once and are in. It is taken
+  // straight back out of the address bar afterwards.
+  useEffect(() => {
+    if (!locked()) return
+    let alive = true
+    void (async () => {
+      if (await alreadyIn()) {
+        if (alive) setInside(true)
+        return
+      }
+      const said = phraseFromLink()
+      if (said && (await opens(said))) {
+        remember(said)
+        scrubLink()
+        if (alive) setInside(true)
+        return
+      }
+      scrubLink()
+      if (alive) setInside(false)
+    })()
+    return () => {
+      alive = false
+    }
+  }, [])
+
   // Pasting a link into an already-open tab only changes the hash, which does
   // not reload anything - so watch for it.
   useEffect(() => {
@@ -41,6 +70,10 @@ export function App() {
     addEventListener('hashchange', onHash)
     return () => removeEventListener('hashchange', onHash)
   }, [])
+
+  // Nothing at all until the door is answered, including the front page.
+  if (inside === null) return <div className="gate" />
+  if (!inside) return <Gate onIn={() => setInside(true)} />
 
   if (t.stage === 'lobby') {
     return (

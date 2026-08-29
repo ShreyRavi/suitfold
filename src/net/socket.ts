@@ -1,6 +1,7 @@
 import type { Action, SeatId } from '../table/model.ts'
 import type { Cursor, Drag, Hello, PeerId, Snapshot, Wire } from './peers.ts'
 import type { Command } from './dealer.ts'
+import { phraseForLink } from './lock.ts'
 
 /**
  * The same table, over one socket to a box you own.
@@ -156,16 +157,27 @@ export function tableServer(): string {
  * the game, and this browser runs the Host. With this, nobody's tab holds
  * anything. Close every window and the game is exactly where you left it.
  */
+/**
+ * Where a table is being held, when it is not this browser holding it.
+ *
+ * Deliberately not "suitfold.table": the crash net in keep.ts already owns
+ * that key and stores an entire serialised table under it. The two collided,
+ * so once anybody had played a hand this returned a JSON blob rather than an
+ * address, joining failed, and invite links had the whole table pasted into
+ * them.
+ */
+const HELD_AT = 'suitfold.held-at'
+
 export function heldElsewhere(): string {
   const asked = new URLSearchParams(location.search).get('table')
   if (asked) {
-    localStorage.setItem('suitfold.table', asked)
+    localStorage.setItem(HELD_AT, asked)
     return asked
   }
-  return localStorage.getItem('suitfold.table') ?? ''
+  return localStorage.getItem(HELD_AT) ?? ''
 }
 
-export const forgetTable = () => localStorage.removeItem('suitfold.table')
+export const forgetTable = () => localStorage.removeItem(HELD_AT)
 
 /**
  * The link you send people. It has to carry the server, or whoever opens it
@@ -175,12 +187,14 @@ export function inviteLink(code: string): string {
   const held = heldElsewhere()
   const server = tableServer()
   const base = `${location.origin}${location.pathname}`
-  const q = held
-    ? `?table=${encodeURIComponent(held)}`
-    : server
-      ? `?server=${encodeURIComponent(server)}`
-      : ''
-  return `${base}${q}#${code}`
+  const bits: string[] = []
+  if (held) bits.push(`table=${encodeURIComponent(held)}`)
+  else if (server) bits.push(`server=${encodeURIComponent(server)}`)
+  // The phrase rides along, so somebody sent a link never types anything and
+  // somebody who finds the bare address gets the door.
+  const said = phraseForLink()
+  if (said) bits.push(`k=${encodeURIComponent(said)}`)
+  return `${base}${bits.length ? `?${bits.join('&')}` : ''}#${code}`
 }
 
 export const rememberServer = (url: string) => {

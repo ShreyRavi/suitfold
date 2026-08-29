@@ -1,0 +1,56 @@
+# The site, deployed to GitHub Pages.
+#
+# The phrase is not in this repository. Only a sha256 of it is, and only at
+# build time, out of a repository secret named SUITFOLD_LOCK:
+#
+#   printf %s 'the phrase' | shasum -a 256 | cut -d' ' -f1
+#   gh secret set SUITFOLD_LOCK
+#
+# Without the secret the site builds with no door on it, which is what a fork
+# or a local build should get.
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun test
+      - run: bun run build
+        env:
+          BASE_PATH: /suitfold/
+          VITE_LOCK: ${{ secrets.SUITFOLD_LOCK }}
+      # Unknown paths are still the app, and Pages needs telling twice.
+      - run: cp dist/index.html dist/404.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - id: pages
+        uses: actions/deploy-pages@v4

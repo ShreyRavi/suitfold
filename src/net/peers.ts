@@ -1,4 +1,5 @@
 import { joinRoom, selfId } from 'trystero/nostr'
+import { phrase } from './lock.ts'
 import type { Action, CardId, SeatId, TableView } from '../table/model.ts'
 import type { Command } from './dealer.ts'
 
@@ -15,6 +16,22 @@ import type { Command } from './dealer.ts'
  *   If they went through the host they would arrive as a series of jumps
  *   instead of a card sliding across the table.
  */
+
+/**
+ * Public nostr relays, used purely to swap connection details. No game data
+ * goes through them: once two browsers have found each other they talk
+ * directly, and a relay that dies mid-game costs nothing.
+ */
+const RELAYS = [
+  'wss://relay.damus.io',
+  'wss://nos.lol',
+  'wss://relay.nostr.band',
+  'wss://relay.primal.net',
+  'wss://nostr.mom',
+  'wss://relay.snort.social',
+  'wss://nostr-pub.wellorder.net',
+  'wss://relay.nostr.bg',
+]
 
 export type PeerId = string
 export const myPeerId = (): PeerId => selfId
@@ -94,7 +111,24 @@ export interface Wire {
 }
 
 export function connect(roomCode: string): Wire {
-  const room = joinRoom({ appId: 'suitfold-table-v1' }, roomCode)
+  const room = joinRoom(
+    {
+      appId: 'suitfold-table-v1',
+      // Browsers still talk to each other directly; these are only used to
+      // introduce them. Naming several matters because they are public, they
+      // are run by strangers as a favour, and any one of them can be down or
+      // rate limiting on the night you want to play. With no server of our own
+      // this handshake is the single thing that can stop a game starting, so
+      // it does not get to depend on one stranger's goodwill.
+      relayConfig: { urls: RELAYS, redundancy: 4 },
+      // The phrase is the key the handshake is encrypted with, and trystero
+      // will not introduce two peers whose keys disagree. So this is the part
+      // of the lock that is not merely a screen: without it you cannot reach
+      // anybody, however you got past the door.
+      ...(phrase() ? { password: phrase() } : {}),
+    },
+    roomCode,
+  )
 
   const channel = <T>(namespace: string) => {
     const action = room.makeAction(namespace)
