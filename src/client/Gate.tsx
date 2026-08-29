@@ -40,7 +40,8 @@ export function Gate({ onIn, onGiveUp }: { onIn: () => void; onGiveUp?: () => vo
         <i className="mark">♠</i>
         <h1>suitfold</h1>
         <p className="lede">
-          Starting a table needs the phrase. Joining one does not.
+          A card table for one family in particular. If somebody sent you a
+          link, use that instead - it will let you straight in.
         </p>
 
         <label className="fld">

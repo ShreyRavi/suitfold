@@ -150,14 +150,19 @@ Two tabs on localhost are enough to test a real two-player table.
 
 ## The phrase
 
-The site asks for one before it shows anything. It is not in this repository: only a
-sha256 of it, held in a repository secret called `SUITFOLD_LOCK` and injected at build
-time.
+The site asks for one before it shows anything. It is not in this repository:
+only a sha256 of it, held in a repository secret called `SUITFOLD_LOCK` and
+injected at build time.
 
     printf %s 'the phrase' | shasum -a 256 | cut -d' ' -f1 | gh secret set SUITFOLD_LOCK
 
-Build without that secret and there is no door, which is what a fork or a local build
-should get. Invite links carry the phrase, so nobody has to type it.
+Build without that secret and there is no door, which is what a fork or a local
+build should get.
+
+An invite link goes round the door, because it is a way in to one table rather
+than a key to the site: it gets somebody as far as knocking, and whoever is
+holding the table lets them in or does not. Links carry no phrase, so one that
+is forwarded on cannot be used to start a table.
 
 ## Deploying
 

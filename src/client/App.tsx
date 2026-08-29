@@ -16,7 +16,7 @@ import { Help, SEEN_HELP } from './Help.tsx'
 import { Door } from './Door.tsx'
 import { SEEN_TERMS, Terms } from './Terms.tsx'
 import { Gate } from './Gate.tsx'
-import { alreadyIn, locked, opens, phraseFromLink, remember, scrubLink } from '../net/lock.ts'
+import { alreadyIn, locked } from '../net/lock.ts'
 import { badge } from './desktop.ts'
 
 const RAIL_H = 'suitfold.railh'
@@ -39,26 +39,11 @@ export function App() {
   const name = rememberedName() || suggested.name
   const face = rememberedFace() || suggested.face
 
-  // A link can carry the phrase, so family click once and are in. It is taken
-  // straight back out of the address bar afterwards.
+  // Have we said the phrase on this device before?
   useEffect(() => {
     if (!locked()) return
     let alive = true
-    void (async () => {
-      if (await alreadyIn()) {
-        if (alive) setInside(true)
-        return
-      }
-      const said = phraseFromLink()
-      if (said && (await opens(said))) {
-        remember(said)
-        scrubLink()
-        if (alive) setInside(true)
-        return
-      }
-      scrubLink()
-      if (alive) setInside(false)
-    })()
+    void alreadyIn().then((yes) => alive && setInside(yes))
     return () => {
       alive = false
     }
@@ -71,6 +56,12 @@ export function App() {
     addEventListener('hashchange', onHash)
     return () => removeEventListener('hashchange', onHash)
   }, [])
+
+  // An invite link is a way in on its own: it gets you as far as knocking, and
+  // a person at the table decides the rest. Anything else meets the door.
+  const invitedIn = invited.length >= 4
+  if (locked() && inside === null && !invitedIn) return <div className="gate" />
+  if (locked() && !inside && !invitedIn) return <Gate onIn={() => setInside(true)} />
 
   if (t.stage === 'lobby') {
     return (

@@ -1,7 +1,6 @@
 import type { Action, SeatId } from '../table/model.ts'
 import type { Cursor, Door, Drag, Hello, PeerId, Snapshot, Wire } from './peers.ts'
 import type { Command } from './dealer.ts'
-import { phraseForLink } from './lock.ts'
 
 /**
  * The same table, over one socket to a box you own.
@@ -191,10 +190,8 @@ export function inviteLink(code: string): string {
   const bits: string[] = []
   if (held) bits.push(`table=${encodeURIComponent(held)}`)
   else if (server) bits.push(`server=${encodeURIComponent(server)}`)
-  // The phrase rides along, so somebody sent a link never types anything and
-  // somebody who finds the bare address gets the door.
-  const said = phraseForLink()
-  if (said) bits.push(`k=${encodeURIComponent(said)}`)
+  // No phrase on the link. It is a way in to one table, not a key to the
+  // site: whoever gets it can knock, and cannot start a table of their own.
   return `${base}${bits.length ? `?${bits.join('&')}` : ''}#${code}`
 }
 

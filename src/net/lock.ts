@@ -112,40 +112,12 @@ export function noteMiss(now = Date.now()) {
 }
 
 // ---------------------------------------------------------------------------
-// Links that carry the phrase
-// ---------------------------------------------------------------------------
 
 /**
- * The phrase out of the address, if whoever sent the link put it there.
+ * Links deliberately do not carry the phrase.
  *
- * Family click a link and are in without typing anything; somebody who finds
- * the bare address gets the door and nothing else.
+ * An invite is a way in to one table: it gets you as far as knocking, and
+ * somebody at the table decides the rest. If it carried the phrase then
+ * anybody it was ever forwarded to could start tables of their own, and a link
+ * gets forwarded - that is what links are for.
  */
-export function phraseFromLink(): string | null {
-  try {
-    const fromQuery = new URLSearchParams(location.search).get('k')
-    if (fromQuery) return fromQuery
-    // Also accept it in the hash, since that is where the table code lives and
-    // people paste whole hashes around.
-    const hash = location.hash.replace('#', '')
-    const inHash = new URLSearchParams(hash.includes('&') ? hash.split('&').slice(1).join('&') : '').get('k')
-    return inHash
-  } catch {
-    return null
-  }
-}
-
-/** Take it back out of the address bar once it has been used. */
-export function scrubLink() {
-  try {
-    const url = new URL(location.href)
-    if (!url.searchParams.has('k')) return
-    url.searchParams.delete('k')
-    history.replaceState(null, '', url.pathname + (url.search || '') + url.hash)
-  } catch {
-    /* an address we cannot rewrite is not worth failing over */
-  }
-}
-
-/** The phrase to hang on an invite link, so family never type anything. */
-export const phraseForLink = phrase
