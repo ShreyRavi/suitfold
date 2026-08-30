@@ -10,7 +10,8 @@
  * Everyone plays in a browser, including whoever started it. They just connect
  * to this rather than to each other.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { dirname, join } from 'node:path'
 import { Host } from '../src/net/host.ts'
 import { emptyTable, type TableState } from '../src/table/model.ts'
@@ -56,9 +57,17 @@ const HOME = process.env.SUITFOLD_HOME ?? join(process.env.HOME ?? '.', 'Library
  */
 const LOCK = (process.env.SUITFOLD_KEY ?? '').trim().toLowerCase()
 
-async function sha(text: string) {
-  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
-  return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('')
+/**
+ * Deliberately not the async WebCrypto one.
+ *
+ * The phrase arrives on the socket immediately before the hello that uses it.
+ * An async check hands control back before it finishes, so the hello overtakes
+ * it and the person who said the phrase is asked to knock at their own table.
+ * Hashing here is a microsecond and it keeps the two messages in the order
+ * they were sent.
+ */
+function sha(text: string) {
+  return createHash('sha256').update(text).digest('hex')
 }
 
 /**
@@ -86,16 +95,18 @@ async function serve(file: Bun.BunFile) {
   })
 }
 
-async function lets(given: string | null) {
+function lets(given: string | null) {
   if (!LOCK) return true
   if (!given) return false
-  return (await sha(given)) === LOCK
+  return sha(given) === LOCK
 }
 
 /** One table: the real Host, plus whoever is connected to it. */
 class Table {
   host: Host
   clients = new Map<PeerId, Client>()
+  /** When somebody was last connected, so an abandoned table can be forgotten. */
+  touched = Date.now()
   private handlers: Record<string, ((data: never, from: PeerId) => void)[]> = {}
   private saveSoon: ReturnType<typeof setTimeout> | null = null
 
@@ -146,17 +157,30 @@ class Table {
     for (const fn of this.handlers[channel] ?? []) fn(data as never, from)
   }
 
+  /** This connection said the phrase, so it may open a table nobody is at. */
+  allow(id: PeerId) {
+    this.host.proved.add(id)
+  }
+
   join(client: Client, may = false) {
+    this.touched = Date.now()
     this.clients.set(client.id, client)
     if (may) this.host.proved.add(client.id)
     this.onJoin(client.id)
   }
 
   part(id: PeerId) {
+    this.touched = Date.now()
     this.clients.delete(id)
     this.onLeave(id)
     // Whoever deals next is the next person here, if the dealer walked out.
     if (this.host.dealer && !this.clients.size) this.host.dealer = null
+  }
+
+  /** Stop the heartbeat, so a forgotten table stops ticking. */
+  close() {
+    this.host.close()
+    if (this.saveSoon) clearTimeout(this.saveSoon)
   }
 
   // -- keeping it ----------------------------------------------------------
@@ -230,14 +254,21 @@ const server = Bun.serve<Seat>({
   async fetch(req, srv) {
     const url = new URL(req.url)
 
+    /**
+     * Enough to tell that this is a table server, and nothing more.
+     *
+     * It used to answer with every table's code and every player's name, to
+     * anybody who asked. A code is not a nicety - it is the thing that gets you
+     * as far as the door - so that was a public list of live tables, who is
+     * sitting at them, and what to type to knock. Counts carry the operational
+     * signal; the identities were never anybody else's business.
+     */
     if (url.pathname === '/health') {
       return Response.json({
         ok: true,
-        tables: [...tables.entries()].map(([code, t]) => ({
-          code,
+        tables: [...tables.values()].map((t) => ({
           players: t.clients.size,
-          seats: t.host.state.seats.map((s) => ({ name: s.name, emoji: s.emoji, here: s.connected })),
-          game: t.host.state.deckName,
+          seats: t.host.state.seats.length,
         })),
       })
     }
@@ -245,23 +276,19 @@ const server = Bun.serve<Seat>({
     if (url.pathname === '/room') {
       const code = (url.searchParams.get('code') ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)
       if (!code) return new Response('no code', { status: 400 })
-      // Not a 401. Anybody with the code may connect, because a guest follows
-      // a link and has no phrase to give. The phrase decides one thing only:
-      // whether this person may pick up the deck of a table nobody is holding.
-      const may = await lets(url.searchParams.get('key'))
+      // Not a 401. Anybody with the code may connect, because a guest follows a
+      // link and has no phrase to give. The phrase arrives on the socket, not
+      // in this URL, because a query string is written to the proxy's access
+      // log and a phrase in a log file is a phrase you have given away.
       const id = crypto.randomUUID()
-      if (srv.upgrade(req, { data: { id, code, may } })) return undefined
+      if (srv.upgrade(req, { data: { id, code, may: false } })) return undefined
       return new Response('expected a websocket', { status: 426 })
     }
 
-    // The front end asks this before it bothers showing a password box.
-    if (url.pathname === '/locked') return Response.json({ locked: !!LOCK })
-
-    // And this to find out whether the phrase somebody typed is the phrase,
-    // so a wrong one is turned away at the door rather than three screens in.
-    if (url.pathname === '/check') {
-      return Response.json({ ok: await lets(url.searchParams.get('key')) })
-    }
+    // There was a /check here that said whether a phrase was the phrase, and a
+    // /locked that said whether there was one. Nothing used either, and the
+    // first was an unlimited guessing machine: the front end's six tries in
+    // five minutes only ever governed the front end.
 
     // Anything else is the front end, if we are carrying one.
     if (WEB) {
@@ -298,7 +325,15 @@ const server = Bun.serve<Seat>({
       if (!table) return
       try {
         const { channel, data } = JSON.parse(String(raw)) as { channel: string; data: unknown }
-        if (channel) table.deliver(channel, data as Hello, ws.data.id)
+        if (!channel) return
+        // The phrase, said on the socket rather than in the address. It never
+        // reaches the Host: all it does is decide whether this connection may
+        // pick up a deck nobody is holding.
+        if (channel === 'prove') {
+          if (lets(typeof data === 'string' ? data : null)) table.allow(ws.data.id)
+          return
+        }
+        table.deliver(channel, data as Hello, ws.data.id)
       } catch {
         /* not ours */
       }
@@ -309,5 +344,42 @@ const server = Bun.serve<Seat>({
     },
   },
 })
+
+/**
+ * Forget tables nobody came back to.
+ *
+ * A table that has not been touched in STALE will not load again anyway - the
+ * file is already refused on the way in. Without this the refusal is the only
+ * thing that ever happens to it: the JSON sits on the volume for good, and the
+ * Table object sits in the Map for as long as the process lives. A family
+ * playing twice a week would accumulate both forever.
+ *
+ * Anything with somebody connected is left alone however old it is, because a
+ * long game is still a game.
+ */
+function sweep() {
+  const now = Date.now()
+  for (const [code, table] of tables) {
+    if (table.clients.size) continue
+    if (now - table.touched < STALE) continue
+    table.close()
+    tables.delete(code)
+  }
+  try {
+    const dir = join(HOME, 'tables')
+    if (!existsSync(dir)) return
+    for (const name of readdirSync(dir)) {
+      if (!name.endsWith('.json')) continue
+      const file = join(dir, name)
+      if (tables.has(name.slice(0, -5))) continue
+      if (now - statSync(file).mtimeMs > STALE) unlinkSync(file)
+    }
+  } catch {
+    // A volume that will not be tidied is not a reason to stop dealing.
+  }
+}
+
+setInterval(sweep, 30 * 60 * 1000).unref?.()
+sweep()
 
 console.log(JSON.stringify({ ready: true, port: server.port }))

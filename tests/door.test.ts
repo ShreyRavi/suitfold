@@ -307,3 +307,34 @@ describe('coming back after the table server restarts', () => {
     expect(h.state.seats.map((s) => s.name)).toEqual(['Mom', 'Kid'])
   })
 })
+
+/**
+ * A token is a credential, not a detail.
+ *
+ * It is how a browser proves it is the one that sat down, so somebody else
+ * holding it can take that seat. The dealer needs to know who is at the door,
+ * which is a name and a face, and has no business being handed the proof of
+ * anybody's identity along with it.
+ */
+test('the door list sent to the dealer carries no tokens', () => {
+  const { wire } = spy()
+  const snaps: { knocking?: Record<string, unknown>[] }[] = []
+  wire.snapshot.send = (data) => {
+    snaps.push(data as { knocking?: Record<string, unknown>[] })
+  }
+  const h = new Host(wire, 'table', () => {})
+  h.proved.add('peer-1')
+  h.helloForTest('peer-1', 'Mom', '🐯', 'tok-mom')
+  h.helloForTest('peer-2', 'Kid', '🐺', 'secret-token-of-the-kid')
+
+  const lists = snaps.filter((s) => s.knocking?.length)
+  expect(lists.length).toBeGreaterThan(0)
+  for (const s of lists) {
+    for (const k of s.knocking!) {
+      expect(Object.keys(k).sort()).toEqual(['at', 'emoji', 'name', 'peer'])
+      expect(JSON.stringify(k)).not.toContain('secret-token-of-the-kid')
+    }
+  }
+  // The host still knows, because it is the host.
+  expect(h.knocking[0]?.token).toBe('secret-token-of-the-kid')
+})

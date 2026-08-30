@@ -20,6 +20,8 @@ export function connectTo(url: string, roomCode: string, key = ''): Wire {
   let tries = 0
   /** Anything said while the socket was down, said again once it is back. */
   let backlog: string[] = []
+  /** The last hello this wire sent, re-said whenever the socket comes back. */
+  let lastHello: Hello | null = null
   /** Who else is in the room, as the server tells us. */
   const others = new Set<PeerId>()
   let joined: (id: PeerId) => void = () => {}
@@ -27,16 +29,18 @@ export function connectTo(url: string, roomCode: string, key = ''): Wire {
 
   const open = () => {
     if (shut) return
-    // The phrase, if this browser has one. It does not decide whether you may
-    // connect - a guest follows a link and has none. It decides one thing: may
-    // this person pick up the deck of a table nobody is holding.
-    const where =
-      `${url.replace(/\/$/, '').replace(/^http/, 'ws')}/room?code=${encodeURIComponent(roomCode)}` +
-      (key ? `&key=${encodeURIComponent(key)}` : '')
+    const where = `${url.replace(/\/$/, '').replace(/^http/, 'ws')}/room?code=${encodeURIComponent(roomCode)}`
     sock = new WebSocket(where)
 
     sock.onopen = () => {
       tries = 0
+      // The phrase, if this browser has one, said first and said on the socket.
+      // Not in the URL: query strings are written to the proxy's access log,
+      // and a phrase in a log file is a phrase you have given away. It does not
+      // decide whether you may connect - a guest follows a link and has none.
+      // It decides one thing: may this person pick up a deck nobody is holding.
+      if (key) sock?.send(JSON.stringify({ channel: 'prove', data: key }))
+      if (lastHello) sock?.send(JSON.stringify({ channel: 'hello', data: lastHello }))
       const waiting = backlog
       backlog = []
       for (const line of waiting) sock?.send(line)
@@ -95,7 +99,14 @@ export function connectTo(url: string, roomCode: string, key = ''): Wire {
   }
 
   const channel = <T,>(name: string) => ({
-    send: (data: T, to?: PeerId | PeerId[]) => say(name, data, to),
+    send: (data: T, to?: PeerId | PeerId[]) => {
+      // Who we are, kept, so that coming back is saying it again. A table this
+      // browser was at may have been forgotten while it was away, and a socket
+      // that reconnects without introducing itself is a connection the table
+      // has nobody sitting behind.
+      if (name === 'hello') lastHello = data as unknown as Hello
+      say(name, data, to)
+    },
     on: (fn: (data: T, from: PeerId) => void) => {
       ;(handlers[name] ??= []).push(fn as never)
     },

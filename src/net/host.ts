@@ -488,7 +488,11 @@ export class Host {
    * across the room, and the list has to travel or the door never opens.
    */
   private snap(seat: SeatId) {
-    const knocking = seat === this.dealer && this.knocking.length ? { knocking: this.knocking } : {}
+    // Without the map, this sends each waiting person's token to the dealer.
+    // A token is how a browser proves it is the one that sat down, so it is
+    // theirs and nobody else's - least of all somebody they have not met yet.
+    const waiting = this.knocking.map(({ peer, name, emoji, at }) => ({ peer, name, emoji, at }))
+    const knocking = seat === this.dealer && waiting.length ? { knocking: waiting } : {}
     return { view: project(this.state, seat), seat, rev: this.rev, dealer: this.dealer, wire: WIRE, ...knocking }
   }
 
