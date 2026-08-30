@@ -379,7 +379,10 @@ function sweep() {
   }
 }
 
-setInterval(sweep, 30 * 60 * 1000).unref?.()
+// Eight hours. What gets thrown away is decided by STALE, not by how often we
+// look: a quiet sweep costs a directory listing, and running it constantly only
+// means an abandoned table is forgotten nearer the minute it went cold.
+setInterval(sweep, 8 * 60 * 60 * 1000).unref?.()
 sweep()
 
 console.log(JSON.stringify({ ready: true, port: server.port }))
