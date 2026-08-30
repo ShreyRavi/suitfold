@@ -43,8 +43,12 @@ whole thing and there is nothing to point at anything.
    Leave it unset and anybody who can reach the box can open a table.
 4. **Persistent Storage**: a volume mounted at `/data`. Without it every
    redeploy forgets every table, which rather defeats the point.
-5. Give it a domain. Coolify terminates TLS and the websocket goes over the
-   same one, so there is nothing further to configure.
+5. Give it a domain, **and turn on https**. This is not optional polish: a
+   browser only offers SubtleCrypto on a secure origin, so over plain http the
+   phrase cannot be checked at all and nobody can get in. The app says so
+   rather than pretending you typed it wrongly, but the only fix is a
+   certificate. Coolify terminates TLS and the websocket goes over the same
+   one, so there is nothing further to configure.
 6. Deploy, then open the domain. Not the Pages site, the domain. That is what
    makes it a table server rather than a static page.
 

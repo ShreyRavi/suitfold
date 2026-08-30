@@ -24,6 +24,17 @@ const WITHIN = 5 * 60 * 1000
 /** Is there a phrase at all? Without one this is an open house, as in dev. */
 export const locked = () => LOCK.length === 64
 
+/**
+ * Can this browser check a phrase at all?
+ *
+ * SubtleCrypto only exists on a secure origin - https, or localhost. Served
+ * over plain http from a domain, it is simply missing, and every phrase in the
+ * world reads as the wrong one. That is a page nobody can get into and no way
+ * to tell why, so it is worth saying out loud rather than letting it look like
+ * a typo.
+ */
+export const canCheck = () => !!globalThis.crypto?.subtle
+
 export async function sha(text: string): Promise<string> {
   const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
   return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('')
@@ -32,6 +43,7 @@ export async function sha(text: string): Promise<string> {
 /** Does this phrase open it? */
 export async function opens(phrase: string): Promise<boolean> {
   if (!locked()) return true
+  if (!canCheck()) return false
   const said = phrase.trim()
   if (!said) return false
   return (await sha(said)) === LOCK

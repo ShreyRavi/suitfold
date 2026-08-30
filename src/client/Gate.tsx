@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { noteMiss, opens, remember, waitLeft } from '../net/lock.ts'
+import { canCheck, noteMiss, opens, remember, waitLeft } from '../net/lock.ts'
 
 /**
  * The door.
@@ -62,7 +62,13 @@ export function Gate({ onIn, onGiveUp }: { onIn: () => void; onGiveUp?: () => vo
           />
         </label>
 
-        {wait > 0 ? (
+        {!canCheck() ? (
+          <p className="gate-no">
+            This page is on <b>http</b>, and a browser will not do the sums that check a phrase
+            unless it is on <b>https</b>. Nothing you type here can work until whoever set this up
+            turns on a certificate.
+          </p>
+        ) : wait > 0 ? (
           <p className="gate-no">
             Too many tries. {wait > 60 ? `About ${Math.ceil(wait / 60)} minutes.` : `${wait} seconds.`}
           </p>
@@ -70,7 +76,11 @@ export function Gate({ onIn, onGiveUp }: { onIn: () => void; onGiveUp?: () => vo
           wrong && <p className="gate-no">That is not it. Ask whoever sent you the link.</p>
         )}
 
-        <button className="btn primary big" disabled={!phrase.trim() || wait > 0} onClick={() => void tryIt()}>
+        <button
+          className="btn primary big"
+          disabled={!phrase.trim() || wait > 0 || !canCheck()}
+          onClick={() => void tryIt()}
+        >
           Come in
         </button>
 
