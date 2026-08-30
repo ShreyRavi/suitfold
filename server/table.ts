@@ -12,6 +12,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
+import { accounts, cookie, howMany, issue, signIn, whose } from './auth.ts'
 import { dirname, join } from 'node:path'
 import { Host } from '../src/net/host.ts'
 import { emptyTable, type TableState } from '../src/table/model.ts'
@@ -19,7 +20,14 @@ import type { Hello, PeerId, Wire } from '../src/net/peers.ts'
 
 const PORT = Number(process.env.PORT ?? 8123)
 /** Older than this and it is last week's game, not an interrupted one. */
-const STALE = 6 * 60 * 60 * 1000
+/**
+ * How long a table nobody is at is kept.
+ *
+ * Six hours meant a game left overnight was gone by breakfast, which is the
+ * one time you actually want it. A week covers "we will finish this at the
+ * weekend" without keeping every abandoned table forever.
+ */
+const STALE = Math.max(1, Number(process.env.SUITFOLD_KEEP_HOURS) || 24 * 7) * 60 * 60 * 1000
 
 /**
  * Somebody connected to a table.
@@ -56,6 +64,7 @@ const HOME = process.env.SUITFOLD_HOME ?? join(process.env.HOME ?? '.', 'Library
  * Unset means an open house, which is how the tests and a dev server run.
  */
 const LOCK = (process.env.SUITFOLD_KEY ?? '').trim().toLowerCase()
+const COOKIE = 'suitfold.in'
 
 /**
  * Deliberately not the async WebCrypto one.
@@ -273,6 +282,64 @@ const server = Bun.serve<Seat>({
       })
     }
 
+    /**
+     * Which door this server is using, so the front end knows what to draw.
+     *
+     * No secret in here: whether accounts exist is plain from the login form
+     * you get either way, and the front end has to ask something to know
+     * whether to show a password box or an email and password box.
+     */
+    if (url.pathname === '/door') {
+      return Response.json({ door: accounts() ? 'accounts' : LOCK ? 'phrase' : 'open' })
+    }
+
+    /** Who this browser is signed in as, if anybody. */
+    if (url.pathname === '/me') {
+      const email = whose(cookie(req.headers.get('cookie'), COOKIE))
+      return Response.json({ in: !!email })
+    }
+
+    if (url.pathname === '/login' && req.method === 'POST') {
+      if (!accounts()) return Response.json({ ok: false }, { status: 404 })
+      let email = ''
+      let password = ''
+      try {
+        const body = (await req.json()) as { email?: unknown; password?: unknown }
+        email = typeof body.email === 'string' ? body.email : ''
+        password = typeof body.password === 'string' ? body.password : ''
+      } catch {
+        return Response.json({ ok: false }, { status: 400 })
+      }
+      // Behind Coolify, so the caller's address arrives in a header. Worth
+      // counting even though a header can be lied about: the count per address
+      // does not depend on it, and this one stops the ordinary case.
+      const from = (req.headers.get('x-forwarded-for') ?? '').split(',')[0]?.trim() || 'unknown'
+      const tried = await signIn(email, password, from)
+      if (!tried.ok) {
+        return Response.json(
+          { ok: false, ...(tried.wait ? { wait: tried.wait } : {}) },
+          { status: tried.wait ? 429 : 401 },
+        )
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: {
+          'content-type': 'application/json',
+          // HttpOnly so that a script on the page cannot read it, and Secure
+          // because a session sent in clear is a session somebody else has.
+          'set-cookie': `${COOKIE}=${issue(email)}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${90 * 24 * 60 * 60}`,
+        },
+      })
+    }
+
+    if (url.pathname === '/logout' && req.method === 'POST') {
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: {
+          'content-type': 'application/json',
+          'set-cookie': `${COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`,
+        },
+      })
+    }
+
     if (url.pathname === '/room') {
       const code = (url.searchParams.get('code') ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)
       if (!code) return new Response('no code', { status: 400 })
@@ -280,8 +347,12 @@ const server = Bun.serve<Seat>({
       // link and has no phrase to give. The phrase arrives on the socket, not
       // in this URL, because a query string is written to the proxy's access
       // log and a phrase in a log file is a phrase you have given away.
+      // A cookie rides along with the upgrade, so somebody already signed in
+      // never has to say anything else. Where there are no accounts this is
+      // false and the phrase, said on the socket, still decides it.
+      const may = accounts() ? !!whose(cookie(req.headers.get('cookie'), COOKIE)) : false
       const id = crypto.randomUUID()
-      if (srv.upgrade(req, { data: { id, code, may: false } })) return undefined
+      if (srv.upgrade(req, { data: { id, code, may } })) return undefined
       return new Response('expected a websocket', { status: 426 })
     }
 
@@ -330,7 +401,10 @@ const server = Bun.serve<Seat>({
         // reaches the Host: all it does is decide whether this connection may
         // pick up a deck nobody is holding.
         if (channel === 'prove') {
-          if (lets(typeof data === 'string' ? data : null)) table.allow(ws.data.id)
+          // Ignored outright when there are accounts. Otherwise a phrase left
+          // in an old browser would still open a table that has since been put
+          // behind a login.
+          if (!accounts() && lets(typeof data === 'string' ? data : null)) table.allow(ws.data.id)
           return
         }
         table.deliver(channel, data as Hello, ws.data.id)
@@ -385,4 +459,12 @@ function sweep() {
 setInterval(sweep, 8 * 60 * 60 * 1000).unref?.()
 sweep()
 
-console.log(JSON.stringify({ ready: true, port: server.port }))
+console.log(
+  JSON.stringify({
+    ready: true,
+    port: server.port,
+    // A count, never the list. Enough to tell a broken SUITFOLD_USERS from an
+    // empty one without putting anybody's password in the deploy log.
+    door: accounts() ? `accounts (${howMany()})` : LOCK ? 'phrase' : 'open',
+  }),
+)

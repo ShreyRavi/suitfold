@@ -76,19 +76,59 @@ Then open http://localhost:8123.
 | `PORT` | Port to listen on. Default 8123. |
 | `SUITFOLD_WEB` | Directory holding the built front end. Unset serves the API only. |
 | `SUITFOLD_HOME` | Where tables are written. |
-| `SUITFOLD_KEY` | sha256 of the phrase. Unset lets anybody open a table. |
+| `SUITFOLD_KEY` | sha256 of the phrase. Used only when there are no accounts. |
+| `SUITFOLD_USERS` | Accounts, if you want them. See below. |
+| `SUITFOLD_SECRET` | Optional. Signs sessions. Unset, it is derived from the accounts. |
+| `SUITFOLD_KEEP_HOURS` | How long a table nobody is at is kept. Default a week. |
 
 `/health` says what tables exist and who is at them, which is also what the
 front end asks to find out whether there is a server here at all.
 
 ## Who gets in
 
-The same rule as everywhere else, and the phrase does less than you would
-think:
+The rule never changes, only what the first line asks for:
 
-- **Connecting needs the code.** A guest follows a link and has no phrase to
-  give, so none is asked for.
-- **Picking up the deck of a table nobody is holding needs the phrase.** That
-  is the only thing it decides.
+- **Connecting needs the code.** A guest follows a link and has no phrase and
+  no account, so neither is asked for.
+- **Picking up the deck of a table nobody is holding needs the door.** That is
+  the only thing it decides.
 - **Everybody else knocks**, and whoever is dealing lets them in or does not.
   The list of people at the door is sent to the dealer and to nobody else.
+
+## Accounts
+
+Set `SUITFOLD_USERS` and the phrase is replaced by an email and a password.
+Semicolons separate people; the first colon separates an address from its
+password, so a password may contain colons but not semicolons:
+
+```
+SUITFOLD_USERS=me@example.com:my password;mum@example.com:hers
+```
+
+Set it in Coolify as a **runtime** variable only. Never a build variable: the
+front end must never be built carrying anybody's password.
+
+Things worth knowing before you rely on it:
+
+- **Guests are untouched.** A link still gets somebody as far as knocking with
+  no account of any kind. That is the point of the whole thing.
+- **The passwords are readable by anyone with Coolify access**, because that is
+  where they live. Use passwords nobody reuses anywhere else. A bcrypt hash is
+  accepted in the same field if you would rather, with no code change.
+- **Adding or removing somebody is an edit and a redeploy.** Removing them takes
+  effect immediately: a session is checked against the current list every time
+  it is used, not merely when it was issued.
+- **Changing any password signs everyone out**, because the signing key is
+  derived from the list. Set `SUITFOLD_SECRET` to a long random string if you
+  would rather it did not.
+- **It needs https.** The session cookie is `Secure`, so over plain http the
+  browser will not keep it and nobody stays signed in.
+- **Accounts win.** With `SUITFOLD_USERS` set, the phrase stops opening tables
+  entirely, so an old browser carrying one cannot get past a login.
+- **GitHub Pages keeps the phrase**, because a static page has no server to ask.
+  That deployment is the peer to peer fallback and it still works exactly as it
+  did.
+
+The boot log says which door is in use and how many accounts loaded - a count,
+never the list - so a mistyped variable is visible in the deploy output rather
+than at bedtime.

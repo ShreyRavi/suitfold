@@ -55,6 +55,7 @@ export function Home({
   onRules,
   onTerms,
   needsPhrase,
+  onSignOut,
 }: {
   onCreate: (name: string, emoji: string) => void
   onJoin: (code: string, name: string, emoji: string) => void
@@ -68,6 +69,8 @@ export function Home({
   onTerms: () => void
   /** Starting a table needs the phrase. Sitting down at one does not. */
   needsPhrase: boolean
+  /** Given only when there is an account to sign out of. */
+  onSignOut?: () => void
 }) {
   const [name, setName] = useState(initialName)
   const [face, setFace] = useState(initialFace)
@@ -237,6 +240,12 @@ export function Home({
         <div className="home-foot-row">
           <span>suitfold</span>
           <span>free, and always will be - there is nothing to charge for</span>
+          {/* A door you cannot walk back out of is not a door. */}
+          {onSignOut && (
+            <button className="linkish" onClick={onSignOut}>
+              Sign out
+            </button>
+          )}
         </div>
         <Small onOpen={onTerms} />
       </footer>

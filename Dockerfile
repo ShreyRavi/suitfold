@@ -30,6 +30,9 @@ COPY --from=build /app/package.json ./
 # crash at boot rather than a quiet download from npm on somebody's VPS.
 
 ENV PORT=8123
+# Accounts, when you want them: "me@x.com:my password;mum@x.com:hers".
+# Set at run time only - the front end must never be built with it.
+ENV SUITFOLD_USERS=
 ENV SUITFOLD_WEB=/app/web
 ENV SUITFOLD_HOME=/data
 

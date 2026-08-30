@@ -16,6 +16,8 @@ import { Help, SEEN_HELP } from './Help.tsx'
 import { Door } from './Door.tsx'
 import { SEEN_TERMS, Terms } from './Terms.tsx'
 import { Gate } from './Gate.tsx'
+import { SignIn } from './SignIn.tsx'
+import { signOut, signedIn, theDoor, type DoorKind } from '../net/account.ts'
 import { alreadyIn, locked } from '../net/lock.ts'
 
 const RAIL_H = 'suitfold.railh'
@@ -26,7 +28,14 @@ export function App() {
   const t = useTable()
   const [rules, setRules] = useState<string | null>(null)
   // Null while we work out whether an invite link brought the phrase with it.
-  const [inside, setInside] = useState<boolean | null>(() => (locked() ? null : true))
+  const [inside, setInside] = useState<boolean | null>(null)
+  /**
+   * Which door this page has. Not known until the page has asked where the
+   * table lives, because that is what decides it: a server with accounts on it
+   * wants an email and a password, and everywhere else the phrase is still the
+   * door.
+   */
+  const [door, setDoor] = useState<DoorKind | null>(null)
   // Said once, and afterwards it lives in the footer.
   const [terms, setTerms] = useState(() => !localStorage.getItem(SEEN_TERMS))
   // A link with a code on it means somebody invited you; that gets its own
@@ -38,11 +47,16 @@ export function App() {
   const name = rememberedName() || suggested.name
   const face = rememberedFace() || suggested.face
 
-  // Have we said the phrase on this device before?
+  // Which door, and have we been through it on this device before?
   useEffect(() => {
-    if (!locked()) return
     let alive = true
-    void alreadyIn().then((yes) => alive && setInside(yes))
+    void theDoor().then(async (which) => {
+      if (!alive) return
+      setDoor(which)
+      if (which === 'open') return setInside(true)
+      const already = which === 'accounts' ? await signedIn() : await alreadyIn()
+      if (alive) setInside(already)
+    })
     return () => {
       alive = false
     }
@@ -59,8 +73,9 @@ export function App() {
   // An invite link is a way in on its own: it gets you as far as knocking, and
   // a person at the table decides the rest. Anything else meets the door.
   const invitedIn = invited.length >= 4
-  if (locked() && inside === null && !invitedIn) return <div className="gate" />
-  if (locked() && !inside && !invitedIn) return <Gate onIn={() => setInside(true)} />
+  if (!invitedIn && (door === null || inside === null)) return <div className="gate" />
+  if (!invitedIn && !inside && door === 'accounts') return <SignIn onIn={() => setInside(true)} />
+  if (!invitedIn && !inside && door === 'phrase') return <Gate onIn={() => setInside(true)} />
 
   if (t.stage === 'lobby') {
     return (
@@ -78,7 +93,14 @@ export function App() {
           />
         ) : (
           <Home
-            needsPhrase={locked() && !inside}
+            needsPhrase={door !== 'open' && !inside}
+            {...(door === 'accounts' && inside
+              ? {
+                  onSignOut: () => {
+                    void signOut().then(() => setInside(false))
+                  },
+                }
+              : {})}
             onCreate={t.create}
             onJoin={t.join}
             initialName={name}
