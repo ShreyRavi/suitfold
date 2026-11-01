@@ -64,6 +64,9 @@ if command -v gh >/dev/null 2>&1; then
   if [ "$(gh api 'repos/{owner}/{repo}/pages' --jq .build_type)" != legacy ]; then
     echo '{"build_type":"legacy","source":{"branch":"gh-pages","path":"/"}}' |
       gh api -X PUT 'repos/{owner}/{repo}/pages' --input - >/dev/null
+    # The branch was pushed before Pages was watching it, so nothing builds
+    # until asked once.
+    gh api -X POST 'repos/{owner}/{repo}/pages/builds' >/dev/null
     echo 'Pages now serves the gh-pages branch.'
   fi
 else
