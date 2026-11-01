@@ -1,0 +1,5 @@
+#!/bin/sh
+# Everything CI used to check on GitHub, checked here before anything leaves.
+# Enabled once per clone with: git config core.hooksPath .githooks
+# Skip in an emergency with: git push --no-verify
+exec bun run ci

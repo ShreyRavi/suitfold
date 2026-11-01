@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react'
 // public relays and then talk directly over WebRTC.
 //
 // GitHub Pages serves a project site from /<repo>/, so assets need that prefix.
-// BASE_PATH is set by the deploy workflow; local dev stays at the root.
+// BASE_PATH is set by scripts/deploy.sh; local dev stays at the root.
 export default defineConfig({
   base: process.env.BASE_PATH ?? '/',
   plugins: [react()],

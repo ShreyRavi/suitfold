@@ -4,3 +4,4 @@ build
 .git
 .gstack
 *.log
+.pages-lock
