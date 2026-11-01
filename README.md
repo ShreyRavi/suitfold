@@ -131,30 +131,37 @@ bun run dev        # http://localhost:5173
 bun test           # table model, visibility, seating
 bun run typecheck
 bun run build
+bun run ci         # all of the above, as the pre-push hook runs it
 ```
+
+There is no CI on GitHub. Checks run here, before anything is pushed: turn the
+hook on once per clone with
+
+    git config core.hooksPath .githooks
+
+and `git push` runs `bun run ci` first, refusing the push if it fails.
+`git push --no-verify` skips it in an emergency.
 
 Two tabs on localhost are enough to test a real two-player table.
 
 ## The phrase
 
 The site asks for one before it shows anything. It is not in this repository:
-only a sha256 of it, held in a repository secret called `SUITFOLD_LOCK` and
-injected at build time.
+only a sha256 of it, kept on the machine that deploys in `.pages-lock`
+(gitignored) and injected at build time.
 
-    printf %s 'the phrase' | shasum -a 256 | cut -d' ' -f1 | gh secret set SUITFOLD_LOCK
-
-Build without that secret and there is no door, which is what a fork or a local
-build should get.
+`bun run deploy` asks for the phrase the first time, without echoing it, and
+writes the hash there. Build any other way and there is no door, which is what a
+fork, `bun run dev` or a local build should get.
 
 **Forgotten it, or want a new one?** There is nothing to recover, since only the
-hash was ever kept. Set a new phrase and deploy again:
+hash was ever kept. Delete `.pages-lock` and deploy again, and it asks for a new
+phrase:
 
-    printf %s 'new phrase' | shasum -a 256 | cut -d' ' -f1 | gh secret set SUITFOLD_LOCK
-    gh workflow run pages.yml
+    rm .pages-lock && bun run deploy
 
-A secret is only read at build time, so changing it does nothing until that run
-finishes (`gh run list --workflow pages.yml`). Everyone who remembered the old
-phrase is asked for the new one next time they open the site.
+Everyone who remembered the old phrase is asked for the new one next time they
+open the site.
 
 The table server has its own copy, `SUITFOLD_KEY`, set in Coolify as both a
 build and a runtime variable. Change it there and redeploy as well, or the two
@@ -167,8 +174,14 @@ is forwarded on cannot be used to start a table.
 
 ## Deploying
 
-Push to `main`. GitHub Actions typechecks, tests, builds and publishes to Pages. Enable it
-once under **Settings → Pages → Source: GitHub Actions**, and set `SUITFOLD_LOCK`.
+From a clean checkout of `main`:
+
+    bun run deploy
+
+It runs the checks, builds with the phrase hash, and force-pushes the result to the
+`gh-pages` branch, which is what Pages serves. The first run also points
+**Settings → Pages** at that branch, using `gh`. Pushing to `main` does not deploy
+anything on its own.
 
 To run the table server instead, see [server/README.md](server/README.md). Pages keeps
 working either way.

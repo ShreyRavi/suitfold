@@ -72,7 +72,7 @@ describe('nothing secret is committed', () => {
 
   test('no source file holds a bare hash either, since the repository is public', () => {
     // A committed sha256 of a short phrase is a phrase, given a word list and
-    // about a second. It belongs in a repository secret, not in a file.
+    // about a second. It belongs in .pages-lock, which is never committed.
     for (const file of sources()) {
       const text = readFileSync(file, 'utf8')
       for (const line of text.split('\n')) {
@@ -89,9 +89,12 @@ describe('nothing secret is committed', () => {
     expect(lock).toContain('import.meta.env.VITE_LOCK')
   })
 
-  test('and the workflow feeds it from a secret', () => {
-    const flow = readFileSync('.github/workflows/pages.yml', 'utf8')
-    expect(flow).toContain('secrets.SUITFOLD_LOCK')
+  test('and the deploy feeds it from a file that is never committed', () => {
+    const deploy = readFileSync('scripts/deploy.sh', 'utf8')
+    expect(deploy).toContain('LOCK_FILE=.pages-lock')
+    expect(deploy).toContain('VITE_LOCK=$lock')
+    expect(readFileSync('.gitignore', 'utf8').split('\n')).toContain('.pages-lock')
+    expect(readFileSync('.dockerignore', 'utf8').split('\n')).toContain('.pages-lock')
   })
 })
 

@@ -7,3 +7,6 @@ dist/
 # a hundred and forty five megabytes of signed binaries were in a public
 # repository.
 build/
+
+# The phrase hash the deploy script builds with. Never commit it.
+.pages-lock
