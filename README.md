@@ -146,6 +146,20 @@ injected at build time.
 Build without that secret and there is no door, which is what a fork or a local
 build should get.
 
+**Forgotten it, or want a new one?** There is nothing to recover, since only the
+hash was ever kept. Set a new phrase and deploy again:
+
+    printf %s 'new phrase' | shasum -a 256 | cut -d' ' -f1 | gh secret set SUITFOLD_LOCK
+    gh workflow run pages.yml
+
+A secret is only read at build time, so changing it does nothing until that run
+finishes (`gh run list --workflow pages.yml`). Everyone who remembered the old
+phrase is asked for the new one next time they open the site.
+
+The table server has its own copy, `SUITFOLD_KEY`, set in Coolify as both a
+build and a runtime variable. Change it there and redeploy as well, or the two
+doors will want different phrases.
+
 An invite link goes round the door, because it is a way in to one table rather
 than a key to the site: it gets somebody as far as knocking, and whoever is
 holding the table lets them in or does not. Links carry no phrase, so one that
